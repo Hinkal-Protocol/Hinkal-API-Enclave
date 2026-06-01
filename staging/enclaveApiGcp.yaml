@@ -1,0 +1,140 @@
+name: Deploy Enclave-API GCP
+on:
+  push:
+    branches:
+      - replace-attestation-repository-url
+      - production-api-v1
+permissions:
+  id-token: write
+  contents: read
+env:
+  DEPLOYMENT_MODE: ${{ github.ref_name == 'production-api-v1' && 'production' || 'staging' }}
+  FULL_DOMAIN_NAME: ${{ github.ref_name == 'production-api-v1' && 'api.hinkal.io' || 'api-staging.hinkal.io' }}
+  DOMAIN_ZONE_NAME: hinkal-io-zone
+  DNS_PROJECT: hinkal-backend
+  GCP_PROJECT: henclave-project
+  GCP_REGION: us-central1
+  GCP_ZONE: us-central1-a
+  ARTIFACT_REGISTRY_REGION: us-central1
+  GCP_WORKLOAD_IDENTITY_PROVIDER: projects/737134066291/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+  GCP_SERVICE_ACCOUNT: henclave-github-sa@henclave-project.iam.gserviceaccount.com
+concurrency: ci-${{ github.repository }}-enclave-api
+jobs:
+  build-enclave-api:
+    runs-on: ubuntu-latest
+    outputs:
+      image_url: ${{ steps.build.outputs.full-image-url }}
+      image_digest: ${{ steps.build.outputs.image-digest }}
+      changed: ${{ steps.check.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect enclave-api changes
+        id: check
+        shell: bash
+        run: |
+          if ! git rev-parse HEAD^ >/dev/null 2>&1; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          if git diff --name-only HEAD^ HEAD | grep -qE \
+              '^(apps/enclave-api/|libs/shared/common/|libs/shared/backend-common/|docker/enclave-api|terraform/gcp-enclave-api/|\.github/workflows/enclaveApiGcp\.yaml$|\.github/actions/(build-docker-image-gcp|deploy-enclave-api-tf)/|package\.json$|yarn\.lock$|nx\.json$|tsconfig\.base\.json$)'; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build and push image
+        id: build
+        if: steps.check.outputs.changed == 'true'
+        uses: ./.github/actions/build-docker-image-gcp
+        with:
+          service: enclave-api
+          tag-prefix: ${{ env.DEPLOYMENT_MODE }}
+          gcp-project: ${{ env.GCP_PROJECT }}
+          gcp-region: ${{ env.ARTIFACT_REGISTRY_REGION }}
+          gcp-workload-identity-provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          gcp-service-account: ${{ env.GCP_SERVICE_ACCOUNT }}
+
+      - name: Install cosign
+        if: steps.check.outputs.changed == 'true'
+        uses: sigstore/cosign-installer@v3
+
+      - name: Build JS bundle for audit
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          corepack enable
+          yarn install --immutable
+          npx nx build enclave-api --configuration=production
+
+      - name: Sign digest and publish to attestations repo
+        if: steps.check.outputs.changed == 'true'
+        env:
+          ATTESTATIONS_REPO_TOKEN: ${{ secrets.ATTESTATIONS_REPO_TOKEN }}
+        run: |
+          echo "${{ steps.build.outputs.image-digest }}" > digest.txt
+          echo "${{ github.sha }}" >> digest.txt
+          cosign sign-blob --yes --bundle bundle.json digest.txt
+
+          git clone https://x-access-token:${ATTESTATIONS_REPO_TOKEN}@github.com/Hinkal-Protocol/test-attestations.git attestations-repo
+
+          DEPLOY_DIR=attestations-repo/${{ env.DEPLOYMENT_MODE }}
+          mkdir -p "$DEPLOY_DIR"
+
+          cp digest.txt "$DEPLOY_DIR/digest.txt"
+          cp bundle.json "$DEPLOY_DIR/bundle.json"
+
+          cp -r apps/enclave-api/src "$DEPLOY_DIR/enclave-api-src"
+
+          mkdir -p "$DEPLOY_DIR/enclave-api-dist"
+          cp dist/apps/enclave-api/*.js "$DEPLOY_DIR/enclave-api-dist/"
+          cp apps/enclave-api/runtime-package.json "$DEPLOY_DIR/enclave-api-dist/package.json"
+
+          cp .github/workflows/enclaveApiGcp.yaml "$DEPLOY_DIR/enclaveApiGcp.yaml"
+
+          cd attestations-repo
+          git config user.email "ci@hinkal.pro"
+          git config user.name "Hinkal CI"
+          git add .
+          git commit -m "deploy: ${{ env.DEPLOYMENT_MODE }} ${{ github.sha }}"
+          git push
+
+  deploy-enclave-api:
+    needs: build-enclave-api
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract enclave-api secrets
+        id: secrets
+        shell: bash
+        env:
+          SECRETS_BLOB: ${{ env.DEPLOYMENT_MODE == 'production' && secrets.PROD_ENCLAVE_API_SECRETS || secrets.STAGING_ENCLAVE_API_SECRETS }}
+        run: |
+          for field in DB_URI_ENCRYPTED ENCLAVE_HMAC_ENCRYPTED_SEED DEPLOYMENT_MODE; do
+            value=$(printf '%s' "$SECRETS_BLOB" | jq -r --arg f "$field" '.[$f]')
+            if [ -z "$value" ] || [ "$value" = "null" ]; then
+              echo "$field not found in enclave-api secrets blob" >&2
+              exit 1
+            fi
+            echo "::add-mask::$value"
+            echo "${field,,}=$value" >> "$GITHUB_OUTPUT"
+          done
+
+      - name: Deploy via terraform
+        uses: ./.github/actions/deploy-enclave-api-tf
+        with:
+          gcp-project: ${{ env.GCP_PROJECT }}
+          gcp-region: ${{ env.GCP_REGION }}
+          gcp-zone: ${{ env.GCP_ZONE }}
+          gcp-workload-identity-provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          gcp-service-account: ${{ env.GCP_SERVICE_ACCOUNT }}
+          deployment-mode: ${{ env.DEPLOYMENT_MODE }}
+          domain-name: ${{ env.FULL_DOMAIN_NAME }}
+          domain-zone-name: ${{ env.DOMAIN_ZONE_NAME }}
+          dns-project: ${{ env.DNS_PROJECT }}
+          artifact-registry-region: ${{ env.ARTIFACT_REGISTRY_REGION }}
+          db-uri-encrypted: ${{ steps.secrets.outputs.db_uri_encrypted }}
+          enclave-hmac-encrypted-seed: ${{ steps.secrets.outputs.enclave_hmac_encrypted_seed }}
