@@ -1,4 +1,4 @@
-# Hinkal Enclave Attestations
+# Hinkal API Enclave - Attestations
 
 This repository is published automatically on every deployment of Hinkal's enclave-api. It contains:
 
