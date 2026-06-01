@@ -151,11 +151,34 @@ Call the attestation endpoint with any nonce (a UUID you generate yourself):
 curl "https://api.hinkal.io/attestation?nonce=$(uuidgen)"
 ```
 
-The response contains `imageDigest`, extracted from the `submods.container.image_digest` field of the decoded JWT. Compare it to `digest.txt` (you can verify the JWT signature itself in Step 3):
+The response contains `imageDigest`, extracted from the `submods.container.image_digest` field of the decoded JWT:
+
+```json
+{
+  "imageDigest": "sha256:01c6cb76481dd3601c5cdbd899d95c95a75e5874998360187219819b511767c4",
+  "jwt": "<google-signed-jwt>"
+}
+```
+
+Compare `imageDigest` to line 1 of `digest.txt` in this repository:
 
 ```bash
 cat digest.txt
 # sha256:01c6cb76481dd3601c5cdbd899d95c95a75e5874998360187219819b511767c4
+# <git-commit-sha>
+```
+
+Or do it in one command:
+
+```bash
+EXPECTED=$(head -1 digest.txt)
+ACTUAL=$(curl -s "https://api.hinkal.io/attestation?nonce=$(uuidgen)" | jq -r '.imageDigest')
+
+if [ "$EXPECTED" = "$ACTUAL" ]; then
+  echo "✓ Digest matches: $ACTUAL"
+else
+  echo "✗ Mismatch — expected: $EXPECTED, got: $ACTUAL"
+fi
 ```
 
 If they match, the running enclave is the image whose provenance you verified in Step 1.
