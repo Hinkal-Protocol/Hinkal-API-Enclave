@@ -1,0 +1,31 @@
+import { createEnclaveTronSession } from '../../utils/enclaveTronAuthHelper';
+import { depositUsdtToPrivate, getTronUsdtBalance } from '../../utils/tronIntegrationHelpers';
+import { getPrivateBalanceForToken } from '../../utils/getPrivateBalanceTron';
+import { TRON_NILE_CHAIN_ID, TRON_NILE_USDT_ADDRESS } from '../../utils/tronTestConstants';
+import { getEnclaveTronTestWallet, type TronTestWallet } from '../../utils/tronTestWallet';
+
+const DEPOSIT_AMOUNT = BigInt('100000'); // 0.1 USDT (6 decimals)
+
+let wallet: TronTestWallet;
+
+beforeAll(() => {
+  wallet = getEnclaveTronTestWallet();
+});
+
+describe('deposit route (Tron Nile)', () => {
+  jest.setTimeout(300_000);
+
+  it('returns tx calldata, approves, broadcasts, and moves USDT from public to private balance', async () => {
+    const authFields = await createEnclaveTronSession(wallet, TRON_NILE_CHAIN_ID);
+    const balanceBefore = await getTronUsdtBalance(wallet);
+    const privateBalanceBefore = await getPrivateBalanceForToken(wallet, TRON_NILE_USDT_ADDRESS, authFields);
+
+    await depositUsdtToPrivate(wallet, DEPOSIT_AMOUNT, TRON_NILE_USDT_ADDRESS, false);
+
+    const balanceAfter = await getTronUsdtBalance(wallet);
+    expect(balanceBefore - balanceAfter).toBeGreaterThanOrEqual(DEPOSIT_AMOUNT);
+
+    const privateBalanceAfter = await getPrivateBalanceForToken(wallet, TRON_NILE_USDT_ADDRESS, authFields);
+    expect(privateBalanceAfter - privateBalanceBefore).toEqual(DEPOSIT_AMOUNT);
+  });
+});

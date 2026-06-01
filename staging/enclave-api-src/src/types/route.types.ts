@@ -32,8 +32,8 @@ export type DepositForOtherRequest = {
 export type SolanaDepositForOtherRequest = {
   address: string;
   chainId: number;
-  tokenAddress: string;
-  amount: string;
+  tokenAddresses: string[];
+  amounts: string[];
   recipientInfo: string;
 };
 
@@ -114,6 +114,7 @@ export type GetFeeStructureRequest = {
   tokenAddresses: string[];
   externalActionId: ExternalActionId;
   variableRate?: string;
+  mintFrom?: string;
 };
 
 export type FeeStructureResponse =

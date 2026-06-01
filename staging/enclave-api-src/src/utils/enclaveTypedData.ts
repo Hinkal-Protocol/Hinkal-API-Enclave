@@ -1,13 +1,18 @@
 import { getAddress } from 'ethers';
 import type { TypedDataDomain } from 'ethers';
+import { normalizeTronAddr } from '@hinkal/common/functions/utils/tron.utils';
+import { EnclaveTypedDataPayload, EnclaveTypedDataPrimaryType, TypedDataField } from '../types';
 import {
-  BaseAuthFields,
-  DepositAndWithdrawRecipient,
-  EnclaveTypedDataPayload,
-  EnclaveTypedDataPrimaryType,
+  buildSortedTokenPairs,
+  DepositForOtherAuthFields,
+  PrivateSendAuthFields,
+  sortRecipientsByAddress,
   TokenAmountPair,
-  TypedDataField,
-} from '../types';
+  TokenAmountsAuthFields,
+  TransferLikeAuthFields,
+  WithdrawStuckUtxosAuthFields,
+} from './enclaveAuthNormalization';
+import type { DepositAndWithdrawRecipient } from '../types';
 
 const ENCLAVE_TYPED_DATA_DOMAIN_NAME = 'Hinkal Enclave';
 
@@ -94,18 +99,8 @@ const getTypesForPrimary = (primaryType: EnclaveTypedDataPrimaryType): Record<st
   return types;
 };
 
-const normalizeTokenAmountPairs = (tokenAddresses: string[], amounts: string[]): TokenAmountPair[] => {
-  if (tokenAddresses.length !== amounts.length) {
-    throw new Error('tokenAddresses and amounts must have the same length');
-  }
-
-  return tokenAddresses
-    .map((tokenAddress, index) => ({
-      tokenAddress: getAddress(tokenAddress),
-      amount: amounts[index],
-    }))
-    .sort((a, b) => a.tokenAddress.localeCompare(b.tokenAddress));
-};
+const normalizeTokenAmountPairs = (tokenAddresses: string[], amounts: string[]): TokenAmountPair[] =>
+  buildSortedTokenPairs(tokenAddresses, amounts, getAddress);
 
 const toTokenAmountValues = (pairs: TokenAmountPair[]) =>
   pairs.map(({ tokenAddress, amount }) => ({
@@ -115,19 +110,17 @@ const toTokenAmountValues = (pairs: TokenAmountPair[]) =>
 
 const normalizeRecipientAddressForTypedData = (address: string): string => {
   try {
-    return getAddress(address);
+    return getAddress(normalizeTronAddr(address));
   } catch {
     return address;
   }
 };
 
 const normalizeDepositAndWithdrawRecipients = (recipients: DepositAndWithdrawRecipient[]) =>
-  recipients
-    .map(({ address, amount }) => ({
-      recipient: normalizeRecipientAddressForTypedData(address),
-      amount: BigInt(amount),
-    }))
-    .sort((a, b) => a.recipient.localeCompare(b.recipient));
+  sortRecipientsByAddress(recipients).map(({ address, amount }) => ({
+    recipient: normalizeRecipientAddressForTypedData(address),
+    amount: BigInt(amount),
+  }));
 
 const buildTypedData = (
   primaryType: EnclaveTypedDataPrimaryType,
@@ -138,8 +131,6 @@ const buildTypedData = (
   types: getTypesForPrimary(primaryType),
   value,
 });
-
-type TokenAmountsAuthFields = BaseAuthFields & { tokenAddresses: string[]; amounts: string[] };
 
 const buildTokenAmountsTypedData = (
   primaryType: Extract<EnclaveTypedDataPrimaryType, 'Deposit' | 'ProoflessDeposit' | 'Swap'>,
@@ -160,9 +151,7 @@ export const buildDepositTypedData = (params: TokenAmountsAuthFields): EnclaveTy
 export const buildProoflessDepositTypedData = (params: TokenAmountsAuthFields): EnclaveTypedDataPayload =>
   buildTokenAmountsTypedData('ProoflessDeposit', params);
 
-export const buildDepositForOtherTypedData = (
-  params: TokenAmountsAuthFields & { recipientInfo: string },
-): EnclaveTypedDataPayload => {
+export const buildDepositForOtherTypedData = (params: DepositForOtherAuthFields): EnclaveTypedDataPayload => {
   const pairs = normalizeTokenAmountPairs(params.tokenAddresses, params.amounts);
 
   return buildTypedData('DepositForOther', params.chainId, {
@@ -172,8 +161,6 @@ export const buildDepositForOtherTypedData = (
     recipientInfo: params.recipientInfo,
   });
 };
-
-type TransferLikeAuthFields = TokenAmountsAuthFields & { recipientAddress: string };
 
 const buildTransferLikeTypedData = (
   primaryType: Extract<EnclaveTypedDataPrimaryType, 'Transfer' | 'Withdraw'>,
@@ -198,12 +185,7 @@ export const buildWithdrawTypedData = (params: TransferLikeAuthFields): EnclaveT
 export const buildSwapTypedData = (params: TokenAmountsAuthFields): EnclaveTypedDataPayload =>
   buildTokenAmountsTypedData('Swap', params);
 
-export const buildDepositAndWithdrawTypedData = (
-  params: BaseAuthFields & {
-    tokenAddress: string;
-    recipients: DepositAndWithdrawRecipient[];
-  },
-): EnclaveTypedDataPayload =>
+export const buildDepositAndWithdrawTypedData = (params: PrivateSendAuthFields): EnclaveTypedDataPayload =>
   buildTypedData('PrivateSend', params.chainId, {
     nonce: params.nonce,
     chainId: BigInt(params.chainId),
@@ -211,9 +193,7 @@ export const buildDepositAndWithdrawTypedData = (
     recipients: normalizeDepositAndWithdrawRecipients(params.recipients),
   });
 
-export const buildWithdrawStuckUtxosTypedData = (
-  params: BaseAuthFields & { tokenAddress: string; recipientAddress: string },
-): EnclaveTypedDataPayload =>
+export const buildWithdrawStuckUtxosTypedData = (params: WithdrawStuckUtxosAuthFields): EnclaveTypedDataPayload =>
   buildTypedData('WithdrawStuckUtxos', params.chainId, {
     nonce: params.nonce,
     chainId: BigInt(params.chainId),

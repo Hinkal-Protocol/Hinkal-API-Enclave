@@ -1,5 +1,5 @@
 import { Request, Response, Router } from 'express';
-import { getERC20Token, getErrorMessage } from '@hinkal/common';
+import { getERC20Token, getErrorMessage, isSolanaLike } from '@hinkal/common';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { TxHashResponse, WithdrawRequest } from '../types/route.types';
 import { parseFeeStructure } from '../utils/parseFeeStructure';
@@ -30,12 +30,14 @@ router.post(
 
       const hinkal = await hinkalInitializerService.initalizeHinkalForAddress(address, chainId);
 
+      const resolvedFeeToken = isSolanaLike(chainId) ? tokenAddresses[0] : feeToken;
+
       const txData = await hinkal.withdraw(
         erc20Tokens,
         amounts.map((amount) => -1n * BigInt(amount)),
         recipientAddress,
         false,
-        feeToken,
+        resolvedFeeToken,
         parseFeeStructure(feeStructure),
       );
 

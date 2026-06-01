@@ -1,5 +1,5 @@
 import { Request, Response, Router } from 'express';
-import { getERC20Token, getErrorMessage, toJsonSafe } from '@hinkal/common';
+import { getERC20Token, getErrorMessage, isSolanaLike, Logger, toJsonSafe } from '@hinkal/common';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import {
   DepositForOtherRequest,
@@ -15,7 +15,6 @@ import {
   verifyDepositForOtherSignatureMiddleware,
   verifyDepositSignatureMiddleware,
   verifyProoflessDepositSignatureMiddleware,
-  verifySignatureMiddleware,
 } from '../middleware';
 
 const router = Router();
@@ -23,7 +22,10 @@ const router = Router();
 router.post(
   '/deposit',
   verifyDepositSignatureMiddleware,
-  async (req: Request<object, DepositResponse, DepositRequest>, res: Response<DepositResponse>) => {
+  async (
+    req: Request<object, DepositResponse | SolanaDepositResponse, DepositRequest>,
+    res: Response<DepositResponse | SolanaDepositResponse>,
+  ) => {
     try {
       const { address, chainId, tokenAddresses, amounts } = req.body;
 
@@ -40,10 +42,21 @@ router.post(
 
       const hinkal = await hinkalInitializerService.initalizeHinkalForAddress(address, chainId);
 
+      if (isSolanaLike(chainId)) {
+        if (validated.tokens.length !== 1) {
+          res.status(400).json({ success: false, error: 'Solana deposit supports exactly one token' });
+          return;
+        }
+        const txData = await hinkal.depositSolana(BigInt(amounts[0]), validated.tokens[0], true);
+        res.status(200).json({ success: true, txData });
+        return;
+      }
+
       const txData = await hinkal.deposit(validated.tokens, amounts.map(BigInt), false, true);
 
       res.status(200).json(toJsonSafe({ success: true, txData }) as DepositResponse);
     } catch (error) {
+      Logger.error('[/deposit] error:', error);
       res.status(500).json({ success: false, error: getErrorMessage(error) });
     }
   },
@@ -80,13 +93,15 @@ router.post(
 
 router.post(
   '/deposit-solana-for-other',
-  verifySignatureMiddleware,
+  verifyDepositForOtherSignatureMiddleware,
   async (
     req: Request<object, SolanaDepositResponse, SolanaDepositForOtherRequest>,
     res: Response<SolanaDepositResponse>,
   ) => {
     try {
-      const { address, chainId, tokenAddress, amount, recipientInfo } = req.body;
+      const { address, chainId, tokenAddresses, amounts, recipientInfo } = req.body;
+      const tokenAddress = tokenAddresses?.[0];
+      const amount = amounts?.[0];
 
       const token = getERC20Token(tokenAddress, chainId);
       if (!token) {
@@ -100,6 +115,7 @@ router.post(
 
       res.status(200).json({ success: true, txData });
     } catch (error) {
+      Logger.error('[/deposit-solana-for-other] error:', error);
       res.status(500).json({ success: false, error: getErrorMessage(error) });
     }
   },
@@ -127,6 +143,16 @@ router.post(
       }
 
       const hinkal = await hinkalInitializerService.initalizeHinkalForAddress(address, chainId);
+
+      if (isSolanaLike(chainId)) {
+        if (validated.tokens.length !== 1) {
+          res.status(400).json({ success: false, error: 'Solana deposit supports exactly one token' });
+          return;
+        }
+        const txData = await hinkal.depositSolana(BigInt(amounts[0]), validated.tokens[0], true);
+        res.status(200).json({ success: true, txData });
+        return;
+      }
 
       const result = await hinkal.prooflessDeposit(validated.tokens, amounts.map(BigInt), undefined, undefined, true);
 

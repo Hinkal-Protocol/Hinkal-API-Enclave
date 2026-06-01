@@ -214,9 +214,6 @@ class EnclaveDepositListenerService {
 
     const signatures = [...new Set(commitmentEvents.map((e) => e.transactionHash))];
     const results = await Promise.all(signatures.map((sig) => this.processSolanaTransaction(chainId, connection, sig)));
-
-    const latestSlot = Math.max(...events.map((e) => e.blockNumber));
-    await this.advanceWatermark(chainId, latestSlot);
     return results.filter(Boolean).length;
   }
 
@@ -234,7 +231,20 @@ class EnclaveDepositListenerService {
     if (!orderId) return false;
 
     const fromAddress = message.staticAccountKeys[0].toBase58();
-    await enclaveDepositDispatcherService.handleDeposit({ chainId, txHash: signature, fromAddress, orderId });
+    const { slot } = tx;
+
+    setImmediate(() => {
+      enclaveDepositDispatcherService
+        .handleDeposit({ chainId, txHash: signature, fromAddress, orderId })
+        .then(async () => {
+          const current = this.maxCompletedOrderBlockByChain.get(chainId) ?? 0;
+          if (slot > current) {
+            this.maxCompletedOrderBlockByChain.set(chainId, slot);
+            await this.advanceWatermark(chainId, slot);
+          }
+        })
+        .catch((err) => Logger.error(`[EnclaveDepositListenerService] handleDeposit threw orderId=${orderId}:`, err));
+    });
     return true;
   }
 

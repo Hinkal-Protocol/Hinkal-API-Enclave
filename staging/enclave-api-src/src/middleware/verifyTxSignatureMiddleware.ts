@@ -1,6 +1,7 @@
+import { isSolanaLike } from '@hinkal/common';
 import { NextFunction, Request, Response } from 'express';
 import { EnclaveSessionAccess } from '../constants';
-import { verifyTypedDataSignature } from '../utils';
+import { verifySignature, verifyTypedDataSignature } from '../utils';
 import {
   buildDepositAndWithdrawTypedData,
   buildDepositForOtherTypedData,
@@ -11,6 +12,16 @@ import {
   buildWithdrawStuckUtxosTypedData,
   buildWithdrawTypedData,
 } from '../utils/enclaveTypedData';
+import {
+  buildSolanaDepositForOtherMessage,
+  buildSolanaDepositMessage,
+  buildSolanaPrivateSendMessage,
+  buildSolanaProoflessDepositMessage,
+  buildSolanaSwapMessage,
+  buildSolanaTransferMessage,
+  buildSolanaWithdrawMessage,
+  buildSolanaWithdrawStuckUtxosMessage,
+} from '../utils/enclaveSolanaMessage';
 import {
   parseDepositAndWithdrawAuthBody,
   parseTokenDepositAuthBody,
@@ -32,8 +43,16 @@ const verifyRequestSignature = async (
   body: Record<string, unknown>,
   request: ParsedSignatureRequest,
   buildTypedData: (body: Record<string, unknown>) => ParseResult<EnclaveTypedDataPayload>,
+  buildSolanaMessage?: (body: Record<string, unknown>) => ParseResult<string>,
 ): Promise<ParseResult<boolean>> => {
   const { signature, address, chainId } = request;
+
+  if (isSolanaLike(chainId) && buildSolanaMessage) {
+    const messageResult = buildSolanaMessage(body);
+    if (messageResult.ok === false) return messageResult;
+    const isValid = await verifySignature(signature, address, messageResult.value, chainId);
+    return { ok: true, value: isValid };
+  }
 
   const typedDataResult = buildTypedData(body);
   if (typedDataResult.ok === false) {
@@ -62,6 +81,7 @@ const tryVerifyWriteSessionSignature = async (res: Response, request: ParsedSign
 
 export const createVerifyTypedDataSignatureMiddleware = (
   buildTypedData: (body: Record<string, unknown>) => ParseResult<EnclaveTypedDataPayload>,
+  buildSolanaMessage?: (body: Record<string, unknown>) => ParseResult<string>,
 ) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -83,7 +103,12 @@ export const createVerifyTypedDataSignatureMiddleware = (
         return;
       }
 
-      const signatureVerificationResult = await verifyRequestSignature(body, request, buildTypedData);
+      const signatureVerificationResult = await verifyRequestSignature(
+        body,
+        request,
+        buildTypedData,
+        buildSolanaMessage,
+      );
       if (signatureVerificationResult.ok === false) {
         res.status(400).json({ error: signatureVerificationResult.error });
         return;
@@ -109,55 +134,65 @@ export const createVerifyTypedDataSignatureMiddleware = (
 const createVerifyEnclaveTxMiddleware = <TPayload extends Record<string, unknown>>(
   parseBody: (body: Record<string, unknown>) => ParseResult<TPayload>,
   buildTypedData: (payload: TPayload) => EnclaveTypedDataPayload,
+  buildSolanaMessage: (payload: TPayload) => string,
 ) =>
-  createVerifyTypedDataSignatureMiddleware((body) => {
-    const parsed = parseBody(body);
-    if (parsed.ok === false) {
-      return parsed;
-    }
-
-    return {
-      ok: true,
-      value: buildTypedData(parsed.value),
-    };
-  });
+  createVerifyTypedDataSignatureMiddleware(
+    (body) => {
+      const parsed = parseBody(body);
+      if (parsed.ok === false) return parsed;
+      return { ok: true, value: buildTypedData(parsed.value) };
+    },
+    (body) => {
+      const parsed = parseBody(body);
+      if (parsed.ok === false) return parsed;
+      return { ok: true, value: buildSolanaMessage(parsed.value) };
+    },
+  );
 
 export const verifyDepositSignatureMiddleware = createVerifyEnclaveTxMiddleware(
   parseTokenDepositAuthBody,
   buildDepositTypedData,
+  buildSolanaDepositMessage,
 );
 
 export const verifyProoflessDepositSignatureMiddleware = createVerifyEnclaveTxMiddleware(
   parseTokenDepositAuthBody,
   buildProoflessDepositTypedData,
+  buildSolanaProoflessDepositMessage,
 );
 
 export const verifyDepositForOtherSignatureMiddleware = createVerifyEnclaveTxMiddleware(
   parseTokenDepositForOtherAuthBody,
   buildDepositForOtherTypedData,
+  buildSolanaDepositForOtherMessage,
 );
 
 export const verifyWithdrawSignatureMiddleware = createVerifyEnclaveTxMiddleware(
   parseTokenTransferAuthBody,
   buildWithdrawTypedData,
+  buildSolanaWithdrawMessage,
 );
 
 export const verifyTransferSignatureMiddleware = createVerifyEnclaveTxMiddleware(
   parseTokenTransferAuthBody,
   buildTransferTypedData,
+  buildSolanaTransferMessage,
 );
 
 export const verifySwapSignatureMiddleware = createVerifyEnclaveTxMiddleware(
   parseTokenSwapAuthBody,
   buildSwapTypedData,
+  buildSolanaSwapMessage,
 );
 
 export const verifyDepositAndWithdrawSignatureMiddleware = createVerifyEnclaveTxMiddleware(
   parseDepositAndWithdrawAuthBody,
   buildDepositAndWithdrawTypedData,
+  buildSolanaPrivateSendMessage,
 );
 
 export const verifyWithdrawStuckUtxosSignatureMiddleware = createVerifyEnclaveTxMiddleware(
   parseWithdrawStuckUtxosAuthBody,
   buildWithdrawStuckUtxosTypedData,
+  buildSolanaWithdrawStuckUtxosMessage,
 );

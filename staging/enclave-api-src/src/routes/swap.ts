@@ -1,5 +1,5 @@
 import { Request, Response, Router } from 'express';
-import { getERC20Token, getErrorMessage } from '@hinkal/common';
+import { getERC20Token, getErrorMessage, isSolanaLike, Logger } from '@hinkal/common';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { getBestSwapQuote } from '../services/getBestSwapQuote';
 import { GetSwapDataRequest, GetSwapDataResponse, SwapRequest, TxHashResponse } from '../types/route.types';
@@ -21,6 +21,13 @@ router.post(
         return;
       }
 
+      if (isSolanaLike(chainId) && tokenAddresses.length !== 2) {
+        res
+          .status(400)
+          .json({ success: false, error: 'Solana swap requires exactly two token addresses (input and output)' });
+        return;
+      }
+
       const erc20Tokens = tokenAddresses
         .map((tokenAddress) => getERC20Token(tokenAddress, chainId))
         .filter((token) => token !== undefined);
@@ -31,17 +38,22 @@ router.post(
 
       const hinkal = await hinkalInitializerService.initalizeHinkalForAddress(address, chainId);
 
+      const resolvedFeeToken = isSolanaLike(chainId) ? tokenAddresses[1] : feeToken;
+
+      const resolvedFeeStructure = parseFeeStructure(feeStructure);
+
       const txHash = await hinkal.swap(
         erc20Tokens,
         amounts.map(BigInt),
         externalActionId,
         swapData,
-        feeToken,
-        parseFeeStructure(feeStructure),
+        resolvedFeeToken,
+        resolvedFeeStructure,
       );
 
       res.status(200).json({ success: true, txHash });
     } catch (error) {
+      Logger.error('[/swap] error:', error);
       res.status(500).json({ success: false, error: getErrorMessage(error) });
     }
   },
@@ -71,7 +83,9 @@ router.get('/get-swap-data', verifySignatureMiddleware, async (req: Request, res
       return;
     }
 
-    const hinkal = await hinkalInitializerService.initalizeHinkalForAddress(address, chainId);
+    const hinkal = isSolanaLike(chainId)
+      ? null
+      : await hinkalInitializerService.initalizeHinkalForAddress(address, chainId);
 
     const { swapData, externalActionId, outSwapAmount } = await getBestSwapQuote({
       hinkal,

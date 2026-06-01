@@ -5,6 +5,7 @@ import { buildEnclaveSignMessage, EnclaveSessionAccess } from '../../constants';
 import { CreateSessionResponse } from '../../types/route.types';
 import {
   buildDepositAndWithdrawTypedData,
+  buildDepositForOtherTypedData,
   buildDepositTypedData,
   buildProoflessDepositTypedData,
   buildTransferTypedData,
@@ -101,6 +102,16 @@ export const buildEnclaveTronWithdrawAuthFields = (
     recipientAddress: string;
   },
 ) => signEnclaveTypedData(wallet, (nonce, address) => buildWithdrawTypedData({ nonce, address, ...params }));
+
+export const buildEnclaveTronDepositForOtherAuthFields = (
+  wallet: TronTestWallet,
+  params: {
+    chainId: number;
+    tokenAddresses: string[];
+    amounts: string[];
+    recipientInfo: string;
+  },
+) => signEnclaveTypedData(wallet, (nonce, address) => buildDepositForOtherTypedData({ nonce, address, ...params }));
 
 export const buildEnclaveTronDepositAndWithdrawAuthFields = (
   wallet: TronTestWallet,

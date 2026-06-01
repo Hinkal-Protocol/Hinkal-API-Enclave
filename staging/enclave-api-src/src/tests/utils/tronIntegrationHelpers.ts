@@ -8,10 +8,11 @@ import {
   waitForTransactionConfirmation,
 } from '@hinkal/common';
 import { TRON_DEFAULT_FEE_LIMIT_SUN } from '@hinkal/common/constants/protocol.constants';
-import type { EnclaveAuthFields } from './enclaveAuthHelper';
+import { type EnclaveAuthFields, toEnclaveAuthQueryParams } from './enclaveAuthHelper';
 import {
   buildEnclaveTronDepositAndWithdrawAuthFields,
   buildEnclaveTronDepositAuthFields,
+  buildEnclaveTronDepositForOtherAuthFields,
   buildEnclaveTronProoflessDepositAuthFields,
 } from './enclaveTronAuthHelper';
 import { DepositAndWithdrawResponse, DepositResponse, RecipientInfoResponse } from '../../types';
@@ -98,11 +99,8 @@ const approveAndBroadcastDepositTx = async (
 };
 
 export const getRecipientInfo = async (wallet: TronTestWallet, authFields: EnclaveAuthFields): Promise<string> => {
-  const response = await httpClient.post<RecipientInfoResponse>(`${ENCLAVE_API_URL}/recipient-info`, {
-    ...authFields,
-    address: wallet.address,
-    chainId: wallet.chainId,
-  });
+  const params = new URLSearchParams(toEnclaveAuthQueryParams(authFields, wallet.address, wallet.chainId));
+  const response = await httpClient.get<RecipientInfoResponse>(`${ENCLAVE_API_URL}/recipient-info?${params}`);
 
   if (response.success === false) throw new Error(response.error);
   return response.recipientInfo;
@@ -112,16 +110,19 @@ export const depositForOtherUsdt = async (
   senderWallet: TronTestWallet,
   amount: bigint,
   recipientInfo: string,
-  authFields: EnclaveAuthFields,
   tokenAddress = TRON_NILE_USDT_ADDRESS,
 ): Promise<void> => {
-  const response = await httpClient.post<DepositResponse>(`${ENCLAVE_API_URL}/deposit-for-other`, {
-    ...authFields,
-    address: senderWallet.address,
+  const params = {
     chainId: senderWallet.chainId,
     tokenAddresses: [tokenAddress],
     amounts: [amount.toString()],
     recipientInfo,
+  };
+  const authFields = await buildEnclaveTronDepositForOtherAuthFields(senderWallet, params);
+  const response = await httpClient.post<DepositResponse>(`${ENCLAVE_API_URL}/deposit-for-other`, {
+    ...authFields,
+    address: senderWallet.address,
+    ...params,
   });
 
   const { txData } = response as Extract<DepositResponse, { success: true }>;
@@ -165,14 +166,14 @@ export const prepareDepositAndWithdraw = async (
     chainId: wallet.chainId,
     tokenAddress,
     recipients: recipients.map((r) => ({
-      address: r.address.startsWith('T') ? r.address : addressToHexFormat(r.address),
+      address: addressToHexFormat(r.address),
       amount: r.amount.toString(),
     })),
   };
 
   const authFields = await buildEnclaveTronDepositAndWithdrawAuthFields(wallet, txDataParams);
 
-  const response = await httpClient.post<DepositAndWithdrawResponse>(`${ENCLAVE_API_URL}/deposit-and-withdraw`, {
+  const response = await httpClient.post<DepositAndWithdrawResponse>(`${ENCLAVE_API_URL}/private-send`, {
     ...authFields,
     address: wallet.address,
     ...txDataParams,

@@ -20,7 +20,7 @@ type SwapQuoteCandidate = {
 };
 
 type GetBestSwapQuoteParams = {
-  hinkal: IHinkal;
+  hinkal: IHinkal | null;
   chainId: number;
   inSwapToken: ERC20Token;
   outSwapToken: ERC20Token;
@@ -121,7 +121,7 @@ export const getBestSwapQuote = async ({
   const quotePromises: Promise<SwapQuoteCandidate>[] = isSolanaLike(chainId)
     ? [fetchOkxQuote(chainId, inSwapToken, outSwapToken, inSwapAmount, slippagePercentage)]
     : [
-        fetchUniswapQuote(hinkal, chainId, inSwapAmount, inSwapToken, outSwapToken),
+        fetchUniswapQuote(hinkal!, chainId, inSwapAmount, inSwapToken, outSwapToken),
         fetchOdosQuote(chainId, inSwapToken, outSwapToken, inSwapAmount, slippagePercentage),
         fetchOneInchQuote(chainId, inSwapToken, outSwapToken, inSwapAmount, slippagePercentage),
       ];
