@@ -58,23 +58,27 @@ jobs:
           gcp-workload-identity-provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           gcp-service-account: ${{ env.GCP_SERVICE_ACCOUNT }}
 
+  publish-attestation:
+    needs: build-enclave-api
+    if: needs.build-enclave-api.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
       - name: Install cosign
-        if: steps.check.outputs.changed == 'true'
         uses: sigstore/cosign-installer@v3
 
       - name: Build JS bundle for audit
-        if: steps.check.outputs.changed == 'true'
         run: |
           corepack enable
           yarn install --immutable
           npx nx build enclave-api --configuration=production
 
       - name: Sign digest and publish to attestations repo
-        if: steps.check.outputs.changed == 'true'
         env:
           ATTESTATIONS_REPO_TOKEN: ${{ secrets.ATTESTATIONS_REPO_TOKEN }}
         run: |
-          echo "${{ steps.build.outputs.image-digest }}" > digest.txt
+          echo "${{ needs.build-enclave-api.outputs.image_digest }}" > digest.txt
           echo "${{ github.sha }}" >> digest.txt
           cosign sign-blob --yes --bundle bundle.json digest.txt
 
