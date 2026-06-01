@@ -1,0 +1,200 @@
+import { getAddress } from 'ethers';
+import { BaseAuthFields, DepositAndWithdrawRecipient, ParseResult } from '../types';
+
+const parseChainId = (chainId: unknown): number | undefined => {
+  const parsed = typeof chainId === 'number' ? chainId : Number(chainId);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+const parseBaseAuthBody = (
+  body: Record<string, unknown>,
+): ParseResult<{ nonce: string; address: string; chainId: number }> => {
+  const { address, nonce, chainId } = body;
+
+  if (typeof address !== 'string' || !address || typeof nonce !== 'string' || !nonce) {
+    return { ok: false, error: 'Missing required fields' };
+  }
+
+  const parsedChainId = parseChainId(chainId);
+  if (parsedChainId === undefined) {
+    return { ok: false, error: 'Invalid chainId' };
+  }
+
+  return { ok: true, value: { nonce, address, chainId: parsedChainId } };
+};
+
+const parseStringArray = (value: unknown, fieldName: string): ParseResult<string[]> => {
+  if (!Array.isArray(value) || value.length === 0) {
+    return { ok: false, error: `Missing or empty ${fieldName}` };
+  }
+  if (!value.every((item) => typeof item === 'string' && item)) {
+    return { ok: false, error: `Invalid ${fieldName}` };
+  }
+  return { ok: true, value };
+};
+
+const parseRecipientAddress = (value: unknown): ParseResult<string> => {
+  if (typeof value !== 'string' || !value) {
+    return { ok: false, error: 'Missing recipient address' };
+  }
+  try {
+    return { ok: true, value: getAddress(value) };
+  } catch {
+    return { ok: true, value };
+  }
+};
+
+export const parseTokenDepositAuthBody = (
+  body: Record<string, unknown>,
+): ParseResult<BaseAuthFields & { tokenAddresses: string[]; amounts: string[] }> => {
+  const base = parseBaseAuthBody(body);
+  if (base.ok === false) return base;
+
+  const tokenAddresses = parseStringArray(body.tokenAddresses, 'tokenAddresses');
+  if (tokenAddresses.ok === false) return tokenAddresses;
+
+  const amounts = parseStringArray(body.amounts, 'amounts');
+  if (amounts.ok === false) return amounts;
+
+  if (tokenAddresses.value.length !== amounts.value.length) {
+    return { ok: false, error: 'tokenAddresses and amounts must have the same length' };
+  }
+
+  return {
+    ok: true,
+    value: { ...base.value, tokenAddresses: tokenAddresses.value, amounts: amounts.value },
+  };
+};
+
+export const parseTokenDepositForOtherAuthBody = (
+  body: Record<string, unknown>,
+): ParseResult<BaseAuthFields & { tokenAddresses: string[]; amounts: string[]; recipientInfo: string }> => {
+  const deposit = parseTokenDepositAuthBody(body);
+  if (deposit.ok === false) return deposit;
+
+  const { recipientInfo } = body;
+  if (typeof recipientInfo !== 'string' || !recipientInfo) {
+    return { ok: false, error: 'Missing recipientInfo' };
+  }
+
+  return { ok: true, value: { ...deposit.value, recipientInfo } };
+};
+
+export const parseTokenTransferAuthBody = (
+  body: Record<string, unknown>,
+): ParseResult<
+  BaseAuthFields & {
+    tokenAddresses: string[];
+    amounts: string[];
+    recipientAddress: string;
+  }
+> => {
+  const deposit = parseTokenDepositAuthBody(body);
+  if (deposit.ok === false) return deposit;
+
+  const recipient = parseRecipientAddress(body.recipientAddress);
+  if (recipient.ok === false) return recipient;
+
+  return {
+    ok: true,
+    value: {
+      ...deposit.value,
+      recipientAddress: recipient.value,
+    },
+  };
+};
+
+export const parseTokenSwapAuthBody = (
+  body: Record<string, unknown>,
+): ParseResult<
+  BaseAuthFields & {
+    tokenAddresses: string[];
+    amounts: string[];
+  }
+> => {
+  const deposit = parseTokenDepositAuthBody(body);
+  if (deposit.ok === false) return deposit;
+
+  return {
+    ok: true,
+    value: {
+      ...deposit.value,
+    },
+  };
+};
+
+const parseRecipients = (value: unknown): ParseResult<DepositAndWithdrawRecipient[]> => {
+  if (!Array.isArray(value) || value.length === 0) {
+    return { ok: false, error: 'Missing or empty recipients' };
+  }
+
+  return value.reduce<ParseResult<DepositAndWithdrawRecipient[]>>(
+    (acc, item) => {
+      if (acc.ok === false) return acc;
+
+      if (!item || typeof item !== 'object') {
+        return { ok: false, error: 'Invalid recipients' };
+      }
+
+      const { address, amount } = item as Record<string, unknown>;
+      if (typeof address !== 'string' || !address || typeof amount !== 'string' || !amount) {
+        return { ok: false, error: 'Invalid recipients' };
+      }
+
+      const recipient = parseRecipientAddress(address);
+      if (recipient.ok === false) return recipient;
+
+      return { ok: true, value: [...acc.value, { address: recipient.value, amount }] };
+    },
+    { ok: true, value: [] },
+  );
+};
+
+export const parseDepositAndWithdrawAuthBody = (
+  body: Record<string, unknown>,
+): ParseResult<
+  BaseAuthFields & {
+    tokenAddress: string;
+    recipients: DepositAndWithdrawRecipient[];
+  }
+> => {
+  const base = parseBaseAuthBody(body);
+  if (base.ok === false) return base;
+
+  const { tokenAddress } = body;
+  const recipients = parseRecipients(body.recipients);
+
+  if (typeof tokenAddress !== 'string' || !tokenAddress) {
+    return { ok: false, error: 'Missing tokenAddress' };
+  }
+  if (recipients.ok === false) return recipients;
+
+  return {
+    ok: true,
+    value: {
+      ...base.value,
+      tokenAddress,
+      recipients: recipients.value,
+    },
+  };
+};
+
+export const parseWithdrawStuckUtxosAuthBody = (
+  body: Record<string, unknown>,
+): ParseResult<BaseAuthFields & { tokenAddress: string; recipientAddress: string }> => {
+  const base = parseBaseAuthBody(body);
+  if (base.ok === false) return base;
+
+  const { tokenAddress } = body;
+  const recipient = parseRecipientAddress(body.recipientAddress);
+
+  if (typeof tokenAddress !== 'string' || !tokenAddress) {
+    return { ok: false, error: 'Missing tokenAddress' };
+  }
+  if (recipient.ok === false) return recipient;
+
+  return {
+    ok: true,
+    value: { ...base.value, tokenAddress, recipientAddress: recipient.value },
+  };
+};
