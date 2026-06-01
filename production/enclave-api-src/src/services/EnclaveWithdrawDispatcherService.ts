@@ -1,12 +1,5 @@
 import { dispatchEvmWithdrawForOrder, dispatchSolanaWithdrawForOrder } from './dispatchWithdrawForOrder';
-import {
-  addressToHexFormat,
-  caseInsensitiveEqual,
-  extractMessage,
-  isSolanaLike,
-  isTronLike,
-  Logger,
-} from '@hinkal/common';
+import { extractMessage, isSolanaLike, Logger } from '@hinkal/common';
 import mongoose from 'mongoose';
 import {
   DepositAndWithdrawOrder,
@@ -59,27 +52,6 @@ class EnclaveWithdrawDispatcherService {
       { status: DepositAndWithdrawOrderStatus.AwaitingDeposit },
     );
     if (!confirmed) return;
-
-    const normalizedOrderSender = isTronLike(order.chainId)
-      ? addressToHexFormat(order.senderAddress)
-      : order.senderAddress;
-    const normalizedEventSender = isTronLike(event.chainId) ? addressToHexFormat(event.fromAddress) : event.fromAddress;
-    if (!caseInsensitiveEqual(normalizedOrderSender, normalizedEventSender)) {
-      const confirmedOrder: DepositAndWithdrawOrder & { _id: mongoose.Types.ObjectId } = {
-        ...order,
-        status: DepositAndWithdrawOrderStatus.DepositConfirmed,
-        txHash: event.txHash,
-      };
-      await replaceSignedDoc(
-        DepositAndWithdrawOrderModel.collection,
-        toRaw(confirmedOrder),
-        {
-          status: DepositAndWithdrawOrderStatus.Failed,
-        },
-        { status: DepositAndWithdrawOrderStatus.DepositConfirmed },
-      );
-      return;
-    }
 
     const confirmedOrder: DepositAndWithdrawOrder & { _id: mongoose.Types.ObjectId } = {
       ...order,
