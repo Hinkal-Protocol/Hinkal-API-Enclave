@@ -89,4 +89,31 @@ router.get('/waas/get-user', xStampMiddleware, async (req: Request, res: Respons
   }
 });
 
+router.post('/waas/delete-user', xStampMiddleware, async (req: Request, res: Response) => {
+  const signerPublicKey = res.locals.signerPublicKey as string;
+
+  const { organizationId, userId } = req.body as Record<string, string>;
+
+  if (!organizationId || !userId) {
+    res.status(400).send({
+      status: 'error',
+      message: 'Missing required fields: organizationId, userId',
+    });
+    return;
+  }
+
+  try {
+    await resolveTargetUser(organizationId, userId, signerPublicKey);
+
+    await OrganizationUserModel.deleteOne({ organizationId, userId });
+
+    res.status(200).send({
+      status: 'success',
+      data: { organizationId, userId },
+    });
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
 export default router;

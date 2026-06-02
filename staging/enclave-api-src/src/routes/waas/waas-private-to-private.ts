@@ -1,4 +1,5 @@
 import { Request, Response, Router } from 'express';
+import { mapRecipientRequests, transferClaimableUtxos } from '@hinkal/common';
 import { isSolanaLike } from '@hinkal/common/constants/chains.constants';
 import { HINKAL_PRIVATE_SEND_VARIABLE_RATE } from '@hinkal/common/constants/protocol.constants';
 import { getFeeStructure } from '@hinkal/common/functions/pre-transaction/getFeeStructure';
@@ -10,6 +11,8 @@ import { parseChainId, resolvePrivateRecipient, resolveToken } from '../../utils
 import { sendError } from '../../utils/routeError';
 import { hinkalInitializerService } from '../../services/hinkalInitializerService';
 import { ensureRecipientInfoPoolForApi } from '../../utils/ensureRecipientInfoPoolForApi';
+import { reserveFallbackNonceRange } from '../../utils/claimableSend.utils';
+import { pendingEnclaveUtxoQueueService } from '../../services/pendingEnclaveUtxoQueueService';
 import { xStampMiddleware } from '../../middleware';
 
 const router = Router();
@@ -69,14 +72,33 @@ router.post('/waas/private-to-private', xStampMiddleware, async (req: Request, r
       );
     }
 
-    const txHash = await hinkal.transfer(
-      [token],
-      [-amountWei],
-      recipientInfo,
-      token.erc20TokenAddress,
-      feeStructureOverride,
-      AdminTransactionType.TransferClaimableUtxos,
-    );
+    let txHash: string;
+    if (recipientInfo) {
+      txHash = await hinkal.transfer(
+        [token],
+        [-amountWei],
+        recipientInfo,
+        token.erc20TokenAddress,
+        feeStructureOverride,
+        AdminTransactionType.TransferClaimableUtxos,
+      );
+    } else {
+      const baseNonce = await reserveFallbackNonceRange(fromAddress, 1);
+      const recipients = mapRecipientRequests([String(to)], [amountWei]);
+      const allocations = [{ recipientAddress: String(to), recipientInfo: undefined }];
+      const { txHashes, pendingEnclaveUtxos, failedRecipientErrorMessage } = await transferClaimableUtxos(
+        hinkal,
+        token,
+        recipients,
+        allocations,
+        baseNonce,
+        token.erc20TokenAddress,
+        feeStructureOverride,
+      );
+      if (failedRecipientErrorMessage) throw new Error(failedRecipientErrorMessage.message);
+      [txHash] = txHashes;
+      await pendingEnclaveUtxoQueueService.enqueueAndFlush(pendingEnclaveUtxos);
+    }
 
     ensureRecipientInfoPoolForApi(organizationId, userId, fromAddress, signerPublicKey, parsedChainId);
 

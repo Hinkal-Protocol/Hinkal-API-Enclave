@@ -14,7 +14,16 @@ import { xStampMiddleware } from '../../middleware';
 const router = Router();
 
 router.post('/waas/public-to-public', xStampMiddleware, async (req: Request, res: Response) => {
-  const { organizationId, userId, fromAddress, to, token: tokenAddress, amount, chainId } = req.body ?? {};
+  const {
+    organizationId,
+    userId,
+    fromAddress,
+    to,
+    txCompletionTime,
+    token: tokenAddress,
+    amount,
+    chainId,
+  } = req.body ?? {};
 
   if (!organizationId || !userId || !fromAddress || !to || !tokenAddress || !amount || chainId === undefined) {
     res.status(400).send({
@@ -58,7 +67,7 @@ router.post('/waas/public-to-public', xStampMiddleware, async (req: Request, res
       token,
       [recipientAmount],
       [String(to)],
-      undefined,
+      txCompletionTime,
       feeStructure,
       undefined,
       AdminTransactionType.PayPublicToPublicSend,
