@@ -4,6 +4,7 @@ import axios from 'axios';
 
 export const sendError = (res: Response, err: unknown): void => {
   try {
+    console.log('Error in route handler:', err);
     if (err instanceof HttpError) {
       res.status(err.status).send({ status: 'error', message: err.message });
       return;

@@ -1,7 +1,5 @@
-import { ENCLAVE_API_URL } from '@hinkal/common';
-import { WaasHttpClient } from './waasHttpClient';
-import type { SignKeyPair } from './stamp';
-import nacl from 'tweetnacl';
+import { ENCLAVE_API_URL, SCHEDULE_DELAY_OPTIONS, ScheduleDelayOption, WaasHttpClient } from '@hinkal/common';
+import nacl, { SignKeyPair } from 'tweetnacl';
 import { requireEnv } from '@hinkal/common/functions/utils/requireEnv';
 
 /** Canonical USDC on Arc testnet (Circle / Arc docs). */
@@ -16,6 +14,7 @@ export type WaasArcTestnetContext = {
   organizationId: string;
   userId: string;
   evmAddress: string;
+  txCompletionTime: number;
   chainId: number;
   usdcTokenAddress: string;
 };
@@ -36,6 +35,8 @@ async function createWaasArcTestnetContext(): Promise<WaasArcTestnetContext> {
   const userId = requireEnv('WAAS_TESTING_USER_ID').trim();
   const evmAddress = requireEnv('WAAS_TESTING_EVM_ADDRESS').trim();
   const userSeedHex = requireEnv('WAAS_TESTING_USER_PRIVATE_KEY_SEED_HEX').trim();
+  const txCompletionTime =
+    Math.floor(Date.now() / 1000) + (SCHEDULE_DELAY_OPTIONS[ScheduleDelayOption.FIFTEEN_MINUTES] ?? 0);
 
   return {
     client: new WaasHttpClient(ENCLAVE_API_URL),
@@ -43,6 +44,7 @@ async function createWaasArcTestnetContext(): Promise<WaasArcTestnetContext> {
     organizationId,
     userId,
     evmAddress,
+    txCompletionTime,
     chainId: ARC_TESTNET_CHAIN_ID,
     usdcTokenAddress: ARC_TESTNET_USDC,
   };
