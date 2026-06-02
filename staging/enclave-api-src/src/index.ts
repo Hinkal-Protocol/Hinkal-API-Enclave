@@ -3,11 +3,10 @@ import { liveChainStateService, MONGO_CONNECTION_OPTIONS, setServerSettings } fr
 import cors from 'cors';
 import express, { json } from 'express';
 import mongoose from 'mongoose';
-import { DB_URI_ENCRYPTED, DEPLOYMENT_MODE, isLocalCryptoMode, PORT } from './constants';
+import { DB_URI_ENCRYPTED, DEPLOYMENT_MODE, PORT } from './constants';
 import { cryptoHelper } from './crypto';
 import { loadRoutes } from './loaders/routeLoader';
 import { enclaveDepositListenerService } from './services/EnclaveDepositListenerService';
-import { pendingEnclaveUtxoQueueService } from './services/pendingEnclaveUtxoQueueService';
 
 import { generateProof } from './utils/generateProof';
 import { decryptUtxosDirect } from './utils/decryptUtxosDirect';
@@ -26,7 +25,6 @@ if (DEPLOYMENT_MODE !== 'development') {
 }
 
 const resolveDbUri = async (): Promise<string> => {
-  if (isLocalCryptoMode) return DB_URI_ENCRYPTED;
   const decrypted = await cryptoHelper.decrypt(Buffer.from(DB_URI_ENCRYPTED, 'base64'));
   return decrypted.toString('utf8');
 };
@@ -40,7 +38,6 @@ const startServer = async () => {
     await mongoose.connect(dbUri, MONGO_CONNECTION_OPTIONS);
     await liveChainStateService.warmup();
     await enclaveDepositListenerService.init();
-    pendingEnclaveUtxoQueueService.init();
     const server = app.listen(PORT, () => {
       Logger.log('DEPLOYMENT_MODE:', process.env.DEPLOYMENT_MODE);
       Logger.log('enclave-api service running on port:', PORT);

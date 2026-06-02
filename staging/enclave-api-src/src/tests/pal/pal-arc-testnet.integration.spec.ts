@@ -7,10 +7,10 @@ import {
   getPublicBalanceByTokenAddress,
   networkRegistry,
   ScheduledTransactionStatus,
-  WaasHttpClient,
   waitLittle,
 } from '@hinkal/common';
 import { requireEnv } from '@hinkal/common/functions/utils/requireEnv';
+import { WaasHttpClient } from '../utils/waasHttpClient';
 import {
   DEFAULT_POLL_INTERVAL_MS,
   DEFAULT_POLL_TIMEOUT_MS,

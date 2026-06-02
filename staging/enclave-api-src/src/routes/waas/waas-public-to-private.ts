@@ -1,14 +1,10 @@
 import { Request, Response, Router } from 'express';
-import { depositClaimableUtxos } from '@hinkal/common';
 import { constructStealthAddressStructure } from '@hinkal/common/functions/utils/addresses';
 import { getAmountInWei } from '@hinkal/common/functions/web3/etherFunctions';
-import { AdminTransactionType } from '@hinkal/common/types/admin.types';
 import { parseChainId, resolvePrivateRecipient, resolveToken } from '../../utils/transactionHelpers';
 import { sendError } from '../../utils/routeError';
 import { ensureRecipientInfoPoolForApi } from '../../utils/ensureRecipientInfoPoolForApi';
-import { reserveFallbackNonceRange } from '../../utils/claimableSend.utils';
 import { hinkalInitializerService } from '../../services/hinkalInitializerService';
-import { pendingEnclaveUtxoQueueService } from '../../services/pendingEnclaveUtxoQueueService';
 import { xStampMiddleware } from '../../middleware';
 
 const router = Router();
@@ -38,28 +34,11 @@ router.post('/waas/public-to-private', xStampMiddleware, async (req: Request, re
     );
 
     const amountWei = getAmountInWei(token, String(amount));
-
-    let txHash: string;
-    if (recipientInfo) {
-      txHash = (await hinkal.prooflessDeposit(
-        [token],
-        [amountWei],
-        [constructStealthAddressStructure(recipientInfo)],
-        AdminTransactionType.PayPublicToPrivateSend,
-      )) as string;
-    } else {
-      const baseNonce = await reserveFallbackNonceRange(fromAddress, 1);
-      const { txHash: claimableTxHash, pendingEnclaveUtxos } = await depositClaimableUtxos(
-        hinkal,
-        token,
-        [amountWei],
-        [String(to)],
-        baseNonce,
-        [undefined],
-      );
-      txHash = claimableTxHash;
-      await pendingEnclaveUtxoQueueService.enqueueAndFlush(pendingEnclaveUtxos);
-    }
+    const txHash = await hinkal.prooflessDeposit(
+      [token],
+      [amountWei],
+      [constructStealthAddressStructure(recipientInfo)],
+    );
 
     ensureRecipientInfoPoolForApi(organizationId, userId, fromAddress, signerPublicKey, parsedChainId);
 

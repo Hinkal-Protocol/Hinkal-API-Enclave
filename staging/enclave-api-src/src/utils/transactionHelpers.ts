@@ -16,8 +16,9 @@ export const resolveToken = (tokenAddress: unknown, chainId: number): ERC20Token
   return token;
 };
 
-export const resolvePrivateRecipient = async (to: string): Promise<string | undefined> => {
+export const resolvePrivateRecipient = async (to: string): Promise<string> => {
   const existing = await getAnyRecipientInfo(to);
   if (existing && isValidPrivateAddress(existing)) return existing;
-  return undefined;
+
+  throw new HttpError(400, 'Could not resolve private recipient info from provided public address');
 };
