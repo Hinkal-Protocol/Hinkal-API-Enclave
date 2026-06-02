@@ -4,3 +4,4 @@ export * from './DepositAndWithdrawOrderSchema';
 export * from './OrganizationSchema';
 export * from './OrganizationUserSchema';
 export * from './StampNonceSchema';
+export * from './PendingEnclaveUtxoSchema';
