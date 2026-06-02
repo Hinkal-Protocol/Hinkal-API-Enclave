@@ -1,32 +1,17 @@
 import { Request, Response, Router } from 'express';
 import {
-  AccountActions,
   AdminTransactionType,
   BridgeRecipient,
-  caseInsensitiveEqual,
-  convertEmporiumOpToCallInfo,
-  createLifiBridgeOps,
   DEFAULT_BRIDGING_SLIPPAGE,
-  ExternalActionId,
   getAmountInWei,
-  getEquivalentNativeToken,
-  getErc20TokensForChain,
-  getFeeStructure,
   getLifiPrice,
-  isSolanaLike,
-  isTronLike,
-  networkRegistry,
-  PAY_SEND_VARIABLE_RATE,
   randomBigInt,
-  SWAP_ROUTER_ADDRESSES,
-  TemporarySubAccount,
-  zeroAddress,
 } from '@hinkal/common';
-import { parseChainId, resolveToken } from '../../utils/transactionHelpers';
 import { sendError } from '../../utils/routeError';
 import { ensureRecipientInfoPoolForApi } from '../../utils/ensureRecipientInfoPoolForApi';
 import { hinkalInitializerService } from '../../services/hinkalInitializerService';
 import { xStampMiddleware } from '../../middleware';
+import { buildBridgeFeeStructure, deriveTemporarySubAccount, resolveBridgeTokens } from './waas-bridge.helpers';
 
 const router = Router();
 
@@ -40,6 +25,8 @@ router.post('/waas/bridge', xStampMiddleware, async (req: Request, res: Response
     amount,
     chainId,
     destinationChainId,
+    subAccountNonce: nonceFromClient,
+    quote: quoteFromClient,
   } = req.body ?? {};
 
   if (
@@ -62,42 +49,10 @@ router.post('/waas/bridge', xStampMiddleware, async (req: Request, res: Response
 
   try {
     const signerPublicKey = res.locals.signerPublicKey as string;
-    const parsedChainId = parseChainId(chainId);
-    const parsedDestChainId = parseChainId(destinationChainId);
 
-    if (parsedChainId === parsedDestChainId) {
-      res.status(400).send({
-        status: 'error',
-        message: 'destinationChainId must differ from chainId for a bridge',
-      });
-      return;
-    }
-
-    // Solana/Tron bridge fee accounting differs; this route supports EVM emporium bridging only.
-    if (
-      isSolanaLike(parsedChainId) ||
-      isTronLike(parsedChainId) ||
-      isSolanaLike(parsedDestChainId) ||
-      isTronLike(parsedDestChainId)
-    ) {
-      res.status(400).send({ status: 'error', message: 'Bridge only supported between EVM chains' });
-      return;
-    }
-
-    const token = resolveToken(tokenAddress, parsedChainId);
-
-    // Resolve the equivalent destination-chain token (same symbol, or native equivalent).
-    const destTokenList = getErc20TokensForChain(parsedDestChainId);
-    const isNativeSource = caseInsensitiveEqual(token.erc20TokenAddress, zeroAddress);
-    const destToken = isNativeSource
-      ? getEquivalentNativeToken(parsedChainId, parsedDestChainId, destTokenList)
-      : destTokenList.find((t) => caseInsensitiveEqual(t.symbol, token.symbol));
-
-    if (!destToken) {
-      res.status(400).send({
-        status: 'error',
-        message: `${token.symbol} has no equivalent token on the destination chain`,
-      });
+    const { error, token, destToken, parsedChainId } = resolveBridgeTokens(tokenAddress, chainId, destinationChainId);
+    if (error || !token || !destToken || parsedChainId === undefined) {
+      res.status(error?.status ?? 400).send({ status: 'error', message: error?.message ?? 'Invalid bridge request' });
       return;
     }
 
@@ -109,71 +64,49 @@ router.post('/waas/bridge', xStampMiddleware, async (req: Request, res: Response
       parsedChainId,
     );
 
-    // Derive a one-off sub-account that holds the bridged funds on the source chain.
-    const nonce = randomBigInt(31);
-    const walletPrivateKey = hinkal.userKeys.getSignerPrivateKeyFromNonce(nonce);
-    const ethAddress = AccountActions.getSignerAddressFromPrivateKey(parsedChainId, walletPrivateKey);
-    const temporarySubAccount: TemporarySubAccount = {
-      index: Number(nonce),
-      ethAddress,
-      privateKey: walletPrivateKey,
-    };
-
-    const { lifiDataValue, outSwapAmountValue, extraNativeTokenFee } = await getLifiPrice(
-      token,
-      destToken,
-      String(amount),
-      DEFAULT_BRIDGING_SLIPPAGE * 0.01,
-      temporarySubAccount.ethAddress,
-      String(to),
-    );
-
     const bridgeAmount = getAmountInWei(token, String(amount));
+
+    const hasClientQuote = nonceFromClient !== undefined && nonceFromClient !== null && !!quoteFromClient;
+    const nonce = hasClientQuote ? BigInt(nonceFromClient) : randomBigInt(31);
+    const temporarySubAccount = deriveTemporarySubAccount(hinkal, parsedChainId, nonce);
+
+    const quote = hasClientQuote
+      ? {
+          calldata: String(quoteFromClient.calldata),
+          expectedAmount: BigInt(quoteFromClient.expectedAmount),
+          nativeFee: BigInt(quoteFromClient.nativeFee),
+        }
+      : await getLifiPrice(
+          token,
+          destToken,
+          String(amount),
+          DEFAULT_BRIDGING_SLIPPAGE * 0.01,
+          temporarySubAccount.ethAddress,
+          String(to),
+        ).then(({ lifiDataValue, outSwapAmountValue, extraNativeTokenFee }) => ({
+          calldata: lifiDataValue,
+          expectedAmount: outSwapAmountValue,
+          nativeFee: extraNativeTokenFee,
+        }));
+
     const bridgeRecipient: BridgeRecipient = {
       recipientAddress: String(to),
       bridgeAmount,
-      quote: {
-        calldata: lifiDataValue,
-        expectedAmount: outSwapAmountValue,
-        nativeFee: extraNativeTokenFee,
-      },
+      quote,
       temporarySubAccount,
     };
 
-    // Build the emporium fund/approve/bridge ops to price the fee structure.
-    const { emporiumAddress } = networkRegistry[parsedChainId].contractData;
-    const lifiRouterAddress = SWAP_ROUTER_ADDRESSES[ExternalActionId.Lifi][parsedChainId];
-    if (!emporiumAddress || !lifiRouterAddress) {
-      res.status(400).send({ status: 'error', message: 'Bridge is not configured for this chain' });
+    const feeResult = await buildBridgeFeeStructure(hinkal, parsedChainId, token, bridgeAmount, quote);
+    if (feeResult.error) {
+      res.status(feeResult.error.status).send({ status: 'error', message: feeResult.error.message });
       return;
     }
-
-    const ops = createLifiBridgeOps(
-      hinkal,
-      parsedChainId,
-      emporiumAddress,
-      lifiRouterAddress,
-      token.erc20TokenAddress,
-      bridgeAmount,
-      bridgeAmount,
-      bridgeRecipient.quote,
-    );
-    const calls = ops.map((op) => convertEmporiumOpToCallInfo(op, emporiumAddress, parsedChainId));
-
-    const feeStructure = await getFeeStructure(
-      parsedChainId,
-      token.erc20TokenAddress,
-      [token.erc20TokenAddress],
-      ExternalActionId.Emporium,
-      calls,
-      PAY_SEND_VARIABLE_RATE,
-    );
 
     const txHash = await hinkal.depositAndBridge(
       token,
       [bridgeRecipient],
       undefined,
-      feeStructure,
+      feeResult.feeStructure,
       undefined,
       AdminTransactionType.PayPublicToPublicBridgeSend,
     );

@@ -23,6 +23,7 @@ import privateToPublic from '../routes/waas/waas-private-to-public';
 import publicToPrivate from '../routes/waas/waas-public-to-private';
 import publicToPublic from '../routes/waas/waas-public-to-public';
 import bridge from '../routes/waas/waas-bridge';
+import bridgeQuote from '../routes/waas/waas-bridge-quote';
 import waasWithdrawStuckUtxos from '../routes/waas/withdraw-stuck-utxos';
 import waasClaimUtxo from '../routes/waas/waas-claim-utxo';
 import walletActions from '../routes/waas/wallet-actions';
@@ -65,6 +66,7 @@ export const loadRoutes = (app: Express) => {
   app.use(BASE_URL, publicToPrivate);
   app.use(BASE_URL, privateToPublic);
   app.use(BASE_URL, privateToPrivate);
+  app.use(BASE_URL, bridgeQuote);
   app.use(BASE_URL, bridge);
   app.use(BASE_URL, walletActions);
   app.use(BASE_URL, solanaWalletActions);
