@@ -1,6 +1,5 @@
 import { Connection } from '@solana/web3.js';
 import {
-  AdminTransactionType,
   FeeStructure,
   fetchSolanaTransaction,
   formatMintAddress,
@@ -70,8 +69,6 @@ export const dispatchEvmWithdrawForOrder = async (
     hashEthereumAddress(order.senderAddress),
     undefined,
     order.txCompletionTime,
-    undefined,
-    AdminTransactionType.PayPublicToPublicSend,
   );
 };
 
@@ -124,7 +121,5 @@ export const dispatchSolanaWithdrawForOrder = async (
     recipientAmounts,
     undefined,
     order.txCompletionTime,
-    undefined,
-    AdminTransactionType.PayPublicToPublicSend,
   );
 };

@@ -1,7 +1,8 @@
 import { Request, Response, Router } from 'express';
 import { requireActionPermission, requireRootOrSelf, resolveTargetUser } from '../../utils/authHelpers';
+import { WaasPolicyAction } from '../../constants/policyActions';
 import { sendError } from '../../utils/routeError';
-import { chainIds, currentTronChainId, HttpError, WaasPolicyAction, WalletManager } from '@hinkal/common';
+import { chainIds, currentTronChainId, HttpError, WalletManager } from '@hinkal/common';
 import { CreateWalletRequestBody } from '../../types';
 import { cryptoHelper } from '../../crypto';
 import { appendWalletToUser } from '../../services/organizationUserService';

@@ -1,5 +1,8 @@
 import nacl from 'tweetnacl';
-import { bytesToHex, ENCLAVE_API_URL, WaasHttpClient, WaasPolicyAction } from '@hinkal/common';
+import { bytesToHex } from '../utils/stamp';
+import { ENCLAVE_API_URL } from '@hinkal/common';
+import { WaasHttpClient } from '../utils/waasHttpClient';
+import { WaasPolicyAction } from '../../constants/policyActions';
 
 describe('WAAS organization, user, wallet (integration)', () => {
   jest.setTimeout(120_000);
