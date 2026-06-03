@@ -6,7 +6,7 @@ import {
   waitForTransactionConfirmation,
 } from '@hinkal/common';
 import { depositUsdtToPrivate } from '../../utils/tronIntegrationHelpers';
-import { buildEnclaveTronTransferAuthFields, createEnclaveTronSession } from '../../utils/enclaveTronAuthHelper';
+import { buildTransferAuthFieldsTron, createEnclaveSessionTron } from '../../utils/enclaveAuthHelperTron';
 import { toEnclaveAuthQueryParams } from '../../utils/enclaveAuthHelper';
 import { fetchFeeStructure } from '../../utils/fetchFeeStructureTron';
 import { getPrivateBalanceForToken } from '../../utils/getPrivateBalanceTron';
@@ -27,7 +27,7 @@ describe('transfer route (Tron Nile)', () => {
   jest.setTimeout(300_000);
 
   it('returns tx hash after transferring USDT to a private recipient', async () => {
-    const authFields = await createEnclaveTronSession(wallet, TRON_NILE_CHAIN_ID);
+    const authFields = await createEnclaveSessionTron(wallet.tronWeb, wallet.address, TRON_NILE_CHAIN_ID);
 
     const feeStructure = await fetchFeeStructure(
       wallet,
@@ -56,7 +56,7 @@ describe('transfer route (Tron Nile)', () => {
       recipientAddress: recipientInfo,
     };
 
-    const transferAuthFields = await buildEnclaveTronTransferAuthFields(wallet, txData);
+    const transferAuthFields = buildTransferAuthFieldsTron(wallet.tronWeb, wallet.address, txData);
 
     const response = await httpClient.post<TxHashResponse>(`${ENCLAVE_API_URL}/transfer`, {
       ...transferAuthFields,
