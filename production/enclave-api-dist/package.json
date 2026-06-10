@@ -19,6 +19,7 @@
     "axios-retry": "^4.5.0",
     "@solana/wallet-adapter-base": "^0.9.27",
     "bip39": "^3.1.0",
+    "blake-hash": "^2.0.0",
     "bn.js": "^5.2.2",
     "bs58": "^6.0.0",
     "buffer": "^6.0.3",
