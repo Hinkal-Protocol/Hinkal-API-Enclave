@@ -2,6 +2,7 @@ import { liveChainStateService } from '@hinkal/backend-common';
 import {
   addressToHexFormat,
   chainIds,
+  currentSolanaChainId,
   currentTronChainId,
   getErc20TokensForChain,
   getPublicBalancesOfTokens,
@@ -53,7 +54,7 @@ export const refreshUserCache = async (
 ) => {
   let addressChainId = chainIds.ethMainnet;
   if (isValidTronAddress(walletAddress)) addressChainId = currentTronChainId;
-  else if (isValidSolanaPublicKey(walletAddress)) addressChainId = chainIds.solanaMainnet;
+  else if (isValidSolanaPublicKey(walletAddress)) addressChainId = currentSolanaChainId;
 
   const hinkal = await hinkalInitializerService.initHinkalForOrganization(
     organizationId,
@@ -79,7 +80,7 @@ export const fetchPrivateBalances = async (
 ) => {
   let addressChainId = chainIds.ethMainnet;
   if (isValidTronAddress(walletAddress)) addressChainId = currentTronChainId;
-  else if (isValidSolanaPublicKey(walletAddress)) addressChainId = chainIds.solanaMainnet;
+  else if (isValidSolanaPublicKey(walletAddress)) addressChainId = currentSolanaChainId;
 
   const hinkal = await hinkalInitializerService.initHinkalForOrganization(
     organizationId,

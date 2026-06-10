@@ -2,7 +2,7 @@ import { Request, Response, Router } from 'express';
 import { requireActionPermission, requireRootOrSelf, resolveTargetUser } from '../../utils/authHelpers';
 import { WaasPolicyAction } from '../../constants/policyActions';
 import { sendError } from '../../utils/routeError';
-import { chainIds, currentTronChainId, HttpError, WalletManager } from '@hinkal/common';
+import { chainIds, currentSolanaChainId, currentTronChainId, HttpError, WalletManager } from '@hinkal/common';
 import { CreateWalletRequestBody } from '../../types';
 import { cryptoHelper } from '../../crypto';
 import { appendWalletToUser } from '../../services/organizationUserService';
@@ -46,7 +46,7 @@ router.post('/waas/create-wallet', xStampMiddleware, async (req: Request, res: R
         body.userId,
         solana.publicKey,
         publicKey,
-        chainIds.solanaMainnet,
+        currentSolanaChainId,
       ),
     ]);
 
