@@ -6,7 +6,7 @@ import {
   waitForTransactionConfirmation,
 } from '@hinkal/common';
 import { depositUsdtToPrivate, getTronUsdtBalance } from '../../utils/tronIntegrationHelpers';
-import { buildEnclaveTronWithdrawAuthFields, createEnclaveTronSession } from '../../utils/enclaveTronAuthHelper';
+import { buildWithdrawAuthFieldsTron, createEnclaveSessionTron } from '../../utils/enclaveAuthHelperTron';
 import { fetchFeeStructure } from '../../utils/fetchFeeStructureTron';
 import { getPrivateBalanceForToken } from '../../utils/getPrivateBalanceTron';
 import { TRON_NILE_CHAIN_ID, TRON_NILE_USDT_ADDRESS } from '../../utils/tronTestConstants';
@@ -26,7 +26,7 @@ describe('withdraw route (Tron Nile)', () => {
   jest.setTimeout(300_000);
 
   it('returns tx hash and increases public USDT balance after withdrawing from private balance', async () => {
-    const authFields = await createEnclaveTronSession(wallet, TRON_NILE_CHAIN_ID);
+    const authFields = await createEnclaveSessionTron(wallet.tronWeb, wallet.address, TRON_NILE_CHAIN_ID);
 
     const feeStructure = await fetchFeeStructure(
       wallet,
@@ -51,7 +51,7 @@ describe('withdraw route (Tron Nile)', () => {
       recipientAddress: wallet.address,
     };
 
-    const withdrawAuthFields = await buildEnclaveTronWithdrawAuthFields(wallet, txData);
+    const withdrawAuthFields = buildWithdrawAuthFieldsTron(wallet.tronWeb, wallet.address, txData);
 
     const response = await httpClient.post<TxHashResponse>(`${ENCLAVE_API_URL}/withdraw`, {
       ...withdrawAuthFields,

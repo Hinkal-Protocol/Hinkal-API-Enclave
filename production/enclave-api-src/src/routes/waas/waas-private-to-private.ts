@@ -4,7 +4,6 @@ import { HINKAL_PRIVATE_SEND_VARIABLE_RATE } from '@hinkal/common/constants/prot
 import { getFeeStructure } from '@hinkal/common/functions/pre-transaction/getFeeStructure';
 import { getAmountInWei } from '@hinkal/common/functions/web3/etherFunctions';
 import { calculateSolanaNullifierCount } from '@hinkal/common/functions/pre-transaction/calculateSolanaNullifierCount';
-import { AdminTransactionType } from '@hinkal/common/types/admin.types';
 import { ExternalActionId } from '@hinkal/common/types/external-action.types';
 import { parseChainId, resolvePrivateRecipient, resolveToken } from '../../utils/transactionHelpers';
 import { sendError } from '../../utils/routeError';
@@ -75,7 +74,6 @@ router.post('/waas/private-to-private', xStampMiddleware, async (req: Request, r
       recipientInfo,
       token.erc20TokenAddress,
       feeStructureOverride,
-      AdminTransactionType.TransferClaimableUtxos,
     );
 
     ensureRecipientInfoPoolForApi(organizationId, userId, fromAddress, signerPublicKey, parsedChainId);

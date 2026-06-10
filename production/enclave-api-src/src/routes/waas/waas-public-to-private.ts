@@ -1,7 +1,6 @@
 import { Request, Response, Router } from 'express';
 import { constructStealthAddressStructure } from '@hinkal/common/functions/utils/addresses';
 import { getAmountInWei } from '@hinkal/common/functions/web3/etherFunctions';
-import { AdminTransactionType } from '@hinkal/common/types/admin.types';
 import { parseChainId, resolvePrivateRecipient, resolveToken } from '../../utils/transactionHelpers';
 import { sendError } from '../../utils/routeError';
 import { ensureRecipientInfoPoolForApi } from '../../utils/ensureRecipientInfoPoolForApi';
@@ -39,7 +38,6 @@ router.post('/waas/public-to-private', xStampMiddleware, async (req: Request, re
       [token],
       [amountWei],
       [constructStealthAddressStructure(recipientInfo)],
-      AdminTransactionType.PayPublicToPrivateSend,
     );
 
     ensureRecipientInfoPoolForApi(organizationId, userId, fromAddress, signerPublicKey, parsedChainId);

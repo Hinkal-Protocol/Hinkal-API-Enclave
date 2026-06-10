@@ -3,7 +3,6 @@ import { isSolanaLike } from '@hinkal/common/constants/chains.constants';
 import { PAY_SEND_VARIABLE_RATE } from '@hinkal/common/constants/protocol.constants';
 import { getFeeStructure } from '@hinkal/common/functions/pre-transaction/getFeeStructure';
 import { getAmountInWei } from '@hinkal/common/functions/web3/etherFunctions';
-import { AdminTransactionType } from '@hinkal/common/types/admin.types';
 import { ExternalActionId } from '@hinkal/common/types/external-action.types';
 import { parseChainId, resolveToken } from '../../utils/transactionHelpers';
 import { sendError } from '../../utils/routeError';
@@ -54,15 +53,7 @@ router.post('/waas/public-to-public', xStampMiddleware, async (req: Request, res
       solanaParams,
     );
 
-    const txHash = await hinkal.depositAndWithdraw(
-      token,
-      [recipientAmount],
-      [String(to)],
-      undefined,
-      feeStructure,
-      undefined,
-      AdminTransactionType.PayPublicToPublicSend,
-    );
+    const txHash = await hinkal.depositAndWithdraw(token, [recipientAmount], [String(to)], undefined, feeStructure);
 
     ensureRecipientInfoPoolForApi(organizationId, userId, fromAddress, signerPublicKey, parsedChainId);
 

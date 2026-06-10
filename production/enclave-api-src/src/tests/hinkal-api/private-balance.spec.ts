@@ -27,7 +27,7 @@ describe('private-balance route', () => {
     const usdcBalance = balances.find(
       ({ tokenAddress }) => tokenAddress.toLowerCase() === ARC_TESTNET_USDC_ADDRESS.toLowerCase(),
     );
-
+    console.log('usdcBalance: ', usdcBalance);
     expect(usdcBalance).toBeDefined();
   });
 });

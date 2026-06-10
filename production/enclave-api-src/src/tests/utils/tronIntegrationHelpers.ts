@@ -10,11 +10,11 @@ import {
 import { TRON_DEFAULT_FEE_LIMIT_SUN } from '@hinkal/common/constants/protocol.constants';
 import { type EnclaveAuthFields, toEnclaveAuthQueryParams } from './enclaveAuthHelper';
 import {
-  buildEnclaveTronDepositAndWithdrawAuthFields,
-  buildEnclaveTronDepositAuthFields,
-  buildEnclaveTronDepositForOtherAuthFields,
-  buildEnclaveTronProoflessDepositAuthFields,
-} from './enclaveTronAuthHelper';
+  buildDepositAndWithdrawAuthFieldsTron,
+  buildDepositAuthFieldsTron,
+  buildDepositForOtherAuthFieldsTron,
+  buildProoflessDepositAuthFieldsTron,
+} from './enclaveAuthHelperTron';
 import { DepositAndWithdrawResponse, DepositResponse, RecipientInfoResponse } from '../../types';
 import { TRON_NILE_USDT_ADDRESS } from './tronTestConstants';
 import type { TronTestWallet } from './tronTestWallet';
@@ -118,7 +118,7 @@ export const depositForOtherUsdt = async (
     amounts: [amount.toString()],
     recipientInfo,
   };
-  const authFields = await buildEnclaveTronDepositForOtherAuthFields(senderWallet, params);
+  const authFields = buildDepositForOtherAuthFieldsTron(senderWallet.tronWeb, senderWallet.address, params);
   const response = await httpClient.post<DepositResponse>(`${ENCLAVE_API_URL}/deposit-for-other`, {
     ...authFields,
     address: senderWallet.address,
@@ -141,8 +141,8 @@ export const depositUsdtToPrivate = async (
     amounts: [amount.toString()],
   };
   const depositAuthFields = proofless
-    ? await buildEnclaveTronProoflessDepositAuthFields(wallet, depositParams)
-    : await buildEnclaveTronDepositAuthFields(wallet, depositParams);
+    ? buildProoflessDepositAuthFieldsTron(wallet.tronWeb, wallet.address, depositParams)
+    : buildDepositAuthFieldsTron(wallet.tronWeb, wallet.address, depositParams);
 
   const response = await httpClient.post<DepositResponse>(
     `${ENCLAVE_API_URL}/${proofless ? 'proofless-deposit' : 'deposit'}`,
@@ -171,7 +171,7 @@ export const prepareDepositAndWithdraw = async (
     })),
   };
 
-  const authFields = await buildEnclaveTronDepositAndWithdrawAuthFields(wallet, txDataParams);
+  const authFields = buildDepositAndWithdrawAuthFieldsTron(wallet.tronWeb, wallet.address, txDataParams);
 
   const response = await httpClient.post<DepositAndWithdrawResponse>(`${ENCLAVE_API_URL}/private-send`, {
     ...authFields,
