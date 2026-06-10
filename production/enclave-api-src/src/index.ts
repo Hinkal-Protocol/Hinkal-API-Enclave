@@ -1,4 +1,10 @@
-import { Logger, preProcessing, setCustomProofGenerator, setCustomUtxoDecryptor } from '@hinkal/common';
+import {
+  getErrorMessage,
+  Logger,
+  preProcessing,
+  setCustomProofGenerator,
+  setCustomUtxoDecryptor,
+} from '@hinkal/common';
 import { liveChainStateService, MONGO_CONNECTION_OPTIONS, setServerSettings } from '@hinkal/backend-common';
 import cors from 'cors';
 import express, { json } from 'express';
@@ -30,9 +36,8 @@ const resolveDbUri = async (): Promise<string> => {
 };
 
 const startServer = async () => {
-  await preProcessing();
-
   try {
+    await preProcessing();
     const dbUri = await resolveDbUri();
     mongoose.set('strictQuery', true);
     await mongoose.connect(dbUri, MONGO_CONNECTION_OPTIONS);
@@ -44,8 +49,8 @@ const startServer = async () => {
     });
     setServerSettings(server);
   } catch (err) {
-    Logger.error('enclave-api failed to start', { err });
+    Logger.error('enclave-api failed to start', getErrorMessage(err), err);
   }
 };
 
-startServer();
+startServer().catch((err) => Logger.error('enclave-api unhandled startup error:', getErrorMessage(err), err));
