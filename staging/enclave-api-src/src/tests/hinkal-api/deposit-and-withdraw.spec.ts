@@ -116,7 +116,7 @@ describe('deposit-and-withdraw route', () => {
       { responseType: 'text' },
     );
 
-    const signature = response.headers['x-enclave-signature'] as string;
+    const signature = response.headers['x-hinkal-signature'] as string;
     expect(signature).toBeTruthy();
 
     const verify = createVerify('SHA256');

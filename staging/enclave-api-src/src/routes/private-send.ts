@@ -142,7 +142,7 @@ router.post(
         amountOut: totalRecipientAmount.toString(),
         fee: fee.toString(),
       });
-      res.setHeader('X-Enclave-Signature', signResponseBody(responseBody));
+      res.setHeader('X-Hinkal-Signature', signResponseBody(responseBody));
       (res.status(200).type('json') as unknown as Response).send(responseBody);
     } catch (err) {
       Logger.error('[private-send] error:', err);
