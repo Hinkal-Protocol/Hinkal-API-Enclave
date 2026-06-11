@@ -1,7 +1,7 @@
 export type ParsedSignatureRequest = {
   signature: string;
   address: string;
-  chainId: number;
+  chainId?: number;
   nonce: string;
   writeAccess: boolean;
 };

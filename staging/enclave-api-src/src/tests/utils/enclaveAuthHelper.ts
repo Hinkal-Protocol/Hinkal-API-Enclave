@@ -50,14 +50,12 @@ export const buildEnclaveAuthFields = async (
 
 export const createEnclaveSession = async (
   wallet: ethers.Wallet | ethers.HDNodeWallet,
-  chainId: number,
   options?: { writeAccess?: boolean },
 ): Promise<EnclaveAuthFields> => {
   const authFields = await buildEnclaveAuthFields(wallet, options);
   const response = await httpClient.post<CreateSessionResponse>(`${ENCLAVE_API_URL}/create-session`, {
     ...authFields,
     address: wallet.address,
-    chainId,
   });
 
   if (response.success === false) {

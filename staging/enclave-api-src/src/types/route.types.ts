@@ -145,7 +145,6 @@ export type SerializedTokenBalance = {
 export type CreateSessionRequest = {
   signature: string;
   address: string;
-  chainId: number;
   nonce: string;
   writeAccess?: boolean;
 };
