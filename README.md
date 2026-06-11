@@ -190,7 +190,7 @@ fi
 
 If they match, the running enclave is the image whose provenance you verified in Step 1.
 
-### Step 3 — Verify the JWT signature (optional)
+### Step 3 — Verify the JWT signature
 
 The `jwt` field is signed by Google's Confidential Space attestation service using RS256. You can verify the signature in Node.js:
 
