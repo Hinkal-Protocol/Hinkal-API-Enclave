@@ -1,8 +1,9 @@
 import http from 'http';
 import { Logger } from '@hinkal/common';
-import { enclavePublicKey } from '../enclaveKeypair';
 
 const TEE_SERVER_SOCK = '/run/container_launcher/teeserver.sock';
+
+const ATTESTATION_AUDIENCE = 'https://api.hinkal.io';
 
 const TOKEN_FETCH_TIMEOUT = 15_000;
 
@@ -33,7 +34,7 @@ class AttestationService {
   private fetchTokenViaSock(nonce: string): Promise<string> {
     return new Promise((resolve, reject) => {
       const body = JSON.stringify({
-        audience: enclavePublicKey,
+        audience: ATTESTATION_AUDIENCE,
         token_type: 'OIDC',
         nonces: [nonce],
       });

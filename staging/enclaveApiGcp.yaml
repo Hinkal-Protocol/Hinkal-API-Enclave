@@ -2,7 +2,7 @@ name: Deploy Enclave-API GCP
 on:
   push:
     branches:
-      - add-response-signing-api
+      - main
       - production-api-v1
 permissions:
   id-token: write
