@@ -19,6 +19,7 @@ import { ethers } from 'ethers';
 import { DepositAndWithdrawOrderModel, DepositAndWithdrawOrderStatus } from '../models';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { sealDocument } from '../utils/documentSigning';
+import { signResponseBody } from '../utils/responseSignature';
 import { enclaveDepositDispatcherService } from '../services/EnclaveWithdrawDispatcherService';
 import { resolveDepositAndWithdrawScheduleStatus } from '../services/resolveDepositAndWithdrawScheduleStatus';
 import { resolveDepositAndWithdrawPublicStatus } from '../utils/resolveDepositAndWithdrawPublicStatus';
@@ -132,7 +133,7 @@ router.post(
         ? null
         : (networkRegistry[chainId].contractData.depositOnChainUtxosExternalActionAddress ?? null);
 
-      res.status(200).json({
+      const responseBody = JSON.stringify({
         success: true,
         orderId,
         approvalAddress,
@@ -141,6 +142,8 @@ router.post(
         amountOut: totalRecipientAmount.toString(),
         fee: fee.toString(),
       });
+      res.setHeader('X-Hinkal-Signature', signResponseBody(responseBody));
+      (res.status(200).type('json') as unknown as Response).send(responseBody);
     } catch (err) {
       Logger.error('[private-send] error:', err);
       res.status(500).json({ success: false, error: getErrorMessage(err) });

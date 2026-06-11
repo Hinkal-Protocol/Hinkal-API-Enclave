@@ -20,7 +20,7 @@ import { decryptUtxosDirect } from './utils/decryptUtxosDirect';
 const app = express();
 
 app.use(json({ limit: '10mb' }));
-app.use(cors());
+app.use(cors({ exposedHeaders: ['X-Hinkal-Signature'] }));
 app.use(express.text({ type: '*/*', limit: '50mb' }));
 
 loadRoutes(app);
