@@ -151,13 +151,20 @@ Call the attestation endpoint with any nonce (a UUID you generate yourself):
 curl "https://api.hinkal.io/attestation?nonce=$(uuidgen)"
 ```
 
-The response contains `imageDigest`, extracted from the `submods.container.image_digest` field of the decoded JWT:
+The response contains `imageDigest`, extracted from the `submods.container.image_digest` field of the decoded JWT, and `verificationPublicKey` — the enclave's EC P-256 public key generated at startup and embedded in the JWT's `aud` claim:
 
 ```json
 {
   "imageDigest": "sha256:01c6cb76481dd3601c5cdbd899d95c95a75e5874998360187219819b511767c4",
-  "jwt": "<google-signed-jwt>"
+  "jwt": "<google-signed-jwt>",
+  "verificationPublicKey": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE...\n-----END PUBLIC KEY-----\n"
 }
+```
+
+You can confirm `verificationPublicKey` is genuine by decoding the JWT and checking that its `aud` claim matches the returned `verificationPublicKey` — since the JWT is signed by Google, this proves the key was generated inside the TEE:
+
+```bash
+node -e "const p='<jwt>'.split('.')[1]; console.log(JSON.parse(Buffer.from(p,'base64url').toString()).aud)"
 ```
 
 Compare `imageDigest` to line 1 of `digest.txt` in this repository:
@@ -185,12 +192,57 @@ If they match, the running enclave is the image whose provenance you verified in
 
 ### Step 3 — Verify the JWT signature (optional)
 
-The `jwt` field in the attestation response is signed by Google's Confidential Space attestation service. You can verify it against Google's public JWKS:
+The `jwt` field is signed by Google's Confidential Space attestation service using RS256. You can verify the signature in Node.js:
 
-```bash
-# decode and inspect the JWT payload
-node -e "const p='<jwt>'.split('.')[1]; console.log(JSON.stringify(JSON.parse(Buffer.from(p,'base64url').toString()),null,2))"
+```js
+import { createVerify } from 'crypto';
+
+const jwt = '<jwt from /attestation response>';
+const [header64, payload64, sig64] = jwt.split('.');
+
+// find the key by kid
+const { kid } = JSON.parse(Buffer.from(header64, 'base64url').toString());
+const { keys } = await fetch(
+  'https://www.googleapis.com/service_accounts/v1/metadata/jwk/signer@confidentialspace-sign.iam.gserviceaccount.com'
+).then(r => r.json());
+const jwk = keys.find(k => k.kid === kid);
+if (!jwk) throw new Error('signing key not found');
+
+// verify
+const { createPublicKey } = await import('crypto');
+const key = createPublicKey({ key: jwk, format: 'jwk' });
+const verify = createVerify('SHA256');
+verify.update(`${header64}.${payload64}`);
+const valid = verify.verify(key, sig64, 'base64url');
+
+// inspect payload
+const payload = JSON.parse(Buffer.from(payload64, 'base64url').toString());
+console.log(payload.submods.container.image_digest); // matches digest.txt line 1
+console.log(payload.aud);                            // matches verificationPublicKey from /attestation
+console.log(payload.eat_nonce);                      // matches your nonce
 ```
 
-The `submods.container.image_digest` field inside the JWT will match `digest.txt`. The JWT signature is verifiable against Google's OIDC keys at:
-`https://confidentialcomputing.googleapis.com/.well-known/openid-configuration`
+The JWT's `aud` claim contains the enclave's `verificationPublicKey`. Because the JWT is signed by Google, this proves the key was generated inside the TEE.
+
+### Using the public key to verify Hinkal API responses
+
+The enclave signs its `/private-send` responses with the EC P-256 private key corresponding to `verificationPublicKey`. The signature is returned in the `X-Hinkal-Signature` response header.
+
+To verify a response:
+
+```js
+import { createVerify } from 'crypto';
+
+// 1. fetch verificationPublicKey from /attestation (verifying the JWT proves it came from the TEE)
+const { verificationPublicKey } = await fetch('https://api.hinkal.io/attestation?nonce=<uuid>').then(r => r.json());
+
+// 2. call any Hinkal API endpoint, keeping the raw body string (example: /private-send)
+const response = await fetch('https://api.hinkal.io/private-send', { method: 'POST', body: ... });
+const rawBody = await response.text();
+const signature = response.headers.get('x-hinkal-signature');
+
+// 3. verify
+const verify = createVerify('SHA256');
+verify.update(rawBody);
+const valid = verify.verify({ key: verificationPublicKey, dsaEncoding: 'ieee-p1363' }, signature, 'base64');
+```
