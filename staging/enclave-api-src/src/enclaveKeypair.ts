@@ -6,5 +6,5 @@ const { publicKey, privateKey } = generateKeyPairSync('ec', {
   privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
 });
 
-export const enclavePublicKey = publicKey;
-export const enclavePrivateKey = privateKey;
+export const verificationPublicKey = publicKey;
+export const verificationPrivateKey = privateKey;

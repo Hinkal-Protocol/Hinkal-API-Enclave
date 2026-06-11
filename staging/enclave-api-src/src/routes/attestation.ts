@@ -1,5 +1,6 @@
 import { Request, Response, Router } from 'express';
 import { attestationService } from '../services/AttestationService';
+import { verificationPublicKey } from '../enclaveKeypair';
 
 const router = Router();
 
@@ -13,7 +14,7 @@ router.get('/attestation', async (req: Request, res: Response) => {
 
   try {
     const { jwt, imageDigest } = await attestationService.fetchAttestation(nonce);
-    res.status(200).json({ jwt, imageDigest });
+    res.status(200).json({ jwt, imageDigest, verificationPublicKey });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch attestation token' });
   }

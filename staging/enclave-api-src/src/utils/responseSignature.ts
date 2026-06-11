@@ -1,8 +1,8 @@
 import { createSign } from 'crypto';
-import { enclavePrivateKey } from '../enclaveKeypair';
+import { verificationPrivateKey } from '../enclaveKeypair';
 
 export const signResponseBody = (body: string): string => {
   const sign = createSign('SHA256');
   sign.update(body);
-  return sign.sign(enclavePrivateKey, 'base64');
+  return sign.sign({ key: verificationPrivateKey, dsaEncoding: 'ieee-p1363' }, 'base64');
 };
