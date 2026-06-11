@@ -1,4 +1,4 @@
-import { ExternalActionId, FeeStructure } from '@hinkal/common';
+import { ERC20Token, ExternalActionId, FeeStructure } from '@hinkal/common';
 import { ethers } from 'ethers';
 import type { Types as TronWebTypes } from 'tronweb';
 
@@ -170,6 +170,29 @@ export type BalanceResponse =
   | FailedResponse;
 
 export type RefreshCacheResponse = { success: true } | FailedResponse;
+
+export type SupportedTokensRequest = {
+  chainId?: string;
+};
+
+export type SupportedTokensResponse =
+  | {
+      success: true;
+      tokens: Record<number, ERC20Token[]>;
+    }
+  | FailedResponse;
+
+export type SupportedChain = {
+  chainId: number;
+  name: string;
+};
+
+export type SupportedChainsResponse =
+  | {
+      success: true;
+      chains: SupportedChain[];
+    }
+  | FailedResponse;
 
 export type ProoflessDepositRequest = {
   address: string;
