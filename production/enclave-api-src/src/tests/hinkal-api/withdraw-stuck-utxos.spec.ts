@@ -18,7 +18,7 @@ describe('GET /stuck-utxo-balance', () => {
   jest.setTimeout(60_000);
 
   it('returns a valid balance (zero or positive) for USDC', async () => {
-    const authFields = await createEnclaveSession(wallet, CHAIN_ID);
+    const authFields = await createEnclaveSession(wallet);
     const balance = await getStuckUtxoBalance(wallet, CHAIN_ID, ARC_TESTNET_USDC_ADDRESS, authFields);
     expect(balance >= 0n).toBe(true);
   });
@@ -28,7 +28,7 @@ describe('POST /withdraw-stuck-utxos', () => {
   jest.setTimeout(300_000);
 
   it('withdraws any stuck USDC UTXOs to recipient and verifies balance clears', async () => {
-    const authFields = await createEnclaveSession(wallet, CHAIN_ID);
+    const authFields = await createEnclaveSession(wallet);
     const stuckBefore = await getStuckUtxoBalance(wallet, CHAIN_ID, ARC_TESTNET_USDC_ADDRESS, authFields);
     const recipientAddress = wallet.address;
     const recipientPublicBefore =

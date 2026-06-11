@@ -36,7 +36,7 @@ describe('swap routes', () => {
   jest.setTimeout(300_000);
 
   it('get-swap-data returns the best quote for a USDC to EURC pair', async () => {
-    const authFields = await createEnclaveSession(wallet, CHAIN_ID);
+    const authFields = await createEnclaveSession(wallet);
     const { swapData, externalActionId, outSwapAmount } = await fetchSwapData(
       wallet,
       CHAIN_ID,
@@ -52,7 +52,7 @@ describe('swap routes', () => {
   });
 
   it('returns tx hash and updates private balances after swapping USDC to EURC', async () => {
-    const authFields = await createEnclaveSession(wallet, CHAIN_ID);
+    const authFields = await createEnclaveSession(wallet);
 
     await depositUsdcToPrivate(wallet, CHAIN_ID, DEPOSIT_AMOUNT, OPTIMISM_USDC_ADDRESS, false);
 

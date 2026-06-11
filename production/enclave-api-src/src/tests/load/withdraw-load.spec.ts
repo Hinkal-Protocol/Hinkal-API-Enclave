@@ -41,7 +41,7 @@ describe(`withdraw load test (${CONCURRENT_COUNT} concurrent wallets)`, () => {
     const [privateBalancesBefore, funderUsdcBefore] = await Promise.all([
       Promise.all(
         testWallets.map(async (wallet) => {
-          const authFields = await createEnclaveSession(wallet, CHAIN_ID);
+          const authFields = await createEnclaveSession(wallet);
           return getPrivateBalanceForToken(wallet, CHAIN_ID, ARC_TESTNET_USDC_ADDRESS, authFields);
         }),
       ),
@@ -50,7 +50,7 @@ describe(`withdraw load test (${CONCURRENT_COUNT} concurrent wallets)`, () => {
 
     const txHashes = await Promise.all(
       testWallets.map(async (wallet) => {
-        const authFields = await createEnclaveSession(wallet, CHAIN_ID);
+        const authFields = await createEnclaveSession(wallet);
         return withdrawUsdc(wallet, CHAIN_ID, WITHDRAW_AMOUNT, funder.address, authFields);
       }),
     );
@@ -58,7 +58,7 @@ describe(`withdraw load test (${CONCURRENT_COUNT} concurrent wallets)`, () => {
     const [privateBalancesAfter, funderUsdcAfter] = await Promise.all([
       Promise.all(
         testWallets.map(async (wallet) => {
-          const authFields = await createEnclaveSession(wallet, CHAIN_ID);
+          const authFields = await createEnclaveSession(wallet);
           return getPrivateBalanceForToken(wallet, CHAIN_ID, ARC_TESTNET_USDC_ADDRESS, authFields);
         }),
       ),
