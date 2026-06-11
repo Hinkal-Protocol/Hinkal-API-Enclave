@@ -40,7 +40,7 @@ const createCalldata = (
   ];
 };
 
-export const generateProof: ProofGeneratorFn = async (input, circuitWasm, circuitZkey) => {
+const generateSingleProof = async (input: any, circuitWasm: string, circuitZkey: string) => {
   const wasmPath = await locateCircuit(circuitWasm);
   const zkeyPath = await locateCircuit(circuitZkey);
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'proof-'));
@@ -60,4 +60,16 @@ export const generateProof: ProofGeneratorFn = async (input, circuitWasm, circui
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true });
   }
+};
+
+export const generateProof: ProofGeneratorFn = async (inputs, circuitWasmFilenames, circuitZkeyFilenames) => {
+  if (inputs.length !== circuitWasmFilenames.length || inputs.length !== circuitZkeyFilenames.length) {
+    throw new Error('Inputs, wasm, and zkey arrays must have the same length');
+  }
+
+  return await Promise.all(
+    inputs.map((circuitInput, i) =>
+      generateSingleProof(circuitInput, circuitWasmFilenames[i], circuitZkeyFilenames[i]),
+    ),
+  );
 };
