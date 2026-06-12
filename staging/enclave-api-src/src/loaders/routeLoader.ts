@@ -1,5 +1,6 @@
-import { Express } from 'express';
+import { Express, Router } from 'express';
 import { BASE_URL } from '@hinkal/backend-common';
+import { signResponseMiddleware } from '../middleware';
 import handshake from '../routes/handshake';
 import createSession from '../routes/create-session';
 import ping from '../routes/ping';
@@ -34,21 +35,24 @@ import supported from '../routes/supported';
 
 export const loadRoutes = (app: Express) => {
   app.use(BASE_URL, ping);
-  app.use(BASE_URL, handshake);
-  app.use(BASE_URL, attestation);
-  app.use(BASE_URL, createSession);
 
-  // Enclave backend routes
-  app.use(BASE_URL, recipientInfo);
-  app.use(BASE_URL, privateBalance);
-  app.use(BASE_URL, deposit);
-  app.use(BASE_URL, privateSend);
-  app.use(BASE_URL, withdrawStuckUtxos);
-  app.use(BASE_URL, getFeeStructureRoute);
-  app.use(BASE_URL, withdraw);
-  app.use(BASE_URL, transfer);
-  app.use(BASE_URL, swap);
-  app.use(BASE_URL, supported);
+  // Hinkal API routes — all responses signed by the enclave
+  const hinkalAPIRouter = Router();
+  hinkalAPIRouter.use(signResponseMiddleware);
+  hinkalAPIRouter.use(attestation);
+  hinkalAPIRouter.use(createSession);
+  hinkalAPIRouter.use(handshake);
+  hinkalAPIRouter.use(recipientInfo);
+  hinkalAPIRouter.use(privateBalance);
+  hinkalAPIRouter.use(deposit);
+  hinkalAPIRouter.use(privateSend);
+  hinkalAPIRouter.use(withdrawStuckUtxos);
+  hinkalAPIRouter.use(getFeeStructureRoute);
+  hinkalAPIRouter.use(withdraw);
+  hinkalAPIRouter.use(transfer);
+  hinkalAPIRouter.use(swap);
+  hinkalAPIRouter.use(supported);
+  app.use(BASE_URL, hinkalAPIRouter);
 
   // PAL routes
   app.use(BASE_URL, palOrder);

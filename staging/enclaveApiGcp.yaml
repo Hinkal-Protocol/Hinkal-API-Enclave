@@ -82,7 +82,7 @@ jobs:
           echo "${{ github.sha }}" >> digest.txt
           cosign sign-blob --yes --bundle bundle.json digest.txt
 
-          git clone https://x-access-token:${ATTESTATIONS_REPO_TOKEN}@github.com/Hinkal-Protocol/test-attestations.git attestations-repo
+          git clone https://x-access-token:${ATTESTATIONS_REPO_TOKEN}@github.com/Hinkal-Protocol/Hinkal-API-Enclave.git attestations-repo
 
           DEPLOY_DIR=attestations-repo/${{ env.DEPLOYMENT_MODE }}
           mkdir -p "$DEPLOY_DIR"
@@ -104,6 +104,32 @@ jobs:
           git add .
           git commit -m "deploy: ${{ env.DEPLOYMENT_MODE }} ${{ github.sha }}"
           git push
+
+      - name: Create GitHub release (staging)
+        if: env.DEPLOYMENT_MODE == 'staging'
+        env:
+          GH_TOKEN: ${{ secrets.ATTESTATIONS_REPO_TOKEN }}
+        run: |
+          TAG="staging-$(echo '${{ github.sha }}' | cut -c1-7)"
+          gh release create "$TAG" \
+            --repo Hinkal-Protocol/Hinkal-API-Enclave \
+            --title "Staging deploy ${TAG}" \
+            --notes "Source commit: ${{ github.sha }}" \
+            "attestations-repo/${{ env.DEPLOYMENT_MODE }}/digest.txt" \
+            "attestations-repo/${{ env.DEPLOYMENT_MODE }}/bundle.json"
+
+      # - name: Create GitHub release (production)
+      #   if: env.DEPLOYMENT_MODE == 'production'
+      #   env:
+      #     GH_TOKEN: ${{ secrets.ATTESTATIONS_REPO_TOKEN }}
+      #   run: |
+      #     TAG="v$(date +%Y%m%d)-$(echo '${{ github.sha }}' | cut -c1-7)"
+      #     gh release create "$TAG" \
+      #       --repo Hinkal-Protocol/Hinkal-API-Enclave \
+      #       --title "Production deploy ${TAG}" \
+      #       --notes "Source commit: ${{ github.sha }}" \
+      #       "attestations-repo/${{ env.DEPLOYMENT_MODE }}/digest.txt" \
+      #       "attestations-repo/${{ env.DEPLOYMENT_MODE }}/bundle.json"
 
   deploy-enclave-api:
     needs: build-enclave-api
