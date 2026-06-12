@@ -8,7 +8,6 @@ const EnclaveNonceSchema = new Schema({
   expiresAt: { type: Date, required: true },
   hasWriteAccess: { type: Boolean, default: false },
   address: { type: String },
-  chainId: { type: Number },
 });
 
 EnclaveNonceSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
@@ -28,13 +27,11 @@ export type EnclaveNonceSession = {
   expiresAt: Date;
   hasWriteAccess: boolean;
   address?: string;
-  chainId?: number;
 };
 
 type OpenEnclaveSessionParams = {
   nonce: string;
   address: string;
-  chainId: number;
   hasWriteAccess: boolean;
 };
 
@@ -43,13 +40,11 @@ const toSession = (doc: {
   expiresAt: Date;
   hasWriteAccess?: boolean;
   address?: string | null;
-  chainId?: number | null;
 }): EnclaveNonceSession => ({
   nonce: doc.nonce,
   expiresAt: doc.expiresAt,
   hasWriteAccess: doc.hasWriteAccess ?? false,
   address: doc.address ?? undefined,
-  chainId: doc.chainId ?? undefined,
 });
 
 export const isEnclaveNonceSessionActive = (session: EnclaveNonceSession): boolean => session.expiresAt > new Date();
@@ -71,10 +66,7 @@ export const openEnclaveSession = async (params: OpenEnclaveSessionParams): Prom
       return EnclaveNonceValidationResult.EXPIRED;
     }
 
-    const isSameSession =
-      existing.address === params.address &&
-      existing.chainId === params.chainId &&
-      existing.hasWriteAccess === params.hasWriteAccess;
+    const isSameSession = existing.address === params.address && existing.hasWriteAccess === params.hasWriteAccess;
 
     return isSameSession ? EnclaveNonceValidationResult.VALID : EnclaveNonceValidationResult.CONFLICT;
   }
@@ -87,7 +79,6 @@ export const openEnclaveSession = async (params: OpenEnclaveSessionParams): Prom
       expiresAt,
       hasWriteAccess: params.hasWriteAccess,
       address: params.address,
-      chainId: params.chainId,
     });
     return EnclaveNonceValidationResult.VALID;
   } catch (err: unknown) {

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { createVerify } from 'crypto';
 import { ethers } from 'ethers';
 import {
   ARC_TESTNET_USDC_ADDRESS,
@@ -13,6 +14,7 @@ import {
 import { createJsonRpcProvider } from '@hinkal/common/functions/utils/create-provider';
 import { requireEnv } from '@hinkal/common/functions/utils/requireEnv';
 import { prepareDepositAndWithdraw } from '../utils/enclaveIntegrationHelpers';
+import { buildDepositAndWithdrawAuthFields } from '../utils/enclaveAuthHelper';
 import { DepositAndWithdrawPublicStatus } from '../../utils/resolveDepositAndWithdrawPublicStatus';
 import {
   DEFAULT_POLL_INTERVAL_MS,
@@ -30,10 +32,15 @@ interface OrderStatusResponse extends DepositAndWithdrawStatusSnapshot {
 
 let wallet: ethers.Wallet;
 let provider: ethers.JsonRpcProvider;
+let verificationPublicKey: string;
 
-beforeAll(() => {
+beforeAll(async () => {
   provider = createJsonRpcProvider(CHAIN_ID);
   wallet = new ethers.Wallet(requireEnv('ENCLAVE_TESTING_PRIVATE_KEY'), provider);
+  const attestation = await httpClient.get<{ verificationPublicKey: string }>(
+    `${ENCLAVE_API_URL}/attestation?nonce=${crypto.randomUUID()}`,
+  );
+  verificationPublicKey = attestation.verificationPublicKey;
 });
 
 const broadcastDeposit = async (serializedTxBase64: string): Promise<string> => {
@@ -89,6 +96,33 @@ const pollBalanceUntil = async (address: string, expected: bigint): Promise<bigi
 
 describe('deposit-and-withdraw route', () => {
   jest.setTimeout(600_000);
+
+  it('response is signed by enclave key', async () => {
+    const authFields = await buildDepositAndWithdrawAuthFields(wallet, {
+      chainId: CHAIN_ID,
+      tokenAddress: ARC_TESTNET_USDC_ADDRESS,
+      recipients: [{ address: RECIPIENT_ADDRESS, amount: '300000' }],
+    });
+
+    const response = await axios.post(
+      `${ENCLAVE_API_URL}/private-send`,
+      {
+        ...authFields,
+        address: wallet.address,
+        chainId: CHAIN_ID,
+        tokenAddress: ARC_TESTNET_USDC_ADDRESS,
+        recipients: [{ address: RECIPIENT_ADDRESS, amount: '300000' }],
+      },
+      { responseType: 'text' },
+    );
+
+    const signature = response.headers['x-hinkal-signature'] as string;
+    expect(signature).toBeTruthy();
+
+    const verify = createVerify('SHA256');
+    verify.update(response.data as string);
+    expect(verify.verify({ key: verificationPublicKey, dsaEncoding: 'ieee-p1363' }, signature, 'base64')).toBe(true);
+  });
 
   it('single recipient: prepares order, broadcasts deposit, polls until scheduled txs complete, recipient receives USDC', async () => {
     const DEPOSIT_AMOUNT = BigInt('300000'); // 0.3 USDC

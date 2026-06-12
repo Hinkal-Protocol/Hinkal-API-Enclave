@@ -18,7 +18,7 @@ describe('refresh-cache route', () => {
   jest.setTimeout(300_000);
 
   it('refreshes the cached chain state for the test wallet', async () => {
-    const authFields = await createEnclaveSession(wallet, CHAIN_ID);
+    const authFields = await createEnclaveSession(wallet);
 
     await expect(refreshCache(wallet, CHAIN_ID, authFields)).resolves.toBeUndefined();
   });

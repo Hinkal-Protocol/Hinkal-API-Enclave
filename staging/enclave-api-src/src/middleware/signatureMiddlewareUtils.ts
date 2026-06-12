@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import { HINKAL_SUPPORTED_CHAINS } from '@hinkal/common';
 import { buildEnclaveSignMessage, EnclaveSessionAccess } from '../constants';
 import {
   EnclaveNonceSession,
@@ -26,8 +27,8 @@ const parseWriteAccess = (value: unknown): boolean => {
   return false;
 };
 
-export const parseSignatureRequest = (body: Record<string, unknown>): ParseResult<ParsedSignatureRequest> => {
-  const { signature, address, nonce, chainId, writeAccess } = body;
+export const parseSessionRequest = (body: Record<string, unknown>): ParseResult<ParsedSignatureRequest> => {
+  const { signature, address, nonce, writeAccess } = body;
 
   if (
     typeof signature !== 'string' ||
@@ -44,21 +45,20 @@ export const parseSignatureRequest = (body: Record<string, unknown>): ParseResul
     return { ok: false, error: ENCLAVE_NONCE_INVALID_ERROR };
   }
 
+  return { ok: true, value: { signature, address, nonce, writeAccess: parseWriteAccess(writeAccess) } };
+};
+
+export const parseSignatureRequest = (body: Record<string, unknown>): ParseResult<ParsedSignatureRequest> => {
+  const base = parseSessionRequest(body);
+  if (base.ok === false) return base;
+
+  const { chainId } = body;
   const parsedChainId = typeof chainId === 'number' ? chainId : Number(chainId);
   if (!Number.isFinite(parsedChainId)) {
     return { ok: false, error: 'Invalid chainId' };
   }
 
-  return {
-    ok: true,
-    value: {
-      signature,
-      address,
-      chainId: parsedChainId,
-      nonce,
-      writeAccess: parseWriteAccess(writeAccess),
-    },
-  };
+  return { ok: true, value: { ...base.value, chainId: parsedChainId } };
 };
 
 const respondToTxNonceRegistrationResult = (nonceResult: EnclaveNonceValidationResult, res: Response): boolean => {
@@ -87,7 +87,7 @@ export const validateExistingSessionOrRespond = async (
   request: ParsedSignatureRequest,
   res: Response,
 ): Promise<EnclaveNonceSession | null> => {
-  const { nonce, address, chainId } = request;
+  const { nonce, address } = request;
   const session = await getEnclaveNonceSession(nonce);
 
   if (!session) {
@@ -100,8 +100,8 @@ export const validateExistingSessionOrRespond = async (
     return null;
   }
 
-  if (session.address !== address || session.chainId !== chainId) {
-    res.status(401).json({ error: 'Session address or chainId mismatch' });
+  if (session.address !== address) {
+    res.status(401).json({ error: 'Session address mismatch' });
     return null;
   }
 
@@ -112,8 +112,12 @@ export const verifyEnclaveSessionSignature = async (
   request: ParsedSignatureRequest,
   access: EnclaveSessionAccess,
 ): Promise<boolean> => {
-  const { signature, address, chainId, nonce } = request;
-  return verifySignature(signature, address, buildEnclaveSignMessage(nonce, access), chainId);
+  const { signature, address, nonce } = request;
+  const message = buildEnclaveSignMessage(nonce, access);
+  const results = await Promise.all(
+    HINKAL_SUPPORTED_CHAINS.map((chainId) => verifySignature(signature, address, message, chainId).catch(() => false)),
+  );
+  return results.some(Boolean);
 };
 
 export const getSessionAccess = (session: EnclaveNonceSession): EnclaveSessionAccess =>
@@ -123,12 +127,7 @@ export const isActiveWriteSessionForRequest = (
   session: EnclaveNonceSession,
   request: ParsedSignatureRequest,
 ): boolean => {
-  const { address, chainId } = request;
+  const { address } = request;
 
-  return (
-    isEnclaveNonceSessionActive(session) &&
-    session.hasWriteAccess &&
-    session.address === address &&
-    session.chainId === chainId
-  );
+  return isEnclaveNonceSessionActive(session) && session.hasWriteAccess && session.address === address;
 };
