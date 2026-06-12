@@ -4,12 +4,13 @@ import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { getBestSwapQuote } from '../services/getBestSwapQuote';
 import { GetSwapDataRequest, GetSwapDataResponse, SwapRequest, TxHashResponse } from '../types/route.types';
 import { parseFeeStructure } from '../utils/parseFeeStructure';
-import { verifySignatureMiddleware, verifySwapSignatureMiddleware } from '../middleware';
+import { signResponseMiddleware, verifySignatureMiddleware, verifySwapSignatureMiddleware } from '../middleware';
 
 const router = Router();
 
 router.post(
   '/swap',
+  signResponseMiddleware,
   verifySwapSignatureMiddleware,
   async (req: Request<object, TxHashResponse, SwapRequest>, res: Response<TxHashResponse>) => {
     try {
