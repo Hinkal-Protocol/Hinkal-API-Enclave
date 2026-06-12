@@ -12,7 +12,6 @@ import {
 } from '../types/route.types';
 import { validateTokens } from '../utils';
 import {
-  signResponseMiddleware,
   verifyDepositForOtherSignatureMiddleware,
   verifyDepositSignatureMiddleware,
   verifyProoflessDepositSignatureMiddleware,
@@ -22,7 +21,6 @@ const router = Router();
 
 router.post(
   '/deposit',
-  signResponseMiddleware,
   verifyDepositSignatureMiddleware,
   async (
     req: Request<object, DepositResponse | SolanaDepositResponse, DepositRequest>,
@@ -66,7 +64,6 @@ router.post(
 
 router.post(
   '/deposit-for-other',
-  signResponseMiddleware,
   verifyDepositForOtherSignatureMiddleware,
   async (req: Request<object, DepositResponse, DepositForOtherRequest>, res: Response<DepositResponse>) => {
     try {
@@ -96,7 +93,6 @@ router.post(
 
 router.post(
   '/deposit-solana-for-other',
-  signResponseMiddleware,
   verifyDepositForOtherSignatureMiddleware,
   async (
     req: Request<object, SolanaDepositResponse, SolanaDepositForOtherRequest>,
@@ -127,7 +123,6 @@ router.post(
 
 router.post(
   '/proofless-deposit',
-  signResponseMiddleware,
   verifyProoflessDepositSignatureMiddleware,
   async (
     req: Request<object, ProoflessDepositResponse, ProoflessDepositRequest>,

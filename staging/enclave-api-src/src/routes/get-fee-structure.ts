@@ -6,13 +6,12 @@ import { HINKAL_PRIVATE_SEND_VARIABLE_RATE } from '@hinkal/common/constants/prot
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { FeeStructureResponse, GetFeeStructureRequest } from '../types/route.types';
 import { isValidExternalActionId } from '../utils/isValidExternalActionId';
-import { signResponseMiddleware, verifySignatureMiddleware } from '../middleware';
+import { verifySignatureMiddleware } from '../middleware';
 
 const router = Router();
 
 router.get(
   '/get-fee-structure',
-  signResponseMiddleware,
   verifySignatureMiddleware,
   async (req: Request, res: Response<FeeStructureResponse>) => {
     try {

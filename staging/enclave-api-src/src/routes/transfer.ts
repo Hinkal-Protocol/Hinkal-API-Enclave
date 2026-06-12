@@ -3,13 +3,12 @@ import { getERC20Token, getErrorMessage, isSolanaLike } from '@hinkal/common';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { TransferRequest, TxHashResponse } from '../types/route.types';
 import { parseFeeStructure } from '../utils/parseFeeStructure';
-import { signResponseMiddleware, verifyTransferSignatureMiddleware } from '../middleware';
+import { verifyTransferSignatureMiddleware } from '../middleware';
 
 const router = Router();
 
 router.post(
   '/transfer',
-  signResponseMiddleware,
   verifyTransferSignatureMiddleware,
   async (req: Request<object, TxHashResponse, TransferRequest>, res: Response<TxHashResponse>) => {
     try {

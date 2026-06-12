@@ -1,7 +1,6 @@
 import { Request, Response, Router } from 'express';
 import { getErrorMessage } from '@hinkal/common';
 import { createSessionMiddleware } from '../middleware/createSessionMiddleware';
-import { signResponseMiddleware } from '../middleware';
 import { getEnclaveNonceSession } from '../models/EnclaveNonceSchema';
 import { CreateSessionRequest, CreateSessionResponse } from '../types/route.types';
 
@@ -9,7 +8,6 @@ const router = Router();
 
 router.post(
   '/create-session',
-  signResponseMiddleware,
   createSessionMiddleware,
   async (req: Request<object, CreateSessionResponse, CreateSessionRequest>, res: Response<CreateSessionResponse>) => {
     try {

@@ -1,5 +1,5 @@
 import { Request, Response, Router } from 'express';
-import { signResponseMiddleware, verifyDepositAndWithdrawSignatureMiddleware } from '../middleware';
+import { verifyDepositAndWithdrawSignatureMiddleware } from '../middleware';
 import { DepositAndWithdrawRequest, DepositAndWithdrawResponse } from '../types';
 import {
   ExternalActionId,
@@ -19,6 +19,7 @@ import { ethers } from 'ethers';
 import { DepositAndWithdrawOrderModel, DepositAndWithdrawOrderStatus } from '../models';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { sealDocument } from '../utils/documentSigning';
+import { signResponseBody } from '../utils/responseSignature';
 import { enclaveDepositDispatcherService } from '../services/EnclaveWithdrawDispatcherService';
 import { resolveDepositAndWithdrawScheduleStatus } from '../services/resolveDepositAndWithdrawScheduleStatus';
 import { resolveDepositAndWithdrawPublicStatus } from '../utils/resolveDepositAndWithdrawPublicStatus';
@@ -27,7 +28,6 @@ const router = Router();
 
 router.post(
   '/private-send',
-  signResponseMiddleware,
   verifyDepositAndWithdrawSignatureMiddleware,
   async (
     req: Request<object, DepositAndWithdrawResponse, DepositAndWithdrawRequest>,
@@ -133,7 +133,7 @@ router.post(
         ? null
         : (networkRegistry[chainId].contractData.depositOnChainUtxosExternalActionAddress ?? null);
 
-      res.status(200).json({
+      const responseBody = JSON.stringify({
         success: true,
         orderId,
         approvalAddress,
@@ -142,6 +142,8 @@ router.post(
         amountOut: totalRecipientAmount.toString(),
         fee: fee.toString(),
       });
+      res.setHeader('X-Hinkal-Signature', signResponseBody(responseBody));
+      (res.status(200).type('json') as unknown as Response).send(responseBody);
     } catch (err) {
       Logger.error('[private-send] error:', err);
       res.status(500).json({ success: false, error: getErrorMessage(err) });

@@ -2,13 +2,12 @@ import { Request, Response, Router } from 'express';
 import { getErrorMessage } from '@hinkal/common';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { BalanceRequest, RecipientInfoResponse } from '../types/route.types';
-import { signResponseMiddleware, verifySignatureMiddleware } from '../middleware';
+import { verifySignatureMiddleware } from '../middleware';
 
 const router = Router();
 
 router.get(
   '/recipient-info',
-  signResponseMiddleware,
   verifySignatureMiddleware,
   async (req: Request<object, RecipientInfoResponse, never, BalanceRequest>, res: Response<RecipientInfoResponse>) => {
     try {

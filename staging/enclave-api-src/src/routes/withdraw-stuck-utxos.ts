@@ -1,6 +1,6 @@
 import { Request, Response, Router } from 'express';
 import { getERC20Token, getErrorMessage } from '@hinkal/common';
-import { signResponseMiddleware, verifyWithdrawStuckUtxosSignatureMiddleware } from '../middleware';
+import { verifyWithdrawStuckUtxosSignatureMiddleware } from '../middleware';
 import { WithdrawStuckUtxosRequest } from '../types';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 
@@ -8,7 +8,6 @@ const router = Router();
 
 router.post(
   '/withdraw-stuck-utxos',
-  signResponseMiddleware,
   verifyWithdrawStuckUtxosSignatureMiddleware,
   async (req: Request<object, unknown, WithdrawStuckUtxosRequest>, res: Response) => {
     try {
