@@ -47,8 +47,6 @@ const verifyRequestSignature = async (
 ): Promise<ParseResult<boolean>> => {
   const { signature, address, chainId } = request;
 
-  if (chainId === undefined) return { ok: false, error: 'Missing chainId' };
-
   if (isSolanaLike(chainId) && buildSolanaMessage) {
     const messageResult = buildSolanaMessage(body);
     if (messageResult.ok === false) return messageResult;

@@ -1,7 +1,7 @@
 import { createEnclaveSessionTron } from '../../utils/enclaveAuthHelperTron';
 import { depositForOtherUsdt, getRecipientInfo, getTronUsdtBalance } from '../../utils/tronIntegrationHelpers';
 import { getPrivateBalanceForToken } from '../../utils/getPrivateBalanceTron';
-import { TRON_NILE_USDT_ADDRESS } from '../../utils/tronTestConstants';
+import { TRON_NILE_CHAIN_ID, TRON_NILE_USDT_ADDRESS } from '../../utils/tronTestConstants';
 import {
   getEnclaveTronRecipientTestWallet,
   getEnclaveTronTestWallet,
@@ -22,7 +22,11 @@ describe('deposit-for-other route (Tron Nile)', () => {
   jest.setTimeout(300_000);
 
   it('returns tx calldata, approves, broadcasts, and increases recipient private balance by deposit amount', async () => {
-    const recipientAuthFields = await createEnclaveSessionTron(recipientWallet.tronWeb, recipientWallet.address);
+    const recipientAuthFields = await createEnclaveSessionTron(
+      recipientWallet.tronWeb,
+      recipientWallet.address,
+      TRON_NILE_CHAIN_ID,
+    );
     const recipientInfo = await getRecipientInfo(recipientWallet, recipientAuthFields);
 
     const senderBalanceBefore = await getTronUsdtBalance(senderWallet);

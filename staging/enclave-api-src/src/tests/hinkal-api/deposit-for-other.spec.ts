@@ -27,7 +27,7 @@ describe('deposit-for-other route', () => {
   jest.setTimeout(300_000);
 
   it('returns tx calldata, approves, broadcasts, and increases recipient private balance by deposit amount', async () => {
-    const recipientAuthFields = await createEnclaveSession(recipientWallet);
+    const recipientAuthFields = await createEnclaveSession(recipientWallet, CHAIN_ID);
     const recipientInfo = await getRecipientInfo(recipientWallet, CHAIN_ID, recipientAuthFields);
 
     const senderBalanceBefore: bigint = await getSenderUsdcBalance();

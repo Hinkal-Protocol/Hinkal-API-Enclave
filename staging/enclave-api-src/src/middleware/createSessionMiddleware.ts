@@ -1,11 +1,11 @@
 import { NextFunction, Request, Response } from 'express';
 import { EnclaveSessionAccess } from '../constants';
 import { EnclaveNonceValidationResult, openEnclaveSession } from '../models/EnclaveNonceSchema';
-import { parseSessionRequest, verifyEnclaveSessionSignature } from './signatureMiddlewareUtils';
+import { parseSignatureRequest, verifyEnclaveSessionSignature } from './signatureMiddlewareUtils';
 
 export const createSessionMiddleware = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const parsed = parseSessionRequest({ ...req.query, ...req.body } as Record<string, unknown>);
+    const parsed = parseSignatureRequest({ ...req.query, ...req.body } as Record<string, unknown>);
     if (parsed.ok === false) {
       res.status(400).json({ error: parsed.error });
       return;
@@ -23,6 +23,7 @@ export const createSessionMiddleware = async (req: Request, res: Response, next:
     const nonceResult = await openEnclaveSession({
       nonce: request.nonce,
       address: request.address,
+      chainId: request.chainId,
       hasWriteAccess: request.writeAccess,
     });
 

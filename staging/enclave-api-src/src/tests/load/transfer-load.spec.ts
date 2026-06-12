@@ -24,7 +24,7 @@ beforeAll(async () => {
   funder = new ethers.Wallet(requireEnv('ENCLAVE_TESTING_PRIVATE_KEY'), provider);
   testWallets = Array.from({ length: CONCURRENT_COUNT }, () => ethers.Wallet.createRandom().connect(provider));
 
-  const funderAuthFields = await createEnclaveSession(funder);
+  const funderAuthFields = await createEnclaveSession(funder, CHAIN_ID);
   const recipientInfoResponse = await httpClient.post<RecipientInfoResponse>(`${ENCLAVE_API_URL}/recipient-info`, {
     ...funderAuthFields,
     address: funder.address,
@@ -45,11 +45,11 @@ describe(`transfer load test (${CONCURRENT_COUNT} concurrent wallets)`, () => {
   jest.setTimeout(20 * 60_000);
 
   it(`runs ${CONCURRENT_COUNT} concurrent transfers to funder, all confirm on-chain`, async () => {
-    const funderAuthFieldsBefore = await createEnclaveSession(funder);
+    const funderAuthFieldsBefore = await createEnclaveSession(funder, CHAIN_ID);
     const [privateBalancesBefore, funderPrivateBefore] = await Promise.all([
       Promise.all(
         testWallets.map(async (wallet) => {
-          const authFields = await createEnclaveSession(wallet);
+          const authFields = await createEnclaveSession(wallet, CHAIN_ID);
           return getPrivateBalanceForToken(wallet, CHAIN_ID, ARC_TESTNET_USDC_ADDRESS, authFields);
         }),
       ),
@@ -58,16 +58,16 @@ describe(`transfer load test (${CONCURRENT_COUNT} concurrent wallets)`, () => {
 
     const txHashes = await Promise.all(
       testWallets.map(async (wallet) => {
-        const authFields = await createEnclaveSession(wallet);
+        const authFields = await createEnclaveSession(wallet, CHAIN_ID);
         return transferUsdc(wallet, CHAIN_ID, TRANSFER_AMOUNT, funderRecipientInfo, authFields);
       }),
     );
 
-    const funderAuthFieldsAfter = await createEnclaveSession(funder);
+    const funderAuthFieldsAfter = await createEnclaveSession(funder, CHAIN_ID);
     const [privateBalancesAfter, funderPrivateAfter] = await Promise.all([
       Promise.all(
         testWallets.map(async (wallet) => {
-          const authFields = await createEnclaveSession(wallet);
+          const authFields = await createEnclaveSession(wallet, CHAIN_ID);
           return getPrivateBalanceForToken(wallet, CHAIN_ID, ARC_TESTNET_USDC_ADDRESS, authFields);
         }),
       ),

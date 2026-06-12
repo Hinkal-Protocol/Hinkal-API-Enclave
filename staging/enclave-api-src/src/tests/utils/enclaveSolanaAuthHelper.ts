@@ -52,6 +52,7 @@ export const createEnclaveSolanaSession = async (
   const response = await httpClient.post<CreateSessionResponse>(`${ENCLAVE_API_URL}/create-session`, {
     ...authFields,
     address: wallet.address,
+    chainId: wallet.chainId,
   });
 
   if (response.success === false) {

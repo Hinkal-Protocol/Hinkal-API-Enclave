@@ -9,7 +9,7 @@ import { depositUsdtToPrivate, getTronUsdtBalance } from '../../utils/tronIntegr
 import { buildWithdrawAuthFieldsTron, createEnclaveSessionTron } from '../../utils/enclaveAuthHelperTron';
 import { fetchFeeStructure } from '../../utils/fetchFeeStructureTron';
 import { getPrivateBalanceForToken } from '../../utils/getPrivateBalanceTron';
-import { TRON_NILE_USDT_ADDRESS } from '../../utils/tronTestConstants';
+import { TRON_NILE_CHAIN_ID, TRON_NILE_USDT_ADDRESS } from '../../utils/tronTestConstants';
 import { getEnclaveTronTestWallet, type TronTestWallet } from '../../utils/tronTestWallet';
 import { tronRelayFee } from '../../utils/tronFeeHelpers';
 import { TxHashResponse } from '../../../types';
@@ -26,7 +26,7 @@ describe('withdraw route (Tron Nile)', () => {
   jest.setTimeout(300_000);
 
   it('returns tx hash and increases public USDT balance after withdrawing from private balance', async () => {
-    const authFields = await createEnclaveSessionTron(wallet.tronWeb, wallet.address);
+    const authFields = await createEnclaveSessionTron(wallet.tronWeb, wallet.address, TRON_NILE_CHAIN_ID);
 
     const feeStructure = await fetchFeeStructure(
       wallet,

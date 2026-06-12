@@ -33,7 +33,7 @@ describe('transfer route', () => {
   jest.setTimeout(300_000);
 
   it('returns tx hash after transferring USDC to a private recipient', async () => {
-    const authFields = await createEnclaveSession(wallet);
+    const authFields = await createEnclaveSession(wallet, CHAIN_ID);
 
     await depositUsdcToPrivate(wallet, CHAIN_ID, DEPOSIT_AMOUNT);
 

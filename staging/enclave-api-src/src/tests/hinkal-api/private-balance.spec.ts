@@ -19,7 +19,7 @@ describe('private-balance route', () => {
   jest.setTimeout(300_000);
 
   it('returns private balances and USDC balance is a valid non-negative amount', async () => {
-    const authFields = await createEnclaveSession(wallet);
+    const authFields = await createEnclaveSession(wallet, CHAIN_ID);
     const balances = await getPrivateBalance(wallet, CHAIN_ID, authFields);
 
     expect(Array.isArray(balances)).toBe(true);

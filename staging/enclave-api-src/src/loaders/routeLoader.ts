@@ -30,7 +30,6 @@ import waasBalances from '../routes/waas/waas-balance';
 import privateSend from '../routes/private-send';
 import withdrawStuckUtxos from '../routes/withdraw-stuck-utxos';
 import attestation from '../routes/attestation';
-import supported from '../routes/supported';
 
 export const loadRoutes = (app: Express) => {
   app.use(BASE_URL, ping);
@@ -48,7 +47,6 @@ export const loadRoutes = (app: Express) => {
   app.use(BASE_URL, withdraw);
   app.use(BASE_URL, transfer);
   app.use(BASE_URL, swap);
-  app.use(BASE_URL, supported);
 
   // PAL routes
   app.use(BASE_URL, palOrder);

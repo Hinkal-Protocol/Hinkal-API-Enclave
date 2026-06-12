@@ -37,7 +37,7 @@ describe('withdraw route', () => {
   jest.setTimeout(300_000);
 
   it('returns tx hash and increases public USDC balance after withdrawing from private balance', async () => {
-    const authFields = await createEnclaveSession(wallet);
+    const authFields = await createEnclaveSession(wallet, CHAIN_ID);
 
     await depositUsdcToPrivate(wallet, CHAIN_ID, DEPOSIT_AMOUNT);
 

@@ -26,7 +26,7 @@ describe('proofless-deposit route', () => {
   jest.setTimeout(300_000);
 
   it('returns tx calldata, approves, broadcasts, and moves USDC from public to private balance', async () => {
-    const authFields = await createEnclaveSession(wallet);
+    const authFields = await createEnclaveSession(wallet, CHAIN_ID);
     const balanceBefore: bigint = await getUsdcBalance();
     const privateBalanceBefore = await getPrivateBalanceForToken(
       wallet,

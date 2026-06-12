@@ -34,12 +34,14 @@ export const buildEnclaveAuthFieldsTron = (
 export const createEnclaveSessionTron = async (
   tronWeb: TronWeb,
   tronAddress: string,
+  chainId: number,
   options?: { writeAccess?: boolean },
 ): Promise<EnclaveAuthFields> => {
   const authFields = buildEnclaveAuthFieldsTron(tronWeb, options);
   const response = await httpClient.post<CreateSessionResponse>(`${ENCLAVE_API_URL}/create-session`, {
     ...authFields,
     address: tronAddress,
+    chainId,
   });
 
   if (response.success === false) {
