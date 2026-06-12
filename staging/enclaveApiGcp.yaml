@@ -105,31 +105,18 @@ jobs:
           git commit -m "deploy: ${{ env.DEPLOYMENT_MODE }} ${{ github.sha }}"
           git push
 
-      - name: Create GitHub release (staging)
-        if: env.DEPLOYMENT_MODE == 'staging'
+      - name: Create GitHub release (production)
+        if: env.DEPLOYMENT_MODE == 'production'
         env:
           GH_TOKEN: ${{ secrets.ATTESTATIONS_REPO_TOKEN }}
         run: |
-          TAG="staging-$(echo '${{ github.sha }}' | cut -c1-7)"
+          TAG="v$(date +%Y%m%d)-$(echo '${{ github.sha }}' | cut -c1-7)"
           gh release create "$TAG" \
             --repo Hinkal-Protocol/Hinkal-API-Enclave \
-            --title "Staging deploy ${TAG}" \
+            --title "Production deploy ${TAG}" \
             --notes "Source commit: ${{ github.sha }}" \
             "attestations-repo/${{ env.DEPLOYMENT_MODE }}/digest.txt" \
             "attestations-repo/${{ env.DEPLOYMENT_MODE }}/bundle.json"
-
-      # - name: Create GitHub release (production)
-      #   if: env.DEPLOYMENT_MODE == 'production'
-      #   env:
-      #     GH_TOKEN: ${{ secrets.ATTESTATIONS_REPO_TOKEN }}
-      #   run: |
-      #     TAG="v$(date +%Y%m%d)-$(echo '${{ github.sha }}' | cut -c1-7)"
-      #     gh release create "$TAG" \
-      #       --repo Hinkal-Protocol/Hinkal-API-Enclave \
-      #       --title "Production deploy ${TAG}" \
-      #       --notes "Source commit: ${{ github.sha }}" \
-      #       "attestations-repo/${{ env.DEPLOYMENT_MODE }}/digest.txt" \
-      #       "attestations-repo/${{ env.DEPLOYMENT_MODE }}/bundle.json"
 
   deploy-enclave-api:
     needs: build-enclave-api
