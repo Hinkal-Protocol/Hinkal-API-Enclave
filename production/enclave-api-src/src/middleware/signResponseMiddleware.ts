@@ -6,12 +6,17 @@ export const signResponseMiddleware = (req: Request, res: Response, next: NextFu
   const originalJson = res.json.bind(res);
   res.json = (body: unknown) => {
     try {
-      const nonce = (req.body as Record<string, unknown>)?.nonce ?? req.query?.nonce;
-      const enrichedBody =
-        nonce && typeof body === 'object' && body !== null ? { ...(body as Record<string, unknown>), nonce } : body;
-      const responseBody = JSON.stringify(enrichedBody);
+      const reqBody = req.body as Record<string, unknown>;
+      const nonce = reqBody?.requestId ?? reqBody?.nonce ?? req.query?.requestId ?? req.query?.nonce;
+
+      const enriched =
+        nonce && typeof body === 'object' && body !== null
+          ? { ...(body as Record<string, unknown>), nonce, timestamp: Date.now() }
+          : body;
+
+      const responseBody = JSON.stringify(enriched);
       res.setHeader('X-Hinkal-Signature', signResponseBody(responseBody));
-      return originalJson(enrichedBody);
+      return originalJson(enriched);
     } catch (err) {
       Logger.error('[signResponseMiddleware] failed to sign response:');
       return originalJson(body);

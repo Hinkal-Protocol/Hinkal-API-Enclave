@@ -1,4 +1,7 @@
-import { Response } from 'express';
+import { createHash } from 'crypto';
+import { Request, Response } from 'express';
+import { secp256k1 } from '@noble/curves/secp256k1';
+import { consumeRequestId } from '../models/RequestIdSchema';
 import { HINKAL_SUPPORTED_CHAINS } from '@hinkal/common';
 import { buildEnclaveSignMessage, EnclaveSessionAccess } from '../constants';
 import {
@@ -130,4 +133,49 @@ export const isActiveWriteSessionForRequest = (
   const { address } = request;
 
   return isEnclaveNonceSessionActive(session) && session.hasWriteAccess && session.address === address;
+};
+
+export const verifySecp256k1Signature = (payload: string, signatureHex: string, publicKeyHex: string): boolean => {
+  try {
+    const msgHash = createHash('sha256').update(payload).digest();
+    const sigBytes = new Uint8Array(Buffer.from(signatureHex, 'hex'));
+    const pubKeyBytes = new Uint8Array(Buffer.from(publicKeyHex, 'hex'));
+    return secp256k1.verify(sigBytes, msgHash, pubKeyBytes);
+  } catch {
+    return false;
+  }
+};
+
+const getRawBody = (req: Request): string => {
+  if (req.method === 'GET') {
+    return req.url.split('?')[1] ?? '';
+  }
+  return (req as Request & { rawBody?: string }).rawBody ?? JSON.stringify(req.body);
+};
+
+export const verifyWithKeyRequest = async (req: Request, res: Response, publicKey: string): Promise<boolean> => {
+  const requestSignature = req.headers['x-request-signature'];
+  if (typeof requestSignature !== 'string' || !requestSignature) {
+    res.status(401).json({ error: 'Missing X-Request-Signature header' });
+    return false;
+  }
+
+  if (!verifySecp256k1Signature(getRawBody(req), requestSignature, publicKey)) {
+    res.status(401).json({ error: 'Invalid request signature' });
+    return false;
+  }
+
+  return true;
+};
+
+export const consumeRequestIdOrRespond = async (req: Request, res: Response): Promise<boolean> => {
+  const { requestId } = { ...req.query, ...req.body } as Record<string, unknown>;
+  if (typeof requestId !== 'string' || !requestId) return true;
+  const consumed = await consumeRequestId(requestId);
+  if (!consumed) {
+    res.status(409).json({ error: 'requestId already used' });
+    return false;
+  }
+
+  return true;
 };

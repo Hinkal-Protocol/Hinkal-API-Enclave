@@ -23,6 +23,7 @@ router.post(
         success: true,
         expiresAt: session.expiresAt.toISOString(),
         hasWriteAccess: session.hasWriteAccess,
+        ...(session.publicKey && { publicKey: session.publicKey }),
       });
     } catch (error) {
       res.status(500).json({ success: false, error: getErrorMessage(error) });

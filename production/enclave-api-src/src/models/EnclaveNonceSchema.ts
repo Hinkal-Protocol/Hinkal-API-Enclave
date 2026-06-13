@@ -8,6 +8,7 @@ const EnclaveNonceSchema = new Schema({
   expiresAt: { type: Date, required: true },
   hasWriteAccess: { type: Boolean, default: false },
   address: { type: String },
+  publicKey: { type: String },
 });
 
 EnclaveNonceSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
@@ -27,12 +28,15 @@ export type EnclaveNonceSession = {
   expiresAt: Date;
   hasWriteAccess: boolean;
   address?: string;
+  publicKey?: string;
 };
 
 type OpenEnclaveSessionParams = {
   nonce: string;
   address: string;
   hasWriteAccess: boolean;
+  publicKey?: string;
+  expiresAt?: Date;
 };
 
 const toSession = (doc: {
@@ -40,11 +44,13 @@ const toSession = (doc: {
   expiresAt: Date;
   hasWriteAccess?: boolean;
   address?: string | null;
+  publicKey?: string | null;
 }): EnclaveNonceSession => ({
   nonce: doc.nonce,
   expiresAt: doc.expiresAt,
   hasWriteAccess: doc.hasWriteAccess ?? false,
   address: doc.address ?? undefined,
+  publicKey: doc.publicKey ?? undefined,
 });
 
 export const isEnclaveNonceSessionActive = (session: EnclaveNonceSession): boolean => session.expiresAt > new Date();
@@ -71,7 +77,10 @@ export const openEnclaveSession = async (params: OpenEnclaveSessionParams): Prom
     return isSameSession ? EnclaveNonceValidationResult.VALID : EnclaveNonceValidationResult.CONFLICT;
   }
 
-  const expiresAt = new Date(now.getTime() + ENCLAVE_SESSION_EXPIRATION_MS);
+  const expiresAt =
+    params.expiresAt && params.expiresAt > now
+      ? params.expiresAt
+      : new Date(now.getTime() + ENCLAVE_SESSION_EXPIRATION_MS);
 
   try {
     await EnclaveNonceModel.create({
@@ -79,6 +88,7 @@ export const openEnclaveSession = async (params: OpenEnclaveSessionParams): Prom
       expiresAt,
       hasWriteAccess: params.hasWriteAccess,
       address: params.address,
+      publicKey: params.publicKey,
     });
     return EnclaveNonceValidationResult.VALID;
   } catch (err: unknown) {

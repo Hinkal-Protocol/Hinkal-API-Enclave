@@ -4,6 +4,7 @@ import {
   parseSignatureRequest,
   validateExistingSessionOrRespond,
   verifyEnclaveSessionSignature,
+  verifyWithKeyRequest,
 } from './signatureMiddlewareUtils';
 
 export const verifySignatureMiddleware = async (req: Request, res: Response, next: NextFunction) => {
@@ -17,6 +18,13 @@ export const verifySignatureMiddleware = async (req: Request, res: Response, nex
     const request = parsed.value;
     const session = await validateExistingSessionOrRespond(request, res);
     if (!session) {
+      return;
+    }
+
+    if (session.publicKey) {
+      const ok = await verifyWithKeyRequest(req, res, session.publicKey);
+      if (!ok) return;
+      next();
       return;
     }
 
