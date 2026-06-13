@@ -154,6 +154,7 @@ export type CreateSessionResponse =
       success: true;
       expiresAt: string;
       hasWriteAccess: boolean;
+      publicKey?: string;
     }
   | FailedResponse;
 

@@ -13,13 +13,20 @@ import { DB_URI_ENCRYPTED, DEPLOYMENT_MODE, PORT } from './constants';
 import { cryptoHelper } from './crypto';
 import { loadRoutes } from './loaders/routeLoader';
 import { enclaveDepositListenerService } from './services/EnclaveDepositListenerService';
-
 import { generateProof } from './utils/generateProof';
 import { decryptUtxosDirect } from './utils/decryptUtxosDirect';
 
 const app = express();
 
-app.use(json({ limit: '10mb' }));
+app.use(
+  json({
+    limit: '10mb',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    verify: (req: any, _res, buf) => {
+      req.rawBody = buf.toString('utf8');
+    },
+  }),
+);
 app.use(cors({ exposedHeaders: ['X-Hinkal-Signature'] }));
 app.use(express.text({ type: '*/*', limit: '50mb' }));
 

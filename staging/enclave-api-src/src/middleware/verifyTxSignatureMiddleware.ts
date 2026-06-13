@@ -32,10 +32,12 @@ import {
 } from '../utils/enclaveTypedDataAuthBody';
 import { getEnclaveNonceSession } from '../models/EnclaveNonceSchema';
 import {
+  consumeRequestIdOrRespond,
   isActiveWriteSessionForRequest,
   parseSignatureRequest,
   registerTxNonceOrRespond,
   verifyEnclaveSessionSignature,
+  verifyWithKeyRequest,
 } from './signatureMiddlewareUtils';
 import { EnclaveTypedDataPayload, ParsedSignatureRequest, ParseResult } from '../types';
 
@@ -66,13 +68,22 @@ const verifyRequestSignature = async (
   return { ok: true, value: isValid };
 };
 
-const tryVerifyWriteSessionSignature = async (res: Response, request: ParsedSignatureRequest): Promise<boolean> => {
-  const session = await getEnclaveNonceSession(request.nonce);
-  if (!session || !isActiveWriteSessionForRequest(session, request)) {
+const tryVerifyWriteSessionSignature = async (
+  req: Request,
+  res: Response,
+  parsedRequest: ParsedSignatureRequest,
+): Promise<boolean> => {
+  const session = await getEnclaveNonceSession(parsedRequest.nonce);
+  if (!session || !isActiveWriteSessionForRequest(session, parsedRequest)) {
     return false;
   }
 
-  const isValid = await verifyEnclaveSessionSignature(request, EnclaveSessionAccess.Write);
+  if (session.publicKey) {
+    await verifyWithKeyRequest(req, res, session.publicKey);
+    return true;
+  }
+
+  const isValid = await verifyEnclaveSessionSignature(parsedRequest, EnclaveSessionAccess.Write);
   if (!isValid) {
     res.status(401).json({ error: 'Invalid signature' });
     return true;
@@ -94,9 +105,11 @@ export const createVerifyTypedDataSignatureMiddleware = (
         return;
       }
 
-      const request = parsed.value;
+      const parsedRequest = parsed.value;
 
-      const usedWriteSession = await tryVerifyWriteSessionSignature(res, request);
+      if (!(await consumeRequestIdOrRespond(req, res))) return;
+
+      const usedWriteSession = await tryVerifyWriteSessionSignature(req, res, parsedRequest);
       if (usedWriteSession) {
         if (res.headersSent) {
           return;
@@ -107,7 +120,7 @@ export const createVerifyTypedDataSignatureMiddleware = (
 
       const signatureVerificationResult = await verifyRequestSignature(
         body,
-        request,
+        parsedRequest,
         buildTypedData,
         buildSolanaMessage,
       );
@@ -121,7 +134,7 @@ export const createVerifyTypedDataSignatureMiddleware = (
         return;
       }
 
-      const isNonceValid = await registerTxNonceOrRespond(request.nonce, res);
+      const isNonceValid = await registerTxNonceOrRespond(parsedRequest.nonce, res);
       if (!isNonceValid) {
         return;
       }

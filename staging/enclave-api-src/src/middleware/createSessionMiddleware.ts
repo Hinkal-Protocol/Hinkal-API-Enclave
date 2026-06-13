@@ -1,17 +1,27 @@
 import { NextFunction, Request, Response } from 'express';
 import { EnclaveSessionAccess } from '../constants';
 import { EnclaveNonceValidationResult, openEnclaveSession } from '../models/EnclaveNonceSchema';
-import { parseSessionRequest, verifyEnclaveSessionSignature } from './signatureMiddlewareUtils';
+import {
+  consumeRequestIdOrRespond,
+  parseSessionRequest,
+  verifyEnclaveSessionSignature,
+  verifyWithKeyRequest,
+} from './signatureMiddlewareUtils';
 
 export const createSessionMiddleware = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const parsed = parseSessionRequest({ ...req.query, ...req.body } as Record<string, unknown>);
+    const body = { ...req.query, ...req.body } as Record<string, unknown>;
+    const parsed = parseSessionRequest(body);
     if (parsed.ok === false) {
       res.status(400).json({ error: parsed.error });
       return;
     }
 
     const request = parsed.value;
+    const publicKey =
+      request.writeAccess && typeof body.publicKey === 'string' && body.publicKey ? body.publicKey : undefined;
+    const expiresAt = typeof body.expiresAt === 'string' && body.expiresAt ? new Date(body.expiresAt) : undefined;
+
     const access = request.writeAccess ? EnclaveSessionAccess.Write : EnclaveSessionAccess.Read;
     const isValid = await verifyEnclaveSessionSignature(request, access);
 
@@ -20,10 +30,19 @@ export const createSessionMiddleware = async (req: Request, res: Response, next:
       return;
     }
 
+    if (publicKey) {
+      const ok = await verifyWithKeyRequest(req, res, publicKey);
+      if (!ok) return;
+    }
+
+    if (!(await consumeRequestIdOrRespond(req, res))) return;
+
     const nonceResult = await openEnclaveSession({
       nonce: request.nonce,
       address: request.address,
       hasWriteAccess: request.writeAccess,
+      publicKey,
+      expiresAt,
     });
 
     if (nonceResult === EnclaveNonceValidationResult.EXPIRED) {
