@@ -8,6 +8,7 @@ import {
 } from '../models/DepositAndWithdrawOrderSchema';
 import { hinkalInitializerService } from './hinkalInitializerService';
 import { publicDoc, replaceSignedDoc, verifyRawDoc } from '../utils/documentSigning';
+import { liveChainStateService } from '@hinkal/backend-common';
 
 const ORDER_LABEL = 'deposit-and-withdraw order';
 
@@ -60,6 +61,7 @@ class EnclaveWithdrawDispatcherService {
     };
 
     try {
+      await liveChainStateService.syncNow(event.chainId);
       await this.dispatchWithdraw(confirmedOrder);
     } catch (err) {
       const failureReason = extractMessage(err) ?? String(err);
