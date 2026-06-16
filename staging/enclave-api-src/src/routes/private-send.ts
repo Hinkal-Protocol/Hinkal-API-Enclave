@@ -3,7 +3,6 @@ import { verifyDepositAndWithdrawSignatureMiddleware } from '../middleware';
 import { DepositAndWithdrawRequest, DepositAndWithdrawResponse } from '../types';
 import {
   ExternalActionId,
-  getERC20Token,
   getErrorMessage,
   getFeeStructure,
   hinkalPalEvmDepositPrepare,
@@ -22,6 +21,7 @@ import { sealDocument } from '../utils/documentSigning';
 import { enclaveDepositDispatcherService } from '../services/EnclaveWithdrawDispatcherService';
 import { resolveDepositAndWithdrawScheduleStatus } from '../services/resolveDepositAndWithdrawScheduleStatus';
 import { resolveDepositAndWithdrawPublicStatus } from '../utils/resolveDepositAndWithdrawPublicStatus';
+import { getERC20Token } from '@hinkal/erc20-registry';
 
 const router = Router();
 

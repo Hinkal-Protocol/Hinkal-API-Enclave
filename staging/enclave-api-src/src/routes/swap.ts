@@ -1,10 +1,11 @@
 import { Request, Response, Router } from 'express';
-import { getERC20Token, getErrorMessage, isSolanaLike, Logger } from '@hinkal/common';
+import { getErrorMessage, isSolanaLike, Logger } from '@hinkal/common';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { getBestSwapQuote } from '../services/getBestSwapQuote';
 import { GetSwapDataRequest, GetSwapDataResponse, SwapRequest, TxHashResponse } from '../types/route.types';
 import { parseFeeStructure } from '../utils/parseFeeStructure';
 import { verifySignatureMiddleware, verifySwapSignatureMiddleware } from '../middleware';
+import { getERC20Token } from '@hinkal/erc20-registry';
 
 const router = Router();
 

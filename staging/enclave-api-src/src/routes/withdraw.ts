@@ -1,9 +1,10 @@
 import { Request, Response, Router } from 'express';
-import { getERC20Token, getErrorMessage, isSolanaLike } from '@hinkal/common';
+import { getErrorMessage, isSolanaLike } from '@hinkal/common';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { TxHashResponse, WithdrawRequest } from '../types/route.types';
 import { parseFeeStructure } from '../utils/parseFeeStructure';
 import { verifyWithdrawSignatureMiddleware } from '../middleware';
+import { getERC20Token } from '@hinkal/erc20-registry';
 
 const router = Router();
 

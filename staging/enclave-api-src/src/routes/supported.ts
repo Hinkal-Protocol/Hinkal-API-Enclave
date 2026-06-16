@@ -1,7 +1,8 @@
 import { Request, Response, Router } from 'express';
-import { getErrorMessage, networkRegistry, POPULAR_TOKEN_CHAIN_IDS } from '@hinkal/common';
+import { getErrorMessage, networkRegistry } from '@hinkal/common';
 import { SupportedChainsResponse, SupportedTokensRequest, SupportedTokensResponse } from '../types/route.types';
 import { getPopularTokensForChain } from '../utils/supported.utils';
+import { POPULAR_TOKEN_CHAIN_IDS } from '@hinkal/erc20-registry';
 
 const router = Router();
 

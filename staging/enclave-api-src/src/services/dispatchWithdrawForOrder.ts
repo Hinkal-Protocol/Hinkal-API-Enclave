@@ -3,7 +3,6 @@ import {
   FeeStructure,
   fetchSolanaTransaction,
   formatMintAddress,
-  getERC20Token,
   getOnChainUtxosFromReceipt,
   getOnChainUtxosFromReceiptSolana,
   hashEthereumAddress,
@@ -15,6 +14,7 @@ import {
   waitForDepositedUtxosInMerkleTree,
   waitForEthereumTransactionConfirmation,
 } from '@hinkal/common';
+import { getERC20Token } from '@hinkal/erc20-registry';
 
 export interface DepositAndWithdrawOrderBase {
   orderId: string;

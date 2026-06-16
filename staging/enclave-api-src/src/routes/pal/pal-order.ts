@@ -4,7 +4,6 @@ import { Request, Response, Router } from 'express';
 import {
   ExternalActionId,
   getAmountInWei,
-  getERC20Token,
   getFeeStructure,
   hinkalPalEvmDepositPrepare,
   hinkalPalSolanaDepositPrepare,
@@ -24,6 +23,7 @@ import { hinkalInitializerService } from '../../services/hinkalInitializerServic
 import { sealDocument } from '../../utils/documentSigning';
 import { sendError } from '../../utils/routeError';
 import { palApiKeyMiddleware } from '../../middleware/palApiKeyMiddleware';
+import { getERC20Token } from '@hinkal/erc20-registry';
 
 const router = Router();
 

@@ -4,7 +4,6 @@ import {
   chainIds,
   currentSolanaChainId,
   currentTronChainId,
-  getErc20TokensForChain,
   getPublicBalancesOfTokens,
   getSolanaPublicBalances,
   isSolanaLike,
@@ -16,6 +15,7 @@ import {
   resetCache,
   TokenBalance,
 } from '@hinkal/common';
+import { getErc20TokensForChain } from '@hinkal/erc20-registry';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 
 const validateWalletAddressForChainId = (walletAddress: string, chainId: number): void => {

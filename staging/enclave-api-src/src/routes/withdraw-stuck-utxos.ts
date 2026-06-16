@@ -1,8 +1,9 @@
 import { Request, Response, Router } from 'express';
-import { getERC20Token, getErrorMessage } from '@hinkal/common';
+import { getErrorMessage } from '@hinkal/common';
 import { verifyWithdrawStuckUtxosSignatureMiddleware } from '../middleware';
 import { WithdrawStuckUtxosRequest } from '../types';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
+import { getERC20Token } from '@hinkal/erc20-registry';
 
 const router = Router();
 

@@ -1,4 +1,5 @@
-import { ERC20Token, getERC20Registry, POPULAR_TOKEN_ADDRESSES_BY_CHAIN } from '@hinkal/common';
+import { ERC20Token } from '@hinkal/common';
+import { getERC20Registry, POPULAR_TOKEN_ADDRESSES_BY_CHAIN } from '@hinkal/erc20-registry';
 
 export const getPopularTokensForChain = (chainId: number): ERC20Token[] => {
   const addresses = POPULAR_TOKEN_ADDRESSES_BY_CHAIN[chainId];

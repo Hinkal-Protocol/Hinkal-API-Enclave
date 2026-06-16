@@ -1,4 +1,5 @@
-import { ERC20Token, getERC20Token } from '@hinkal/common';
+import { ERC20Token } from '@hinkal/common';
+import { getERC20Token } from '@hinkal/erc20-registry';
 
 export type ValidateTokensResult = { ok: true; tokens: ERC20Token[] } | { ok: false; error: string };
 
