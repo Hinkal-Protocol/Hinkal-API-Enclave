@@ -29,18 +29,17 @@ router.post(
         return;
       }
 
-      const hinkal = await hinkalInitializerService.initalizeHinkalForAddress(address, chainId);
-
       const resolvedFeeToken = isSolanaLike(chainId) ? tokenAddresses[0] : feeToken;
-
-      const txData = await hinkal.withdraw(
-        erc20Tokens,
-        amounts.map((amount) => -1n * BigInt(amount)),
-        recipientAddress,
-        false,
-        resolvedFeeToken,
-        parseFeeStructure(feeStructure),
-      );
+      const txData = await hinkalInitializerService.withHinkalForAddress(address, chainId, async (hinkal) => {
+        return hinkal.withdraw(
+          erc20Tokens,
+          amounts.map((amount) => -1n * BigInt(amount)),
+          recipientAddress,
+          false,
+          resolvedFeeToken,
+          parseFeeStructure(feeStructure),
+        );
+      });
 
       const txHash = typeof txData === 'string' ? txData : txData.hash;
 

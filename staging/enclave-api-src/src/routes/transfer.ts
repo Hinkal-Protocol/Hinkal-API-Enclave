@@ -29,17 +29,16 @@ router.post(
         return;
       }
 
-      const hinkal = await hinkalInitializerService.initalizeHinkalForAddress(address, chainId);
-
       const resolvedFeeToken = isSolanaLike(chainId) ? tokenAddresses[0] : feeToken;
-
-      const txHash = await hinkal.transfer(
-        erc20Tokens,
-        amounts.map((amount) => -1n * BigInt(amount)),
-        recipientAddress,
-        resolvedFeeToken,
-        parseFeeStructure(feeStructure),
-      );
+      const txHash = await hinkalInitializerService.withHinkalForAddress(address, chainId, async (hinkal) => {
+        return hinkal.transfer(
+          erc20Tokens,
+          amounts.map((amount) => -1n * BigInt(amount)),
+          recipientAddress,
+          resolvedFeeToken,
+          parseFeeStructure(feeStructure),
+        );
+      });
 
       res.status(200).json({ success: true, txHash });
     } catch (error) {

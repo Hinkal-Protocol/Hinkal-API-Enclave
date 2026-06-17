@@ -20,12 +20,17 @@ const toRaw = (order: DepositAndWithdrawOrder & { _id: mongoose.Types.ObjectId }
 class EnclaveWithdrawDispatcherService {
   async dispatchWithdraw(order: DepositAndWithdrawOrder & { _id: mongoose.Types.ObjectId }): Promise<void> {
     if (!order.txHash) throw new Error(`Order ${order.orderId} missing txHash`);
+    const { txHash } = order;
 
-    const hinkal = await hinkalInitializerService.initalizeHinkalForAddress(order.senderAddress, order.chainId);
-
-    const scheduleId = isSolanaLike(order.chainId)
-      ? await dispatchSolanaWithdrawForOrder(hinkal, { ...order, txHash: order.txHash })
-      : await dispatchEvmWithdrawForOrder(hinkal, { ...order, txHash: order.txHash });
+    const scheduleId = await hinkalInitializerService.withHinkalForAddress(
+      order.senderAddress,
+      order.chainId,
+      async (hinkal) => {
+        return isSolanaLike(order.chainId)
+          ? dispatchSolanaWithdrawForOrder(hinkal, { ...order, txHash })
+          : dispatchEvmWithdrawForOrder(hinkal, { ...order, txHash });
+      },
+    );
 
     await replaceSignedDoc(
       DepositAndWithdrawOrderModel.collection,

@@ -13,10 +13,9 @@ router.get(
     try {
       const { address, chainId } = req.query;
       const chainIdNum = Number(chainId);
-
-      const hinkal = await hinkalInitializerService.initalizeHinkalForAddress(address, chainIdNum);
-
-      const recipientInfo = hinkal.getRecipientInfo();
+      const recipientInfo = await hinkalInitializerService.withHinkalForAddress(address, chainIdNum, async (hinkal) => {
+        return hinkal.getRecipientInfo();
+      });
 
       res.status(200).json({ success: true, recipientInfo });
     } catch (error) {

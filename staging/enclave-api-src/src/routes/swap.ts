@@ -37,20 +37,19 @@ router.post(
         return;
       }
 
-      const hinkal = await hinkalInitializerService.initalizeHinkalForAddress(address, chainId);
-
       const resolvedFeeToken = isSolanaLike(chainId) ? tokenAddresses[1] : feeToken;
 
       const resolvedFeeStructure = parseFeeStructure(feeStructure);
-
-      const txHash = await hinkal.swap(
-        erc20Tokens,
-        amounts.map(BigInt),
-        externalActionId,
-        swapData,
-        resolvedFeeToken,
-        resolvedFeeStructure,
-      );
+      const txHash = await hinkalInitializerService.withHinkalForAddress(address, chainId, async (hinkal) => {
+        return hinkal.swap(
+          erc20Tokens,
+          amounts.map(BigInt),
+          externalActionId,
+          swapData,
+          resolvedFeeToken,
+          resolvedFeeStructure,
+        );
+      });
 
       res.status(200).json({ success: true, txHash });
     } catch (error) {
@@ -84,18 +83,25 @@ router.get('/get-swap-data', verifySignatureMiddleware, async (req: Request, res
       return;
     }
 
-    const hinkal = isSolanaLike(chainId)
-      ? null
-      : await hinkalInitializerService.initalizeHinkalForAddress(address, chainId);
-
-    const { swapData, externalActionId, outSwapAmount } = await getBestSwapQuote({
-      hinkal,
-      chainId,
-      inSwapToken,
-      outSwapToken,
-      inSwapAmount: amount,
-      slippagePercentage,
-    });
+    const { swapData, externalActionId, outSwapAmount } = isSolanaLike(chainId)
+      ? await getBestSwapQuote({
+          hinkal: null,
+          chainId,
+          inSwapToken,
+          outSwapToken,
+          inSwapAmount: amount,
+          slippagePercentage,
+        })
+      : await hinkalInitializerService.withHinkalForAddress(address, chainId, async (hinkal) => {
+          return getBestSwapQuote({
+            hinkal,
+            chainId,
+            inSwapToken,
+            outSwapToken,
+            inSwapAmount: amount,
+            slippagePercentage,
+          });
+        });
 
     res.status(200).json({
       success: true,

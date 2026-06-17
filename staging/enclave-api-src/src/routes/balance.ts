@@ -14,10 +14,9 @@ router.get(
     try {
       const { address, chainId } = req.query;
       const chainIdNum = Number(chainId);
-
-      const hinkal = await hinkalInitializerService.initalizeHinkalForAddress(address, chainIdNum);
-
-      const balances = await hinkal.getTotalBalance(chainIdNum, undefined, undefined, false, true);
+      const balances = await hinkalInitializerService.withHinkalForAddress(address, chainIdNum, async (hinkal) => {
+        return hinkal.getTotalBalance(chainIdNum, undefined, undefined, false, true);
+      });
 
       res.status(200).json({
         success: true,
@@ -40,10 +39,9 @@ router.get(
     try {
       const { address, chainId } = req.query;
       const chainIdNum = Number(chainId);
-
-      const hinkal = await hinkalInitializerService.initalizeHinkalForAddress(address, chainIdNum);
-
-      const balances = await hinkal.getTotalBalance(chainIdNum, undefined, undefined, false, true, true);
+      const balances = await hinkalInitializerService.withHinkalForAddress(address, chainIdNum, async (hinkal) => {
+        return hinkal.getTotalBalance(chainIdNum, undefined, undefined, false, true, true);
+      });
 
       res.status(200).json({
         success: true,

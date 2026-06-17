@@ -38,9 +38,10 @@ router.get(
 
       let solanaTransactionParams: { mintTo: string; mintFrom?: string; nullifierCount: number } | undefined;
       if (isSolanaLike(chainId) && address && amounts) {
-        const hinkal = await hinkalInitializerService.initalizeHinkalForAddress(address, chainId);
         const amountChanges = amounts.map((a) => -1n * BigInt(a));
-        const nullifierCount = await calculateSolanaNullifierCount(hinkal, chainId, tokenAddresses, amountChanges);
+        const nullifierCount = await hinkalInitializerService.withHinkalForAddress(address, chainId, async (hinkal) => {
+          return calculateSolanaNullifierCount(hinkal, chainId, tokenAddresses, amountChanges);
+        });
         solanaTransactionParams = { mintTo: feeToken ?? tokenAddresses[0], mintFrom, nullifierCount };
       }
 

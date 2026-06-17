@@ -20,9 +20,9 @@ router.post(
         return;
       }
 
-      const hinkal = await hinkalInitializerService.initalizeHinkalForAddress(address, chainId);
-
-      const txHashes = await hinkal.withdrawStuckUtxos(token, recipientAddress);
+      const txHashes = await hinkalInitializerService.withHinkalForAddress(address, chainId, async (hinkal) => {
+        return hinkal.withdrawStuckUtxos(token, recipientAddress);
+      });
 
       res.status(200).json({ success: true, txHashes });
     } catch (error) {
