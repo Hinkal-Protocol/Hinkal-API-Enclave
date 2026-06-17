@@ -31,14 +31,14 @@ class HinkalInitializerService {
   };
 
   async initalizeHinkalForAddress(ethereumAddress: string, chainId: number) {
-    console.log('1', new Date().toISOString());
+    console.log('1', new Date().toISOString(), ethereumAddress, chainId);
     let userKey = await userKeysService.findByEthereumAddress(ethereumAddress);
     if (!userKey) userKey = await userKeysService.createAndStorePrivateKey(ethereumAddress);
     const hinkal = new Hinkal<unknown>({ useFileCache: true });
     const { wallet, providerAdapter } = buildVoidProviderAdapter(chainId, ethereumAddress);
-    console.log('2', new Date().toISOString());
+    console.log('2', new Date().toISOString(), ethereumAddress, chainId);
     await this.finalizeHinkalInit(hinkal, wallet, providerAdapter, chainId, userKey);
-    console.log('3', new Date().toISOString());
+    console.log('3', new Date().toISOString(), ethereumAddress, chainId);
     return hinkal;
   }
 
