@@ -9,6 +9,7 @@ export enum EnclaveSessionAccess {
   Write = 'write',
 }
 
+// buildEnclaveSignMessage
 export const buildEnclaveSignMessage = (
   sessionId: string,
   access: EnclaveSessionAccess = EnclaveSessionAccess.Read,
