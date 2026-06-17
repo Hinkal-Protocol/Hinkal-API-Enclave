@@ -46,15 +46,16 @@ export const ensureRecipientInfoPoolForApi = async (
   signerPublicKey: string,
   chainId: number,
 ): Promise<void> => {
-  const hinkal = await hinkalInitializerService.initHinkalForOrganization(
+  const recipientInfos = await hinkalInitializerService.withHinkalForOrganization(
     organizationId,
     userId,
     signerPublicKey,
     walletAddress,
     chainId,
+    async (hinkal) => {
+      return Array.from({ length: RECIPIENT_INFO_TARGET_POOL_SIZE }, () => hinkal.getRecipientInfo());
+    },
   );
-
-  const recipientInfos = Array.from({ length: RECIPIENT_INFO_TARGET_POOL_SIZE }, () => hinkal.getRecipientInfo());
 
   const hashedEthereumAddress = hashEthereumAddress(walletAddress);
 

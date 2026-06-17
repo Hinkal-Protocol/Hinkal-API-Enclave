@@ -3,7 +3,6 @@ import { verifyDepositAndWithdrawSignatureMiddleware } from '../middleware';
 import { DepositAndWithdrawRequest, DepositAndWithdrawResponse } from '../types';
 import {
   ExternalActionId,
-  getERC20Token,
   getErrorMessage,
   getFeeStructure,
   hinkalPalEvmDepositPrepare,
@@ -22,6 +21,7 @@ import { sealDocument } from '../utils/documentSigning';
 import { enclaveDepositDispatcherService } from '../services/EnclaveWithdrawDispatcherService';
 import { resolveDepositAndWithdrawScheduleStatus } from '../services/resolveDepositAndWithdrawScheduleStatus';
 import { resolveDepositAndWithdrawPublicStatus } from '../utils/resolveDepositAndWithdrawPublicStatus';
+import { getERC20Token } from '@hinkal/erc20-registry';
 
 const router = Router();
 
@@ -53,7 +53,6 @@ router.post(
       const recipientAmounts = recipients.map((r) => BigInt(r.amount));
       const totalRecipientAmount = recipientAmounts.reduce((sum, a) => sum + a, 0n);
       const orderId = crypto.randomUUID();
-      const hinkal = await hinkalInitializerService.initalizeHinkalForAddress(address, chainId);
 
       const feeStructure = await getFeeStructure(
         chainId,
@@ -67,47 +66,58 @@ router.post(
           : undefined,
       );
 
-      let serializedTx: string;
-      let utxoAmounts: bigint[];
+      const { serializedTx, utxoAmounts } = await hinkalInitializerService.withHinkalForAddress(
+        address,
+        chainId,
+        async (hinkal) => {
+          if (isSolanaLike(chainId)) {
+            const result = await hinkalPalSolanaDepositPrepare(
+              hinkal,
+              chainId,
+              token,
+              recipientAmounts,
+              feeStructure,
+              orderId,
+            );
+            return {
+              serializedTx: Buffer.from(result.unsignedTx.serialize()).toString('base64'),
+              utxoAmounts: result.utxoAmounts,
+            };
+          }
 
-      if (isSolanaLike(chainId)) {
-        const result = await hinkalPalSolanaDepositPrepare(
-          hinkal,
-          chainId,
-          token,
-          recipientAmounts,
-          feeStructure,
-          orderId,
-        );
-        serializedTx = Buffer.from(result.unsignedTx.serialize()).toString('base64');
-        utxoAmounts = result.utxoAmounts;
-      } else if (isTronLike(chainId)) {
-        const result = await hinkalPalTronDepositPrepare(
-          hinkal,
-          chainId,
-          token,
-          recipientAmounts,
-          feeStructure,
-          orderId,
-        );
-        serializedTx = Buffer.from(JSON.stringify(result.unsignedTx)).toString('base64');
-        utxoAmounts = result.utxoAmounts;
-      } else {
-        const result = await hinkalPalEvmDepositPrepare(
-          hinkal,
-          chainId,
-          token,
-          recipientAmounts,
-          feeStructure,
-          orderId,
-        );
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const txData = { ...(result.unsignedTx as any) };
-        delete txData.from;
-        const evmTx = ethers.Transaction.from(txData);
-        serializedTx = Buffer.from(evmTx.unsignedSerialized.slice(2), 'hex').toString('base64');
-        utxoAmounts = result.utxoAmounts;
-      }
+          if (isTronLike(chainId)) {
+            const result = await hinkalPalTronDepositPrepare(
+              hinkal,
+              chainId,
+              token,
+              recipientAmounts,
+              feeStructure,
+              orderId,
+            );
+            return {
+              serializedTx: Buffer.from(JSON.stringify(result.unsignedTx)).toString('base64'),
+              utxoAmounts: result.utxoAmounts,
+            };
+          }
+
+          const result = await hinkalPalEvmDepositPrepare(
+            hinkal,
+            chainId,
+            token,
+            recipientAmounts,
+            feeStructure,
+            orderId,
+          );
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const txData = { ...(result.unsignedTx as any) };
+          delete txData.from;
+          const evmTx = ethers.Transaction.from(txData);
+          return {
+            serializedTx: Buffer.from(evmTx.unsignedSerialized.slice(2), 'hex').toString('base64'),
+            utxoAmounts: result.utxoAmounts,
+          };
+        },
+      );
 
       const totalAmount = utxoAmounts.reduce((sum, a) => sum + a, 0n);
       const fee = totalAmount - totalRecipientAmount;

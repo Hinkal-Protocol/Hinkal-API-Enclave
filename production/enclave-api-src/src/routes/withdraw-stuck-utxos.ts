@@ -1,8 +1,9 @@
 import { Request, Response, Router } from 'express';
-import { getERC20Token, getErrorMessage } from '@hinkal/common';
+import { getErrorMessage } from '@hinkal/common';
 import { verifyWithdrawStuckUtxosSignatureMiddleware } from '../middleware';
 import { WithdrawStuckUtxosRequest } from '../types';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
+import { getERC20Token } from '@hinkal/erc20-registry';
 
 const router = Router();
 
@@ -19,9 +20,9 @@ router.post(
         return;
       }
 
-      const hinkal = await hinkalInitializerService.initalizeHinkalForAddress(address, chainId);
-
-      const txHashes = await hinkal.withdrawStuckUtxos(token, recipientAddress);
+      const txHashes = await hinkalInitializerService.withHinkalForAddress(address, chainId, async (hinkal) => {
+        return hinkal.withdrawStuckUtxos(token, recipientAddress);
+      });
 
       res.status(200).json({ success: true, txHashes });
     } catch (error) {

@@ -30,50 +30,44 @@ router.post('/waas/private-to-private', xStampMiddleware, async (req: Request, r
     const token = resolveToken(tokenAddress, parsedChainId);
     const recipientInfo = await resolvePrivateRecipient(String(to));
 
-    const hinkal = await hinkalInitializerService.initHinkalForOrganization(
+    const amountWei = getAmountInWei(token, String(amount));
+    const txHash = await hinkalInitializerService.withHinkalForOrganization(
       organizationId,
       userId,
       signerPublicKey,
       fromAddress,
       parsedChainId,
-    );
+      async (hinkal) => {
+        let feeStructureOverride: Awaited<ReturnType<typeof getFeeStructure>> | undefined;
+        if (isSolanaLike(parsedChainId)) {
+          const nullifierCount = await calculateSolanaNullifierCount(
+            hinkal,
+            parsedChainId,
+            [token.erc20TokenAddress],
+            [-amountWei],
+          );
+          feeStructureOverride = await getFeeStructure(
+            parsedChainId,
+            token.erc20TokenAddress,
+            [token.erc20TokenAddress],
+            ExternalActionId.Transact,
+            [],
+            HINKAL_PRIVATE_SEND_VARIABLE_RATE,
+            { mintTo: token.erc20TokenAddress, nullifierCount },
+          );
+        } else {
+          feeStructureOverride = await getFeeStructure(
+            parsedChainId,
+            token.erc20TokenAddress,
+            [token.erc20TokenAddress],
+            ExternalActionId.Transact,
+            [],
+            HINKAL_PRIVATE_SEND_VARIABLE_RATE,
+          );
+        }
 
-    const amountWei = getAmountInWei(token, String(amount));
-
-    let feeStructureOverride: Awaited<ReturnType<typeof getFeeStructure>> | undefined;
-    if (isSolanaLike(parsedChainId)) {
-      const nullifierCount = await calculateSolanaNullifierCount(
-        hinkal,
-        parsedChainId,
-        [token.erc20TokenAddress],
-        [-amountWei],
-      );
-      feeStructureOverride = await getFeeStructure(
-        parsedChainId,
-        token.erc20TokenAddress,
-        [token.erc20TokenAddress],
-        ExternalActionId.Transact,
-        [],
-        HINKAL_PRIVATE_SEND_VARIABLE_RATE,
-        { mintTo: token.erc20TokenAddress, nullifierCount },
-      );
-    } else {
-      feeStructureOverride = await getFeeStructure(
-        parsedChainId,
-        token.erc20TokenAddress,
-        [token.erc20TokenAddress],
-        ExternalActionId.Transact,
-        [],
-        HINKAL_PRIVATE_SEND_VARIABLE_RATE,
-      );
-    }
-
-    const txHash = await hinkal.transfer(
-      [token],
-      [-amountWei],
-      recipientInfo,
-      token.erc20TokenAddress,
-      feeStructureOverride,
+        return hinkal.transfer([token], [-amountWei], recipientInfo, token.erc20TokenAddress, feeStructureOverride);
+      },
     );
 
     ensureRecipientInfoPoolForApi(organizationId, userId, fromAddress, signerPublicKey, parsedChainId);

@@ -1,9 +1,10 @@
 import { Request, Response, Router } from 'express';
-import { getERC20Token, getErrorMessage, isSolanaLike } from '@hinkal/common';
+import { getErrorMessage, isSolanaLike } from '@hinkal/common';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { TxHashResponse, WithdrawRequest } from '../types/route.types';
 import { parseFeeStructure } from '../utils/parseFeeStructure';
 import { verifyWithdrawSignatureMiddleware } from '../middleware';
+import { getERC20Token } from '@hinkal/erc20-registry';
 
 const router = Router();
 
@@ -28,18 +29,17 @@ router.post(
         return;
       }
 
-      const hinkal = await hinkalInitializerService.initalizeHinkalForAddress(address, chainId);
-
       const resolvedFeeToken = isSolanaLike(chainId) ? tokenAddresses[0] : feeToken;
-
-      const txData = await hinkal.withdraw(
-        erc20Tokens,
-        amounts.map((amount) => -1n * BigInt(amount)),
-        recipientAddress,
-        false,
-        resolvedFeeToken,
-        parseFeeStructure(feeStructure),
-      );
+      const txData = await hinkalInitializerService.withHinkalForAddress(address, chainId, async (hinkal) => {
+        return hinkal.withdraw(
+          erc20Tokens,
+          amounts.map((amount) => -1n * BigInt(amount)),
+          recipientAddress,
+          false,
+          resolvedFeeToken,
+          parseFeeStructure(feeStructure),
+        );
+      });
 
       const txHash = typeof txData === 'string' ? txData : txData.hash;
 

@@ -13,24 +13,16 @@ export interface DepositAndWithdrawStatusSnapshot {
   }[];
 }
 
-const TERMINAL_SCHEDULED_TX_STATUSES = new Set<ScheduledTransactionStatus | string>([
-  ScheduledTransactionStatus.COMPLETED,
-  ScheduledTransactionStatus.FAILED,
-]);
-
-export const areAllScheduledTransactionsTerminal = (
-  scheduledTransactions?: DepositAndWithdrawStatusSnapshot['scheduledTransactions'],
-): boolean =>
-  ((scheduledTransactions?.length ?? 0) > 0 &&
-    scheduledTransactions?.every((tx) => TERMINAL_SCHEDULED_TX_STATUSES.has(tx.status))) ??
-  false;
-
 const isPollingComplete = (data: DepositAndWithdrawStatusSnapshot): boolean => {
   if (data.status === DepositAndWithdrawPublicStatus.Failed || data.status === 'failed') return true;
-  if (data.status === DepositAndWithdrawPublicStatus.Scheduled || data.status === 'scheduled') {
-    return areAllScheduledTransactionsTerminal(data.scheduledTransactions);
-  }
-  return false;
+  if (data.status !== DepositAndWithdrawPublicStatus.Scheduled && data.status !== 'scheduled') return false;
+  const scheduledTransactions = data.scheduledTransactions ?? [];
+  return (
+    scheduledTransactions.length > 0 &&
+    scheduledTransactions.every(
+      (tx) => tx.status === ScheduledTransactionStatus.COMPLETED || tx.status === ScheduledTransactionStatus.FAILED,
+    )
+  );
 };
 
 export const pollDepositAndWithdrawUntilComplete = async <T extends DepositAndWithdrawStatusSnapshot>(

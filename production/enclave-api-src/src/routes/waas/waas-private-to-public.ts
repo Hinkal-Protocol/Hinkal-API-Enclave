@@ -37,42 +37,44 @@ router.post('/waas/private-to-public', xStampMiddleware, async (req: Request, re
     const signerPublicKey = res.locals.signerPublicKey as string;
     const parsedChainId = parseChainId(chainId);
     const token = resolveToken(tokenAddress, parsedChainId);
-    const hinkal = await hinkalInitializerService.initHinkalForOrganization(
+
+    const amountWei = getAmountInWei(token, String(amount));
+
+    const tx = await hinkalInitializerService.withHinkalForOrganization(
       organizationId,
       userId,
       signerPublicKey,
       fromAddress,
       parsedChainId,
-    );
+      async (hinkal) => {
+        let feeStructureOverride: Awaited<ReturnType<typeof getFeeStructure>> | undefined;
+        if (isSolanaLike(parsedChainId)) {
+          const nullifierCount = await calculateSolanaNullifierCount(
+            hinkal,
+            parsedChainId,
+            [token.erc20TokenAddress],
+            [-amountWei],
+          );
+          feeStructureOverride = await getFeeStructure(
+            parsedChainId,
+            token.erc20TokenAddress,
+            [token.erc20TokenAddress],
+            ExternalActionId.Transact,
+            [],
+            HINKAL_PRIVATE_SEND_VARIABLE_RATE,
+            { mintTo: token.erc20TokenAddress, recipient: String(to), nullifierCount },
+          );
+        }
 
-    const amountWei = getAmountInWei(token, String(amount));
-
-    let feeStructureOverride;
-    if (isSolanaLike(parsedChainId)) {
-      const nullifierCount = await calculateSolanaNullifierCount(
-        hinkal,
-        parsedChainId,
-        [token.erc20TokenAddress],
-        [-amountWei],
-      );
-      feeStructureOverride = await getFeeStructure(
-        parsedChainId,
-        token.erc20TokenAddress,
-        [token.erc20TokenAddress],
-        ExternalActionId.Transact,
-        [],
-        HINKAL_PRIVATE_SEND_VARIABLE_RATE,
-        { mintTo: token.erc20TokenAddress, recipient: String(to), nullifierCount },
-      );
-    }
-
-    const tx = await hinkal.withdraw(
-      [token],
-      [-amountWei],
-      String(to),
-      Boolean(isRelayerOff),
-      token.erc20TokenAddress,
-      feeStructureOverride,
+        return hinkal.withdraw(
+          [token],
+          [-amountWei],
+          String(to),
+          Boolean(isRelayerOff),
+          token.erc20TokenAddress,
+          feeStructureOverride,
+        );
+      },
     );
 
     ensureRecipientInfoPoolForApi(organizationId, userId, fromAddress, signerPublicKey, parsedChainId);

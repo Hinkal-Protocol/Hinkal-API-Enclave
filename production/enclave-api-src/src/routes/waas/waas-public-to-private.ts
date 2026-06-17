@@ -25,19 +25,16 @@ router.post('/waas/public-to-private', xStampMiddleware, async (req: Request, re
     const parsedChainId = parseChainId(chainId);
     const token = resolveToken(tokenAddress, parsedChainId);
     const recipientInfo = await resolvePrivateRecipient(String(to));
-    const hinkal = await hinkalInitializerService.initHinkalForOrganization(
+    const amountWei = getAmountInWei(token, String(amount));
+    const txHash = await hinkalInitializerService.withHinkalForOrganization(
       organizationId,
       userId,
       signerPublicKey,
       fromAddress,
       parsedChainId,
-    );
-
-    const amountWei = getAmountInWei(token, String(amount));
-    const txHash = await hinkal.prooflessDeposit(
-      [token],
-      [amountWei],
-      [constructStealthAddressStructure(recipientInfo)],
+      async (hinkal) => {
+        return hinkal.prooflessDeposit([token], [amountWei], [constructStealthAddressStructure(recipientInfo)]);
+      },
     );
 
     ensureRecipientInfoPoolForApi(organizationId, userId, fromAddress, signerPublicKey, parsedChainId);

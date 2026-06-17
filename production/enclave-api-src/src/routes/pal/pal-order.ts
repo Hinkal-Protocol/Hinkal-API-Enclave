@@ -4,7 +4,6 @@ import { Request, Response, Router } from 'express';
 import {
   ExternalActionId,
   getAmountInWei,
-  getERC20Token,
   getFeeStructure,
   hinkalPalEvmDepositPrepare,
   hinkalPalSolanaDepositPrepare,
@@ -24,6 +23,7 @@ import { hinkalInitializerService } from '../../services/hinkalInitializerServic
 import { sealDocument } from '../../utils/documentSigning';
 import { sendError } from '../../utils/routeError';
 import { palApiKeyMiddleware } from '../../middleware/palApiKeyMiddleware';
+import { getERC20Token } from '@hinkal/erc20-registry';
 
 const router = Router();
 
@@ -47,7 +47,6 @@ router.post('/pal/order', palApiKeyMiddleware, async (req: Request, res: Respons
 
     const recipientAmount = getAmountInWei(token, String(amount));
     const orderId = crypto.randomUUID();
-    const hinkal = await hinkalInitializerService.initalizeHinkalForAddress(String(senderAddress), parsed);
 
     const feeStructure = await getFeeStructure(
       parsed,
@@ -61,33 +60,56 @@ router.post('/pal/order', palApiKeyMiddleware, async (req: Request, res: Respons
         : undefined,
     );
 
-    let serializedTx: string;
-    let utxoAmounts: bigint[];
-
-    if (isSolanaLike(parsed)) {
-      const result = await hinkalPalSolanaDepositPrepare(
-        hinkal,
-        parsed,
-        token,
-        [recipientAmount],
-        feeStructure,
-        orderId,
-      );
-      serializedTx = Buffer.from(result.unsignedTx.serialize()).toString('base64');
-      utxoAmounts = result.utxoAmounts;
-    } else if (isTronLike(parsed)) {
-      const result = await hinkalPalTronDepositPrepare(hinkal, parsed, token, [recipientAmount], feeStructure, orderId);
-      serializedTx = Buffer.from(JSON.stringify(result.unsignedTx)).toString('base64');
-      utxoAmounts = result.utxoAmounts;
-    } else {
-      const result = await hinkalPalEvmDepositPrepare(hinkal, parsed, token, [recipientAmount], feeStructure, orderId);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const txData = { ...(result.unsignedTx as any) };
-      delete txData.from;
-      const evmTx = ethers.Transaction.from(txData);
-      serializedTx = Buffer.from(evmTx.unsignedSerialized.slice(2), 'hex').toString('base64');
-      utxoAmounts = result.utxoAmounts;
-    }
+    const { serializedTx, utxoAmounts } = await hinkalInitializerService.withHinkalForAddress(
+      String(senderAddress),
+      parsed,
+      async (hinkal) => {
+        if (isSolanaLike(parsed)) {
+          const result = await hinkalPalSolanaDepositPrepare(
+            hinkal,
+            parsed,
+            token,
+            [recipientAmount],
+            feeStructure,
+            orderId,
+          );
+          return {
+            serializedTx: Buffer.from(result.unsignedTx.serialize()).toString('base64'),
+            utxoAmounts: result.utxoAmounts,
+          };
+        }
+        if (isTronLike(parsed)) {
+          const result = await hinkalPalTronDepositPrepare(
+            hinkal,
+            parsed,
+            token,
+            [recipientAmount],
+            feeStructure,
+            orderId,
+          );
+          return {
+            serializedTx: Buffer.from(JSON.stringify(result.unsignedTx)).toString('base64'),
+            utxoAmounts: result.utxoAmounts,
+          };
+        }
+        const result = await hinkalPalEvmDepositPrepare(
+          hinkal,
+          parsed,
+          token,
+          [recipientAmount],
+          feeStructure,
+          orderId,
+        );
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const txData = { ...(result.unsignedTx as any) };
+        delete txData.from;
+        const evmTx = ethers.Transaction.from(txData);
+        return {
+          serializedTx: Buffer.from(evmTx.unsignedSerialized.slice(2), 'hex').toString('base64'),
+          utxoAmounts: result.utxoAmounts,
+        };
+      },
+    );
 
     const totalAmount = utxoAmounts.reduce((sum, a) => sum + a, 0n);
     const fee = totalAmount - recipientAmount;

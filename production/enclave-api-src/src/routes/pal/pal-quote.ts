@@ -3,7 +3,6 @@ import {
   calculateTotalFee,
   ExternalActionId,
   getAmountInWei,
-  getERC20Token,
   getFeeStructure,
   HttpError,
   isSolanaLike,
@@ -11,6 +10,7 @@ import {
 } from '@hinkal/common';
 import { sendError } from '../../utils/routeError';
 import { palApiKeyMiddleware } from '../../middleware/palApiKeyMiddleware';
+import { getERC20Token } from '@hinkal/erc20-registry';
 
 const ESTIMATED_DURATION_SECONDS = 60;
 

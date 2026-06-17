@@ -4,7 +4,6 @@ import {
   chainIds,
   currentSolanaChainId,
   currentTronChainId,
-  getErc20TokensForChain,
   getPublicBalancesOfTokens,
   getSolanaPublicBalances,
   isSolanaLike,
@@ -16,6 +15,7 @@ import {
   resetCache,
   TokenBalance,
 } from '@hinkal/common';
+import { getErc20TokensForChain } from '@hinkal/erc20-registry';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 
 const validateWalletAddressForChainId = (walletAddress: string, chainId: number): void => {
@@ -38,11 +38,12 @@ const validateWalletAddressForChainId = (walletAddress: string, chainId: number)
 };
 
 export const refreshAddressCache = async (address: string, chainId: number) => {
-  const hinkal = await hinkalInitializerService.initalizeHinkalForAddress(address, chainId);
-  const shieldedPublicKey = hinkal.userKeys.getShieldedPublicKey();
+  await hinkalInitializerService.withHinkalForAddress(address, chainId, async (hinkal) => {
+    const shieldedPublicKey = hinkal.userKeys.getShieldedPublicKey();
 
-  hinkal.getSupportedChains().forEach((supportedChainId) => {
-    resetCache(hinkal, supportedChainId, shieldedPublicKey);
+    hinkal.getSupportedChains().forEach((supportedChainId) => {
+      resetCache(hinkal, supportedChainId, shieldedPublicKey);
+    });
   });
 };
 
@@ -56,18 +57,19 @@ export const refreshUserCache = async (
   if (isValidTronAddress(walletAddress)) addressChainId = currentTronChainId;
   else if (isValidSolanaPublicKey(walletAddress)) addressChainId = currentSolanaChainId;
 
-  const hinkal = await hinkalInitializerService.initHinkalForOrganization(
+  await hinkalInitializerService.withHinkalForOrganization(
     organizationId,
     userId,
     signerPublicKey,
     walletAddress,
     addressChainId,
+    async (hinkal) => {
+      const shieldedPublicKey = hinkal.userKeys.getShieldedPublicKey();
+      hinkal.getSupportedChains().forEach((chainId) => {
+        resetCache(hinkal, chainId, shieldedPublicKey);
+      });
+    },
   );
-  const shieldedPublicKey = hinkal.userKeys.getShieldedPublicKey();
-
-  hinkal.getSupportedChains().forEach((chainId) => {
-    resetCache(hinkal, chainId, shieldedPublicKey);
-  });
 };
 
 export const fetchPrivateBalances = async (
@@ -82,35 +84,36 @@ export const fetchPrivateBalances = async (
   if (isValidTronAddress(walletAddress)) addressChainId = currentTronChainId;
   else if (isValidSolanaPublicKey(walletAddress)) addressChainId = currentSolanaChainId;
 
-  const hinkal = await hinkalInitializerService.initHinkalForOrganization(
+  if (chainId !== undefined) {
+    validateWalletAddressForChainId(walletAddress, chainId);
+  }
+
+  return hinkalInitializerService.withHinkalForOrganization(
     organizationId,
     userId,
     signerPublicKey,
     walletAddress,
     addressChainId,
+    async (hinkal) => {
+      const targetChainIds = chainId !== undefined ? [chainId] : hinkal.getSupportedChains();
+      const privateTokenBalancesByChain = await Promise.all(
+        targetChainIds.map(async (targetChainId) => {
+          try {
+            await liveChainStateService.prepareHinkal(targetChainId, hinkal);
+            return await hinkal.getTotalBalance(targetChainId, undefined, undefined, false, true, useBlockedUtxos);
+          } catch (err) {
+            Logger.error(`Error fetching balances for chainId ${targetChainId}:`, err);
+            return [];
+          }
+        }),
+      );
+      const privateTokenBalances = privateTokenBalancesByChain.flat();
+
+      return privateTokenBalances
+        .filter(({ balance }) => balance > 0n)
+        .map(({ token, balance }) => ({ token, balance: balance.toString() }));
+    },
   );
-
-  if (chainId !== undefined) {
-    validateWalletAddressForChainId(walletAddress, chainId);
-  }
-
-  const targetChainIds = chainId !== undefined ? [chainId] : hinkal.getSupportedChains();
-  const privateTokenBalancesByChain = await Promise.all(
-    targetChainIds.map(async (targetChainId) => {
-      try {
-        await liveChainStateService.prepareHinkal(targetChainId, hinkal);
-        return await hinkal.getTotalBalance(targetChainId, undefined, undefined, false, true, useBlockedUtxos);
-      } catch (err) {
-        Logger.error(`Error fetching balances for chainId ${targetChainId}:`, err);
-        return [];
-      }
-    }),
-  );
-  const privateTokenBalances = privateTokenBalancesByChain.flat();
-
-  return privateTokenBalances
-    .filter(({ balance }) => balance > 0n)
-    .map(({ token, balance }) => ({ token, balance: balance.toString() }));
 };
 
 export const fetchPublicBalances = async (walletAddress: string, chainId: number) => {

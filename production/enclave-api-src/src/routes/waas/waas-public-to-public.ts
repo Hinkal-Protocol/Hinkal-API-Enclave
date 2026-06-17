@@ -27,14 +27,6 @@ router.post('/waas/public-to-public', xStampMiddleware, async (req: Request, res
     const signerPublicKey = res.locals.signerPublicKey as string;
     const parsedChainId = parseChainId(chainId);
     const token = resolveToken(tokenAddress, parsedChainId);
-    const hinkal = await hinkalInitializerService.initHinkalForOrganization(
-      organizationId,
-      userId,
-      signerPublicKey,
-      fromAddress,
-      parsedChainId,
-    );
-
     const recipientAmount = getAmountInWei(token, String(amount));
 
     // depositAndWithdraw creates exactly 1 fresh UTXO and immediately spends it,
@@ -53,7 +45,16 @@ router.post('/waas/public-to-public', xStampMiddleware, async (req: Request, res
       solanaParams,
     );
 
-    const txHash = await hinkal.depositAndWithdraw(token, [recipientAmount], [String(to)], undefined, feeStructure);
+    const txHash = await hinkalInitializerService.withHinkalForOrganization(
+      organizationId,
+      userId,
+      signerPublicKey,
+      fromAddress,
+      parsedChainId,
+      async (hinkal) => {
+        return hinkal.depositAndWithdraw(token, [recipientAmount], [String(to)], undefined, feeStructure);
+      },
+    );
 
     ensureRecipientInfoPoolForApi(organizationId, userId, fromAddress, signerPublicKey, parsedChainId);
 

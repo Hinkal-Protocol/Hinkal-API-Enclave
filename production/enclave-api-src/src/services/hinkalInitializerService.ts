@@ -17,6 +17,35 @@ import { SolanaLocalSigner, TronLocalSigner } from '../data-structures';
 import { walletSecretsService } from './walletSecretsService';
 
 class HinkalInitializerService {
+  async withHinkalForAddress<T>(
+    ethereumAddress: string,
+    chainId: number,
+    callback: (hinkal: Hinkal<unknown>) => Promise<T>,
+  ): Promise<T> {
+    const hinkal = await this.initalizeHinkalForAddress(ethereumAddress, chainId);
+    try {
+      return await callback(hinkal);
+    } finally {
+      await hinkal.destroy();
+    }
+  }
+
+  async withHinkalForOrganization<T>(
+    organizationId: string,
+    userId: string,
+    signerPublicKey: string,
+    fromAddress: string,
+    chainId: number,
+    callback: (hinkal: Hinkal<unknown>) => Promise<T>,
+  ): Promise<T> {
+    const hinkal = await this.initHinkalForOrganization(organizationId, userId, signerPublicKey, fromAddress, chainId);
+    try {
+      return await callback(hinkal);
+    } finally {
+      await hinkal.destroy();
+    }
+  }
+
   private finalizeHinkalInit = async (
     hinkal: Hinkal<unknown>,
     wallet: unknown,
@@ -30,7 +59,7 @@ class HinkalInitializerService {
     await liveChainStateService.prepareHinkal(chainId, hinkal);
   };
 
-  async initalizeHinkalForAddress(ethereumAddress: string, chainId: number) {
+  private async initalizeHinkalForAddress(ethereumAddress: string, chainId: number) {
     let userKey = await userKeysService.findByEthereumAddress(ethereumAddress);
     if (!userKey) userKey = await userKeysService.createAndStorePrivateKey(ethereumAddress);
     const hinkal = new Hinkal<unknown>({ useFileCache: true });
@@ -39,7 +68,7 @@ class HinkalInitializerService {
     return hinkal;
   }
 
-  async initHinkalForOrganization(
+  private async initHinkalForOrganization(
     organizationId: string,
     userId: string,
     signerPublicKey: string,

@@ -1,5 +1,5 @@
 import { Request, Response, Router } from 'express';
-import { getERC20Token, getErrorMessage, isSolanaLike, Logger, toJsonSafe } from '@hinkal/common';
+import { getErrorMessage, isSolanaLike, Logger, toJsonSafe } from '@hinkal/common';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import {
   DepositForOtherRequest,
@@ -16,6 +16,7 @@ import {
   verifyDepositSignatureMiddleware,
   verifyProoflessDepositSignatureMiddleware,
 } from '../middleware';
+import { getERC20Token } from '@hinkal/erc20-registry';
 
 const router = Router();
 
@@ -39,20 +40,17 @@ router.post(
         res.status(400).json({ success: false, error: validated.error });
         return;
       }
-
-      const hinkal = await hinkalInitializerService.initalizeHinkalForAddress(address, chainId);
-
-      if (isSolanaLike(chainId)) {
-        if (validated.tokens.length !== 1) {
-          res.status(400).json({ success: false, error: 'Solana deposit supports exactly one token' });
-          return;
-        }
-        const txData = await hinkal.depositSolana(BigInt(amounts[0]), validated.tokens[0], true);
-        res.status(200).json({ success: true, txData });
+      if (isSolanaLike(chainId) && validated.tokens.length !== 1) {
+        res.status(400).json({ success: false, error: 'Solana deposit supports exactly one token' });
         return;
       }
 
-      const txData = await hinkal.deposit(validated.tokens, amounts.map(BigInt), false, true);
+      const txData = await hinkalInitializerService.withHinkalForAddress(address, chainId, async (hinkal) => {
+        if (isSolanaLike(chainId)) {
+          return hinkal.depositSolana(BigInt(amounts[0]), validated.tokens[0], true);
+        }
+        return hinkal.deposit(validated.tokens, amounts.map(BigInt), false, true);
+      });
 
       res.status(200).json(toJsonSafe({ success: true, txData }) as DepositResponse);
     } catch (error) {
@@ -80,9 +78,9 @@ router.post(
         return;
       }
 
-      const hinkal = await hinkalInitializerService.initalizeHinkalForAddress(address, chainId);
-
-      const txData = await hinkal.depositForOther(validated.tokens, amounts.map(BigInt), recipientInfo, false, true);
+      const txData = await hinkalInitializerService.withHinkalForAddress(address, chainId, async (hinkal) => {
+        return hinkal.depositForOther(validated.tokens, amounts.map(BigInt), recipientInfo, false, true);
+      });
 
       res.status(200).json(toJsonSafe({ success: true, txData }) as DepositResponse);
     } catch (error) {
@@ -109,9 +107,9 @@ router.post(
         return;
       }
 
-      const hinkal = await hinkalInitializerService.initalizeHinkalForAddress(address, chainId);
-
-      const txData = await hinkal.depositSolanaForOther(BigInt(amount), token, recipientInfo, true);
+      const txData = await hinkalInitializerService.withHinkalForAddress(address, chainId, async (hinkal) => {
+        return hinkal.depositSolanaForOther(BigInt(amount), token, recipientInfo, true);
+      });
 
       res.status(200).json({ success: true, txData });
     } catch (error) {
@@ -141,20 +139,17 @@ router.post(
         res.status(400).json({ success: false, error: validated.error });
         return;
       }
-
-      const hinkal = await hinkalInitializerService.initalizeHinkalForAddress(address, chainId);
-
-      if (isSolanaLike(chainId)) {
-        if (validated.tokens.length !== 1) {
-          res.status(400).json({ success: false, error: 'Solana deposit supports exactly one token' });
-          return;
-        }
-        const txData = await hinkal.depositSolana(BigInt(amounts[0]), validated.tokens[0], true);
-        res.status(200).json({ success: true, txData });
+      if (isSolanaLike(chainId) && validated.tokens.length !== 1) {
+        res.status(400).json({ success: false, error: 'Solana deposit supports exactly one token' });
         return;
       }
 
-      const result = await hinkal.prooflessDeposit(validated.tokens, amounts.map(BigInt), undefined, undefined, true);
+      const result = await hinkalInitializerService.withHinkalForAddress(address, chainId, async (hinkal) => {
+        if (isSolanaLike(chainId)) {
+          return hinkal.depositSolana(BigInt(amounts[0]), validated.tokens[0], true);
+        }
+        return hinkal.prooflessDeposit(validated.tokens, amounts.map(BigInt), undefined, undefined, true);
+      });
 
       res.status(200).json(toJsonSafe({ success: true, txData: result }) as ProoflessDepositResponse);
     } catch (error) {

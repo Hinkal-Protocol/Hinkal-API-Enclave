@@ -1,8 +1,8 @@
 import { getAnyRecipientInfo } from '@hinkal/common/API/getAnyRecipientInfo';
 import { isValidPrivateAddress } from '@hinkal/common/functions/utils/addresses';
-import { getERC20Token } from '@hinkal/common/functions/utils/erc20tokenFunctions';
+import { getERC20Token } from '@hinkal/erc20-registry';
 import { ERC20Token } from '@hinkal/common/types/token.types';
-import { HttpError } from '@hinkal/common';
+import { HttpError } from '@hinkal/common/error-handling/customErrors/HttpError';
 
 export const parseChainId = (chainId: unknown): number => {
   const parsed = Number(chainId);
