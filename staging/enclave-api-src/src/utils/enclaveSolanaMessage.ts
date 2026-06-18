@@ -21,11 +21,9 @@ const buildHeader = (primaryType: string, nonce: string, sessionId: string, chai
   `${DOMAIN_NAME}\n\nPrimary Type: ${primaryType}\nSession ID: ${sessionId}\nNonce: ${nonce}\nChain ID: ${chainId}`;
 
 const renderFeeFields = (params: FeeAuthFields): string => {
-  const feeToken = params.feeToken ?? '';
-  const flatFee = params.feeStructure?.flatFee ?? '0';
-  const variableRate = params.feeStructure?.variableRate ?? '0';
-  const feeFeeToken = params.feeStructure?.feeToken ?? '';
-  return `\nFee Token: ${feeToken}\nFee Structure Fee Token: ${feeFeeToken}\nFee Flat: ${flatFee}\nFee Variable Rate: ${variableRate}`;
+  if (!params.feeStructure) return '';
+  const { feeToken, flatFee, variableRate } = params.feeStructure;
+  return `\nFee Structure:\n    Fee Token: ${feeToken}\n    Flat Fee: ${flatFee}\n    Variable Rate: ${variableRate}`;
 };
 
 type TokenAmountsFields = BaseAuthFields & { tokenAddresses: string[]; amounts: string[] };
