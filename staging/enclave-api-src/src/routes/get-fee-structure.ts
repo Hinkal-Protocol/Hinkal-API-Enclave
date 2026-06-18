@@ -18,7 +18,6 @@ router.get(
     try {
       const { feeToken, variableRate, externalActionId, mintFrom } = req.query as unknown as GetFeeStructureRequest;
       const chainId = Number(req.query.chainId);
-      const address = req.query.address as string | undefined;
       const tokenAddresses = ([] as string[]).concat(req.query.tokenAddresses as string | string[]);
       const amounts = req.query.amounts ? ([] as string[]).concat(req.query.amounts as string | string[]) : undefined;
 
@@ -37,11 +36,15 @@ router.get(
       }
 
       let solanaTransactionParams: { mintTo: string; mintFrom?: string; nullifierCount: number } | undefined;
-      if (isSolanaLike(chainId) && address && amounts) {
+      if (isSolanaLike(chainId) && res.locals.address && amounts) {
         const amountChanges = amounts.map((a) => -1n * BigInt(a));
-        const nullifierCount = await hinkalInitializerService.withHinkalForAddress(address, chainId, async (hinkal) => {
-          return calculateSolanaNullifierCount(hinkal, chainId, tokenAddresses, amountChanges);
-        });
+        const nullifierCount = await hinkalInitializerService.withHinkalForAddress(
+          res.locals.address,
+          chainId,
+          async (hinkal) => {
+            return calculateSolanaNullifierCount(hinkal, chainId, tokenAddresses, amountChanges);
+          },
+        );
         solanaTransactionParams = { mintTo: feeToken ?? tokenAddresses[0], mintFrom, nullifierCount };
       }
 

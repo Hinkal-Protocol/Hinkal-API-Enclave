@@ -12,7 +12,7 @@ router.post(
   verifyWithdrawStuckUtxosSignatureMiddleware,
   async (req: Request<object, unknown, WithdrawStuckUtxosRequest>, res: Response) => {
     try {
-      const { address, chainId, tokenAddress, recipientAddress } = req.body;
+      const { chainId, tokenAddress, recipientAddress } = req.body;
 
       const token = getERC20Token(tokenAddress, chainId);
       if (!token) {
@@ -20,9 +20,13 @@ router.post(
         return;
       }
 
-      const txHashes = await hinkalInitializerService.withHinkalForAddress(address, chainId, async (hinkal) => {
-        return hinkal.withdrawStuckUtxos(token, recipientAddress);
-      });
+      const txHashes = await hinkalInitializerService.withHinkalForAddress(
+        res.locals.address,
+        chainId,
+        async (hinkal) => {
+          return hinkal.withdrawStuckUtxos(token, recipientAddress);
+        },
+      );
 
       res.status(200).json({ success: true, txHashes });
     } catch (error) {

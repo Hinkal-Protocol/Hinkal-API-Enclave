@@ -1,6 +1,5 @@
 import { isSolanaLike } from '@hinkal/common';
 import { NextFunction, Request, Response } from 'express';
-import { EnclaveSessionAccess } from '../constants';
 import { verifySignature, verifyTypedDataSignature } from '../utils';
 import {
   buildDepositAndWithdrawTypedData,
@@ -30,24 +29,20 @@ import {
   parseTokenTransferAuthBody,
   parseWithdrawStuckUtxosAuthBody,
 } from '../utils/enclaveTypedDataAuthBody';
-import { getEnclaveNonceSession } from '../models/EnclaveNonceSchema';
-import {
-  consumeRequestIdOrRespond,
-  isActiveWriteSessionForRequest,
-  parseSignatureRequest,
-  registerTxNonceOrRespond,
-  verifyEnclaveSessionSignature,
-  verifyWithKeyRequest,
-} from './signatureMiddlewareUtils';
+import { consumeRequestNonceOrRespond, parseSignatureRequest } from './signatureMiddlewareUtils';
+import { verifyRequestSignatureSession } from '../utils/requestSignatureUtils';
+import { EnclaveSessionAuthMode, HEADER_REQUEST_SIGNATURE } from '../constants';
+import { getEnclaveSession } from '../models/EnclaveSessionSchema';
 import { EnclaveTypedDataPayload, ParsedSignatureRequest, ParseResult } from '../types';
 
 const verifyRequestSignature = async (
   body: Record<string, unknown>,
   request: ParsedSignatureRequest,
+  address: string,
   buildTypedData: (body: Record<string, unknown>) => ParseResult<EnclaveTypedDataPayload>,
   buildSolanaMessage?: (body: Record<string, unknown>) => ParseResult<string>,
 ): Promise<ParseResult<boolean>> => {
-  const { signature, address, chainId } = request;
+  const { signature, chainId } = request;
 
   if (chainId === undefined) return { ok: false, error: 'Missing chainId' };
 
@@ -68,36 +63,24 @@ const verifyRequestSignature = async (
   return { ok: true, value: isValid };
 };
 
-const tryVerifyWriteSessionSignature = async (
-  req: Request,
-  res: Response,
-  parsedRequest: ParsedSignatureRequest,
-): Promise<boolean> => {
-  const session = await getEnclaveNonceSession(parsedRequest.nonce);
-  if (!session || !isActiveWriteSessionForRequest(session, parsedRequest)) {
-    return false;
-  }
-
-  if (session.publicKey) {
-    await verifyWithKeyRequest(req, res, session.publicKey);
-    return true;
-  }
-
-  const isValid = await verifyEnclaveSessionSignature(parsedRequest, EnclaveSessionAccess.Write);
-  if (!isValid) {
-    res.status(401).json({ error: 'Invalid signature' });
-    return true;
-  }
-
-  return true;
-};
-
 export const createVerifyTypedDataSignatureMiddleware = (
   buildTypedData: (body: Record<string, unknown>) => ParseResult<EnclaveTypedDataPayload>,
   buildSolanaMessage?: (body: Record<string, unknown>) => ParseResult<string>,
 ) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
+      if (req.headers[HEADER_REQUEST_SIGNATURE]) {
+        const payload = (req as Request & { rawBody?: string }).rawBody ?? '';
+        const session = await verifyRequestSignatureSession(req, res, true, payload);
+        if (!session) return;
+
+        if (!(await consumeRequestNonceOrRespond(req, res))) return;
+
+        res.locals.address = session.address;
+        next();
+        return;
+      }
+
       const body = { ...req.query, ...req.body } as Record<string, unknown>;
       const parsed = parseSignatureRequest(body);
       if (parsed.ok === false) {
@@ -106,21 +89,23 @@ export const createVerifyTypedDataSignatureMiddleware = (
       }
 
       const parsedRequest = parsed.value;
+      const { sessionId } = parsedRequest;
 
-      if (!(await consumeRequestIdOrRespond(req, res))) return;
+      const session = await getEnclaveSession(sessionId);
+      if (!session) {
+        res.status(401).json({ error: 'Session not found. Create a session first via POST /create-session' });
+        return;
+      }
 
-      const usedWriteSession = await tryVerifyWriteSessionSignature(req, res, parsedRequest);
-      if (usedWriteSession) {
-        if (res.headersSent) {
-          return;
-        }
-        next();
+      if (session.authMode !== EnclaveSessionAuthMode.EIP712) {
+        res.status(403).json({ error: 'Typed data transaction authorization requires eip712 auth mode' });
         return;
       }
 
       const signatureVerificationResult = await verifyRequestSignature(
         body,
         parsedRequest,
+        session.address,
         buildTypedData,
         buildSolanaMessage,
       );
@@ -134,11 +119,9 @@ export const createVerifyTypedDataSignatureMiddleware = (
         return;
       }
 
-      const isNonceValid = await registerTxNonceOrRespond(parsedRequest.nonce, res);
-      if (!isNonceValid) {
-        return;
-      }
+      if (!(await consumeRequestNonceOrRespond(req, res))) return;
 
+      res.locals.address = session.address;
       next();
     } catch {
       res.status(401).json({ error: 'Signature verification failed' });

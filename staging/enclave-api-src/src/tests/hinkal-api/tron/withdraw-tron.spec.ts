@@ -6,7 +6,11 @@ import {
   waitForTransactionConfirmation,
 } from '@hinkal/common';
 import { depositUsdtToPrivate, getTronUsdtBalance } from '../../utils/tronIntegrationHelpers';
-import { buildWithdrawAuthFieldsTron, createEnclaveSessionTron } from '../../utils/enclaveAuthHelperTron';
+import {
+  buildAuthPostTron,
+  buildWithdrawAuthFieldsTron,
+  createEnclaveSessionTron,
+} from '../../utils/enclaveAuthHelperTron';
 import { fetchFeeStructure } from '../../utils/fetchFeeStructureTron';
 import { getPrivateBalanceForToken } from '../../utils/getPrivateBalanceTron';
 import { TRON_NILE_USDT_ADDRESS } from '../../utils/tronTestConstants';
@@ -39,27 +43,28 @@ describe('withdraw route (Tron Nile)', () => {
 
     const totalRelayFee = tronRelayFee(feeStructure.flatFee, feeStructure.variableRate, WITHDRAW_AMOUNT);
     const depositAmount = WITHDRAW_AMOUNT + totalRelayFee;
-    await depositUsdtToPrivate(wallet, depositAmount, TRON_NILE_USDT_ADDRESS, true);
+    await depositUsdtToPrivate(wallet, depositAmount, authFields, TRON_NILE_USDT_ADDRESS, true);
 
     const balanceBeforeWithdraw = await getTronUsdtBalance(wallet);
     const privateBalanceBeforeWithdraw = await getPrivateBalanceForToken(wallet, TRON_NILE_USDT_ADDRESS, authFields);
 
-    const txData = {
+    const txParams = {
       chainId: wallet.chainId,
       tokenAddresses: [TRON_NILE_USDT_ADDRESS],
       amounts: [WITHDRAW_AMOUNT.toString()],
       recipientAddress: wallet.address,
     };
-
-    const withdrawAuthFields = buildWithdrawAuthFieldsTron(wallet.tronWeb, wallet.address, txData);
-
-    const response = await httpClient.post<TxHashResponse>(`${ENCLAVE_API_URL}/withdraw`, {
-      ...withdrawAuthFields,
-      address: wallet.address,
-      ...txData,
-      feeToken: TRON_NILE_USDT_ADDRESS,
-      feeStructure,
-    });
+    const { body, headers } = buildAuthPostTron(
+      authFields,
+      wallet.chainId,
+      { ...txParams, feeToken: TRON_NILE_USDT_ADDRESS, feeStructure },
+      () => buildWithdrawAuthFieldsTron(authFields, wallet.tronWeb, txParams),
+    );
+    const response = await httpClient.post<TxHashResponse>(
+      `${ENCLAVE_API_URL}/withdraw`,
+      body,
+      headers ? { headers } : undefined,
+    );
 
     const { txHash } = response as Extract<TxHashResponse, { success: true }>;
 

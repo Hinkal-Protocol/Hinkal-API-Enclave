@@ -8,8 +8,9 @@ import {
   waitForTransactionConfirmation,
 } from '@hinkal/common';
 import { TRON_DEFAULT_FEE_LIMIT_SUN } from '@hinkal/common/constants/protocol.constants';
-import { type EnclaveAuthFields, toEnclaveAuthQueryParams } from './enclaveAuthHelper';
+import { type EnclaveSessionAuthFields, requestSignatureGetHeader, sessionQueryParams } from './enclaveAuthHelper';
 import {
+  buildAuthPostTron,
   buildDepositAndWithdrawAuthFieldsTron,
   buildDepositAuthFieldsTron,
   buildDepositForOtherAuthFieldsTron,
@@ -98,10 +99,16 @@ const approveAndBroadcastDepositTx = async (
   await waitForTransactionConfirmation(wallet.chainId, txid);
 };
 
-export const getRecipientInfo = async (wallet: TronTestWallet, authFields: EnclaveAuthFields): Promise<string> => {
-  const params = new URLSearchParams(toEnclaveAuthQueryParams(authFields, wallet.address, wallet.chainId));
-  const response = await httpClient.get<RecipientInfoResponse>(`${ENCLAVE_API_URL}/recipient-info?${params}`);
-
+export const getRecipientInfo = async (
+  wallet: TronTestWallet,
+  authFields: EnclaveSessionAuthFields,
+): Promise<string> => {
+  const params = new URLSearchParams(sessionQueryParams(authFields, wallet.chainId));
+  const queryString = params.toString();
+  const headers = requestSignatureGetHeader(authFields, queryString);
+  const response = await httpClient.get<RecipientInfoResponse>(`${ENCLAVE_API_URL}/recipient-info?${queryString}`, {
+    headers,
+  });
   if (response.success === false) throw new Error(response.error);
   return response.recipientInfo;
 };
@@ -110,6 +117,7 @@ export const depositForOtherUsdt = async (
   senderWallet: TronTestWallet,
   amount: bigint,
   recipientInfo: string,
+  session: EnclaveSessionAuthFields,
   tokenAddress = TRON_NILE_USDT_ADDRESS,
 ): Promise<void> => {
   const params = {
@@ -118,13 +126,15 @@ export const depositForOtherUsdt = async (
     amounts: [amount.toString()],
     recipientInfo,
   };
-  const authFields = buildDepositForOtherAuthFieldsTron(senderWallet.tronWeb, senderWallet.address, params);
-  const response = await httpClient.post<DepositResponse>(`${ENCLAVE_API_URL}/deposit-for-other`, {
-    ...authFields,
-    address: senderWallet.address,
-    ...params,
-  });
+  const { body, headers } = buildAuthPostTron(session, senderWallet.chainId, params, () =>
+    buildDepositForOtherAuthFieldsTron(session, senderWallet.tronWeb, params),
+  );
 
+  const response = await httpClient.post<DepositResponse>(
+    `${ENCLAVE_API_URL}/deposit-for-other`,
+    body,
+    headers ? { headers } : undefined,
+  );
   const { txData } = response as Extract<DepositResponse, { success: true }>;
   await approveAndBroadcastDepositTx(senderWallet, txData, amount, tokenAddress);
 };
@@ -132,25 +142,20 @@ export const depositForOtherUsdt = async (
 export const depositUsdtToPrivate = async (
   wallet: TronTestWallet,
   amount: bigint,
+  session: EnclaveSessionAuthFields,
   tokenAddress = TRON_NILE_USDT_ADDRESS,
   proofless = false,
 ): Promise<void> => {
-  const depositParams = {
-    chainId: wallet.chainId,
-    tokenAddresses: [tokenAddress],
-    amounts: [amount.toString()],
-  };
-  const depositAuthFields = proofless
-    ? buildProoflessDepositAuthFieldsTron(wallet.tronWeb, wallet.address, depositParams)
-    : buildDepositAuthFieldsTron(wallet.tronWeb, wallet.address, depositParams);
+  const params = { chainId: wallet.chainId, tokenAddresses: [tokenAddress], amounts: [amount.toString()] };
+  const builder = proofless ? buildProoflessDepositAuthFieldsTron : buildDepositAuthFieldsTron;
+  const { body, headers } = buildAuthPostTron(session, wallet.chainId, params, () =>
+    builder(session, wallet.tronWeb, params),
+  );
 
   const response = await httpClient.post<DepositResponse>(
     `${ENCLAVE_API_URL}/${proofless ? 'proofless-deposit' : 'deposit'}`,
-    {
-      ...depositAuthFields,
-      address: wallet.address,
-      ...depositParams,
-    },
+    body,
+    headers ? { headers } : undefined,
   );
 
   const { txData } = response as Extract<DepositResponse, { success: true }>;
@@ -160,9 +165,10 @@ export const depositUsdtToPrivate = async (
 export const prepareDepositAndWithdraw = async (
   wallet: TronTestWallet,
   recipients: { address: string; amount: bigint }[],
+  session: EnclaveSessionAuthFields,
   tokenAddress = TRON_NILE_USDT_ADDRESS,
 ): Promise<Extract<DepositAndWithdrawResponse, { success: true }>> => {
-  const txDataParams = {
+  const params = {
     chainId: wallet.chainId,
     tokenAddress,
     recipients: recipients.map((r) => ({
@@ -170,15 +176,15 @@ export const prepareDepositAndWithdraw = async (
       amount: r.amount.toString(),
     })),
   };
+  const { body, headers } = buildAuthPostTron(session, wallet.chainId, params, () =>
+    buildDepositAndWithdrawAuthFieldsTron(session, wallet.tronWeb, params),
+  );
 
-  const authFields = buildDepositAndWithdrawAuthFieldsTron(wallet.tronWeb, wallet.address, txDataParams);
-
-  const response = await httpClient.post<DepositAndWithdrawResponse>(`${ENCLAVE_API_URL}/private-send`, {
-    ...authFields,
-    address: wallet.address,
-    ...txDataParams,
-  });
-
+  const response = await httpClient.post<DepositAndWithdrawResponse>(
+    `${ENCLAVE_API_URL}/private-send`,
+    body,
+    headers ? { headers } : undefined,
+  );
   return response as Extract<DepositAndWithdrawResponse, { success: true }>;
 };
 

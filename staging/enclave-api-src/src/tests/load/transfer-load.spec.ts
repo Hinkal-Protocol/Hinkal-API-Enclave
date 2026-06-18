@@ -2,7 +2,7 @@ import { ethers } from 'ethers';
 import { ARC_TESTNET_USDC_ADDRESS, chainIds, ENCLAVE_API_URL, httpClient } from '@hinkal/common';
 import { createJsonRpcProvider } from '@hinkal/common/functions/utils/create-provider';
 import { requireEnv } from '@hinkal/common/functions/utils/requireEnv';
-import { createEnclaveSession } from '../utils/enclaveAuthHelper';
+import { createEnclaveSession, requestSignatureGetHeader, sessionQueryParams } from '../utils/enclaveAuthHelper';
 import { depositUsdcToPrivate, transferUsdc } from '../utils/enclaveIntegrationHelpers';
 import { getPrivateBalanceForToken } from '../utils/getPrivateBalance';
 import { RecipientInfoResponse } from '../../types';
@@ -25,18 +25,20 @@ beforeAll(async () => {
   testWallets = Array.from({ length: CONCURRENT_COUNT }, () => ethers.Wallet.createRandom().connect(provider));
 
   const funderAuthFields = await createEnclaveSession(funder);
-  const recipientInfoResponse = await httpClient.post<RecipientInfoResponse>(`${ENCLAVE_API_URL}/recipient-info`, {
-    ...funderAuthFields,
-    address: funder.address,
-    chainId: CHAIN_ID,
-  });
+  const recipientParams = new URLSearchParams(sessionQueryParams(funderAuthFields, CHAIN_ID));
+  const recipientQueryString = recipientParams.toString();
+  const recipientInfoResponse = await httpClient.get<RecipientInfoResponse>(
+    `${ENCLAVE_API_URL}/recipient-info?${recipientQueryString}`,
+    { headers: requestSignatureGetHeader(funderAuthFields, recipientQueryString) },
+  );
   funderRecipientInfo = (recipientInfoResponse as Extract<RecipientInfoResponse, { success: true }>).recipientInfo;
 
   await fundWalletsWithUsdc(funder, testWallets, TOPUP_USDC, provider);
 
   await Promise.all(
     testWallets.map(async (wallet) => {
-      await depositUsdcToPrivate(wallet, CHAIN_ID, DEPOSIT_AMOUNT, ARC_TESTNET_USDC_ADDRESS);
+      const authFields = await createEnclaveSession(wallet);
+      await depositUsdcToPrivate(wallet, CHAIN_ID, DEPOSIT_AMOUNT, authFields);
     }),
   );
 });

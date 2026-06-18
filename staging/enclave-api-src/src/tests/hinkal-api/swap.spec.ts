@@ -3,7 +3,6 @@ import {
   chainIds,
   ENCLAVE_API_URL,
   getAmountInWei,
-  getERC20Token,
   HINKAL_SWAP_VARIABLE_RATE,
   httpClient,
   waitForEthereumTransactionConfirmation,
@@ -11,11 +10,12 @@ import {
 import { createJsonRpcProvider } from '@hinkal/common/functions/utils/create-provider';
 import { requireEnv } from '@hinkal/common/functions/utils/requireEnv';
 import { depositUsdcToPrivate } from '../utils/enclaveIntegrationHelpers';
-import { buildSwapAuthFields, createEnclaveSession } from '../utils/enclaveAuthHelper';
+import { buildAuthPost, buildSwapAuthFields, createEnclaveSession } from '../utils/enclaveAuthHelper';
 import { fetchFeeStructure } from '../utils/fetchFeeStructure';
 import { fetchSwapData } from '../utils/fetchSwapData';
 import { getPrivateBalanceForToken } from '../utils/getPrivateBalance';
 import { TxHashResponse } from '../../types';
+import { getERC20Token } from '@hinkal/erc20-registry';
 
 const CHAIN_ID = chainIds.optimism; // arc testnet does not support swaps, that is why we use optimism
 const OPTIMISM_USDC_ADDRESS = '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85';
@@ -54,7 +54,7 @@ describe('swap routes', () => {
   it('returns tx hash and updates private balances after swapping USDC to EURC', async () => {
     const authFields = await createEnclaveSession(wallet);
 
-    await depositUsdcToPrivate(wallet, CHAIN_ID, DEPOSIT_AMOUNT, OPTIMISM_USDC_ADDRESS, false);
+    await depositUsdcToPrivate(wallet, CHAIN_ID, DEPOSIT_AMOUNT, authFields, OPTIMISM_USDC_ADDRESS, false);
 
     const inSwapToken = getERC20Token(OPTIMISM_USDC_ADDRESS, CHAIN_ID);
     const outSwapToken = getERC20Token(OPTIMISM_USDT_ADDRESS, CHAIN_ID);
@@ -93,19 +93,21 @@ describe('swap routes', () => {
       chainId: CHAIN_ID,
       tokenAddresses: [OPTIMISM_USDC_ADDRESS, OPTIMISM_USDT_ADDRESS],
       amounts: [(-inSwapAmountWei).toString(), outSwapAmount.toString()],
-    };
-
-    const swapAuthFields = await buildSwapAuthFields(wallet, txData);
-
-    const response = await httpClient.post<TxHashResponse>(`${ENCLAVE_API_URL}/swap`, {
-      ...swapAuthFields,
-      address: wallet.address,
-      ...txData,
       externalActionId,
       swapData,
       feeToken: OPTIMISM_USDC_ADDRESS,
       feeStructure,
-    });
+    };
+
+    const { body, headers } = await buildAuthPost(authFields, CHAIN_ID, txData, () =>
+      buildSwapAuthFields(authFields, wallet, txData),
+    );
+
+    const response = await httpClient.post<TxHashResponse>(
+      `${ENCLAVE_API_URL}/swap`,
+      body,
+      headers ? { headers } : undefined,
+    );
 
     const { txHash } = response as Extract<TxHashResponse, { success: true }>;
 

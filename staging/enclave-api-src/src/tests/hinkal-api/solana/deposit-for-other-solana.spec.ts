@@ -32,7 +32,9 @@ describe('deposit-for-other route (Solana mainnet)', () => {
       recipientAuthFields,
     );
 
-    await depositForOtherUsdc(senderWallet, DEPOSIT_AMOUNT, recipientInfo);
+    const senderAuthFields = await createEnclaveSolanaSession(senderWallet);
+
+    await depositForOtherUsdc(senderWallet, DEPOSIT_AMOUNT, recipientInfo, senderAuthFields);
 
     const senderBalanceAfter = await getSolanaTokenBalance(senderWallet);
     expect(senderBalanceBefore - senderBalanceAfter).toBeGreaterThanOrEqual(DEPOSIT_AMOUNT);

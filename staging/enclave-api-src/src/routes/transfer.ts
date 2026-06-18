@@ -13,7 +13,7 @@ router.post(
   verifyTransferSignatureMiddleware,
   async (req: Request<object, TxHashResponse, TransferRequest>, res: Response<TxHashResponse>) => {
     try {
-      const { address, chainId, tokenAddresses, amounts, recipientAddress, feeToken, feeStructure } =
+      const { chainId, tokenAddresses, amounts, recipientAddress, feeToken, feeStructure } =
         req.body as TransferRequest;
 
       if (tokenAddresses.length !== amounts.length) {
@@ -30,15 +30,19 @@ router.post(
       }
 
       const resolvedFeeToken = isSolanaLike(chainId) ? tokenAddresses[0] : feeToken;
-      const txHash = await hinkalInitializerService.withHinkalForAddress(address, chainId, async (hinkal) => {
-        return hinkal.transfer(
-          erc20Tokens,
-          amounts.map((amount) => -1n * BigInt(amount)),
-          recipientAddress,
-          resolvedFeeToken,
-          parseFeeStructure(feeStructure),
-        );
-      });
+      const txHash = await hinkalInitializerService.withHinkalForAddress(
+        res.locals.address,
+        chainId,
+        async (hinkal) => {
+          return hinkal.transfer(
+            erc20Tokens,
+            amounts.map((amount) => -1n * BigInt(amount)),
+            recipientAddress,
+            resolvedFeeToken,
+            parseFeeStructure(feeStructure),
+          );
+        },
+      );
 
       res.status(200).json({ success: true, txHash });
     } catch (error) {

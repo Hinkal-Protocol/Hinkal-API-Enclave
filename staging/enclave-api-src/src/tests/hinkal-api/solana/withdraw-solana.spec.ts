@@ -5,7 +5,11 @@ import {
   httpClient,
   waitForTransactionConfirmation,
 } from '@hinkal/common';
-import { buildSolanaWithdrawAuthFields, createEnclaveSolanaSession } from '../../utils/enclaveSolanaAuthHelper';
+import {
+  buildAuthPostSolana,
+  buildSolanaWithdrawAuthFields,
+  createEnclaveSolanaSession,
+} from '../../utils/enclaveSolanaAuthHelper';
 import { depositUsdcToPrivate, getSolanaTokenBalance } from '../../utils/solanaIntegrationHelpers';
 import { fetchFeeStructure } from '../../utils/fetchFeeStructureSolana';
 import { getPrivateBalanceForToken } from '../../utils/getPrivateBalanceSolana';
@@ -40,7 +44,7 @@ describe('withdraw route (Solana mainnet)', () => {
 
     const totalRelayFee = solanaRelayFee(feeStructure.flatFee, feeStructure.variableRate, WITHDRAW_AMOUNT);
     const depositAmount = WITHDRAW_AMOUNT + totalRelayFee;
-    await depositUsdcToPrivate(wallet, depositAmount, SOLANA_MAINNET_USDC_ADDRESS, true);
+    await depositUsdcToPrivate(wallet, depositAmount, authFields, SOLANA_MAINNET_USDC_ADDRESS, true);
 
     const balanceBeforeWithdraw = await getSolanaTokenBalance(wallet);
     const privateBalanceBeforeWithdraw = await getPrivateBalanceForToken(
@@ -49,21 +53,21 @@ describe('withdraw route (Solana mainnet)', () => {
       authFields,
     );
 
-    const txData = {
+    const txParams = {
       chainId: wallet.chainId,
       tokenAddresses: [SOLANA_MAINNET_USDC_ADDRESS],
       amounts: [WITHDRAW_AMOUNT.toString()],
       recipientAddress: wallet.address,
     };
+    const { body, headers } = buildAuthPostSolana(authFields, wallet.chainId, { ...txParams, feeStructure }, () =>
+      buildSolanaWithdrawAuthFields(authFields, wallet, txParams),
+    );
 
-    const withdrawAuthFields = buildSolanaWithdrawAuthFields(wallet, txData);
-
-    const response = await httpClient.post<TxHashResponse>(`${ENCLAVE_API_URL}/withdraw`, {
-      ...withdrawAuthFields,
-      address: wallet.address,
-      ...txData,
-      feeStructure,
-    });
+    const response = await httpClient.post<TxHashResponse>(
+      `${ENCLAVE_API_URL}/withdraw`,
+      body,
+      headers ? { headers } : undefined,
+    );
 
     const { txHash } = response as Extract<TxHashResponse, { success: true }>;
 

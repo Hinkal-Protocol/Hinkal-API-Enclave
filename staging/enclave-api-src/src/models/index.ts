@@ -1,4 +1,4 @@
-export * from './EnclaveNonceSchema';
+export * from './EnclaveSessionSchema';
 export * from './UserKeysSchema';
 export * from './DepositAndWithdrawOrderSchema';
 export * from './OrganizationSchema';

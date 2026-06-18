@@ -1,7 +1,7 @@
 import { Request, Response, Router } from 'express';
 import { getErrorMessage } from '@hinkal/common';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
-import { BalanceRequest, BalanceResponse, RefreshCacheResponse } from '../types/route.types';
+import { BalanceResponse, RefreshCacheResponse } from '../types/route.types';
 import { verifySignatureMiddleware } from '../middleware';
 import { refreshAddressCache } from '../utils/balance.utils';
 
@@ -10,13 +10,16 @@ const router = Router();
 router.get(
   '/balance',
   verifySignatureMiddleware,
-  async (req: Request<object, BalanceResponse, never, BalanceRequest>, res: Response<BalanceResponse>) => {
+  async (req: Request<object, BalanceResponse>, res: Response<BalanceResponse>) => {
     try {
-      const { address, chainId } = req.query;
-      const chainIdNum = Number(chainId);
-      const balances = await hinkalInitializerService.withHinkalForAddress(address, chainIdNum, async (hinkal) => {
-        return hinkal.getTotalBalance(chainIdNum, undefined, undefined, false, true);
-      });
+      const chainIdNum = Number(req.query.chainId);
+      const balances = await hinkalInitializerService.withHinkalForAddress(
+        res.locals.address,
+        chainIdNum,
+        async (hinkal) => {
+          return hinkal.getTotalBalance(chainIdNum, undefined, undefined, false, true);
+        },
+      );
 
       res.status(200).json({
         success: true,
@@ -35,13 +38,16 @@ router.get(
 router.get(
   '/stuck-utxo-balance',
   verifySignatureMiddleware,
-  async (req: Request<object, BalanceResponse, never, BalanceRequest>, res: Response<BalanceResponse>) => {
+  async (req: Request<object, BalanceResponse>, res: Response<BalanceResponse>) => {
     try {
-      const { address, chainId } = req.query;
-      const chainIdNum = Number(chainId);
-      const balances = await hinkalInitializerService.withHinkalForAddress(address, chainIdNum, async (hinkal) => {
-        return hinkal.getTotalBalance(chainIdNum, undefined, undefined, false, true, true);
-      });
+      const chainIdNum = Number(req.query.chainId);
+      const balances = await hinkalInitializerService.withHinkalForAddress(
+        res.locals.address,
+        chainIdNum,
+        async (hinkal) => {
+          return hinkal.getTotalBalance(chainIdNum, undefined, undefined, false, true, true);
+        },
+      );
 
       res.status(200).json({
         success: true,
@@ -60,12 +66,10 @@ router.get(
 router.post(
   '/refresh-cache',
   verifySignatureMiddleware,
-  async (req: Request<object, RefreshCacheResponse, BalanceRequest>, res: Response<RefreshCacheResponse>) => {
+  async (req: Request<object, RefreshCacheResponse>, res: Response<RefreshCacheResponse>) => {
     try {
-      const { address, chainId } = req.body;
-      const chainIdNum = Number(chainId);
-
-      await refreshAddressCache(address, chainIdNum);
+      const chainIdNum = Number(req.body.chainId);
+      await refreshAddressCache(res.locals.address, chainIdNum);
 
       res.status(200).json({ success: true });
     } catch (error) {

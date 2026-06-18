@@ -4,19 +4,28 @@ import type { CryptoMode } from './types';
 export const PORT = requireEnv('PORT');
 export const DB_URI_ENCRYPTED = requireEnv('DB_URI_ENCRYPTED');
 
-export enum EnclaveSessionAccess {
-  Read = 'read',
-  Write = 'write',
+export const HEADER_REQUEST_SIGNATURE = 'x-hinkal-request-signature';
+export const HEADER_ENCLAVE_SIGNATURE = 'x-hinkal-response-signature';
+
+export const MONGO_DUPLICATE_KEY_ERROR = 11000;
+
+export enum EnclaveSessionAuthMode {
+  Normal = 'normal',
+  EIP712 = 'eip712',
 }
+
+export const resolveSessionAuthMode = (useEIP712: boolean): EnclaveSessionAuthMode =>
+  useEIP712 === true ? EnclaveSessionAuthMode.EIP712 : EnclaveSessionAuthMode.Normal;
 
 // buildEnclaveSignMessage
 export const buildEnclaveSignMessage = (
   sessionId: string,
-  access: EnclaveSessionAccess = EnclaveSessionAccess.Read,
+  clientPublicKey: string,
+  authMode: EnclaveSessionAuthMode = EnclaveSessionAuthMode.Normal,
 ): string => {
-  const lines = ['Authorize Hinkal session', `Session ID: ${sessionId}`];
+  const lines = ['Authorize Hinkal session', `Session ID: ${sessionId}`, `Public Key: ${clientPublicKey}`];
 
-  if (access === EnclaveSessionAccess.Write) {
+  if (authMode === EnclaveSessionAuthMode.Normal) {
     lines.push('This signature can also be used to submit transactions.');
   }
 

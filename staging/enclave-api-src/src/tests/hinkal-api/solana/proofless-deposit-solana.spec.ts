@@ -20,7 +20,7 @@ describe('proofless-deposit route (Solana mainnet)', () => {
     const balanceBefore = await getSolanaTokenBalance(wallet);
     const privateBalanceBefore = await getPrivateBalanceForToken(wallet, SOLANA_MAINNET_USDC_ADDRESS, authFields);
 
-    await depositUsdcToPrivate(wallet, DEPOSIT_AMOUNT, SOLANA_MAINNET_USDC_ADDRESS, true);
+    await depositUsdcToPrivate(wallet, DEPOSIT_AMOUNT, authFields, SOLANA_MAINNET_USDC_ADDRESS, true);
 
     const balanceAfter = await getSolanaTokenBalance(wallet);
     expect(balanceBefore - balanceAfter).toBeGreaterThanOrEqual(DEPOSIT_AMOUNT);

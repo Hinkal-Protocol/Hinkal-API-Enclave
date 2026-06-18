@@ -12,7 +12,7 @@ import { createJsonRpcProvider } from '@hinkal/common/functions/utils/create-pro
 import { requireEnv } from '@hinkal/common/functions/utils/requireEnv';
 import { depositUsdcToPrivate } from '../utils/enclaveIntegrationHelpers';
 import { TxHashResponse } from '../../types';
-import { buildWithdrawAuthFields, createEnclaveSession } from '../utils/enclaveAuthHelper';
+import { buildAuthPost, buildWithdrawAuthFields, createEnclaveSession } from '../utils/enclaveAuthHelper';
 import { fetchFeeStructure } from '../utils/fetchFeeStructure';
 import { getPrivateBalanceForToken } from '../utils/getPrivateBalance';
 
@@ -39,7 +39,7 @@ describe('withdraw route', () => {
   it('returns tx hash and increases public USDC balance after withdrawing from private balance', async () => {
     const authFields = await createEnclaveSession(wallet);
 
-    await depositUsdcToPrivate(wallet, CHAIN_ID, DEPOSIT_AMOUNT);
+    await depositUsdcToPrivate(wallet, CHAIN_ID, DEPOSIT_AMOUNT, authFields);
 
     const balanceBeforeWithdraw: bigint = await getUsdcBalance();
     const privateBalanceBeforeWithdraw = await getPrivateBalanceForToken(
@@ -58,22 +58,23 @@ describe('withdraw route', () => {
       authFields,
     );
 
-    const txData = {
+    const txParams = {
       chainId: CHAIN_ID,
       tokenAddresses: [ARC_TESTNET_USDC_ADDRESS],
       amounts: [WITHDRAW_AMOUNT.toString()],
       recipientAddress: wallet.address,
     };
-
-    const withdrawAuthFields = await buildWithdrawAuthFields(wallet, txData);
-
-    const response = await httpClient.post<TxHashResponse>(`${ENCLAVE_API_URL}/withdraw`, {
-      ...withdrawAuthFields,
-      address: wallet.address,
-      ...txData,
-      feeToken: ARC_TESTNET_USDC_ADDRESS,
-      feeStructure,
-    });
+    const { body, headers } = await buildAuthPost(
+      authFields,
+      CHAIN_ID,
+      { ...txParams, feeToken: ARC_TESTNET_USDC_ADDRESS, feeStructure },
+      () => buildWithdrawAuthFields(authFields, wallet, txParams),
+    );
+    const response = await httpClient.post<TxHashResponse>(
+      `${ENCLAVE_API_URL}/withdraw`,
+      body,
+      headers ? { headers } : undefined,
+    );
 
     const { txHash } = response as Extract<TxHashResponse, { success: true }>;
 

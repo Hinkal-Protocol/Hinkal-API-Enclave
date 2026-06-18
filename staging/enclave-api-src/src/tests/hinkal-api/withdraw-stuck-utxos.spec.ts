@@ -34,7 +34,7 @@ describe('POST /withdraw-stuck-utxos', () => {
     const recipientPublicBefore =
       (await getPublicBalanceByTokenAddress(CHAIN_ID, recipientAddress, ARC_TESTNET_USDC_ADDRESS)) ?? 0n;
 
-    const txHashes = await withdrawStuckUtxos(wallet, CHAIN_ID, ARC_TESTNET_USDC_ADDRESS, recipientAddress);
+    const txHashes = await withdrawStuckUtxos(wallet, CHAIN_ID, ARC_TESTNET_USDC_ADDRESS, recipientAddress, authFields);
 
     expect(Array.isArray(txHashes)).toBe(true);
 

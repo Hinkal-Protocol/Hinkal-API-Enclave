@@ -35,7 +35,7 @@ describe('deposit route', () => {
       authFields,
     );
 
-    await depositUsdcToPrivate(wallet, CHAIN_ID, DEPOSIT_AMOUNT);
+    await depositUsdcToPrivate(wallet, CHAIN_ID, DEPOSIT_AMOUNT, authFields);
 
     const balanceAfter: bigint = await getUsdcBalance();
     expect(balanceBefore - balanceAfter).toBeGreaterThanOrEqual(DEPOSIT_AMOUNT);

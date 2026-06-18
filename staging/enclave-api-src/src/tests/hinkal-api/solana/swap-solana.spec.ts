@@ -3,13 +3,21 @@ import {
   ENCLAVE_API_URL,
   ExternalActionId,
   getAmountInWei,
-  getERC20Token,
   HINKAL_SWAP_VARIABLE_RATE,
   httpClient,
   waitForTransactionConfirmation,
 } from '@hinkal/common';
-import { buildSolanaSwapAuthFields, createEnclaveSolanaSession } from '../../utils/enclaveSolanaAuthHelper';
-import { type EnclaveAuthFields, toEnclaveAuthQueryParams } from '../../utils/enclaveAuthHelper';
+import { getERC20Token } from '@hinkal/erc20-registry';
+import {
+  buildAuthPostSolana,
+  buildSolanaSwapAuthFields,
+  createEnclaveSolanaSession,
+} from '../../utils/enclaveSolanaAuthHelper';
+import {
+  type EnclaveSessionAuthFields,
+  requestSignatureGetHeader,
+  sessionQueryParams,
+} from '../../utils/enclaveAuthHelper';
 import { fetchFeeStructure } from '../../utils/fetchFeeStructureSolana';
 import { SOLANA_MAINNET_CHAIN_ID, SOLANA_MAINNET_USDC_ADDRESS } from '../../utils/solanaTestConstants';
 import { getEnclaveSolanaTestWallet, type SolanaTestWallet } from '../../utils/solanaTestWallet';
@@ -25,29 +33,35 @@ beforeAll(() => {
   wallet = getEnclaveSolanaTestWallet();
 });
 
-const getPrivateBalanceForToken = async (tokenAddress: string, authFields: EnclaveAuthFields): Promise<bigint> => {
-  const params = new URLSearchParams(toEnclaveAuthQueryParams(authFields, wallet.address, CHAIN_ID));
-  const response = await httpClient.get<BalanceResponse>(`${ENCLAVE_API_URL}/balance?${params}`);
+const getPrivateBalanceForToken = async (
+  tokenAddress: string,
+  authFields: EnclaveSessionAuthFields,
+): Promise<bigint> => {
+  const params = new URLSearchParams(sessionQueryParams(authFields, CHAIN_ID));
+  const queryString = params.toString();
+  const headers = requestSignatureGetHeader(authFields, queryString);
+  const response = await httpClient.get<BalanceResponse>(`${ENCLAVE_API_URL}/balance?${queryString}`, { headers });
   if (response.success === false) throw new Error(response.error);
   return BigInt(response.balances.find((b) => caseInsensitiveEqual(b.tokenAddress, tokenAddress))?.balance ?? '0');
 };
 
 const fetchSolanaSwapData = async (
-  authFields: EnclaveAuthFields,
+  authFields: EnclaveSessionAuthFields,
   inputTokenAddress: string,
   outputTokenAddress: string,
   amount: string,
 ): Promise<Extract<GetSwapDataResponse, { success: true }>> => {
   const params = new URLSearchParams({
-    signature: authFields.signature,
-    nonce: authFields.nonce,
-    address: wallet.address,
-    chainId: CHAIN_ID.toString(),
+    ...sessionQueryParams(authFields, CHAIN_ID),
     inputTokenAddress,
     outputTokenAddress,
     amount,
   });
-  const response = await httpClient.get<GetSwapDataResponse>(`${ENCLAVE_API_URL}/get-swap-data?${params}`);
+  const queryString = params.toString();
+  const headers = requestSignatureGetHeader(authFields, queryString);
+  const response = await httpClient.get<GetSwapDataResponse>(`${ENCLAVE_API_URL}/get-swap-data?${queryString}`, {
+    headers,
+  });
   if (response.success === false) throw new Error(response.error);
   return response;
 };
@@ -105,22 +119,23 @@ describe('Solana swap routes', () => {
       SOLANA_MAINNET_USDC_ADDRESS,
     );
 
-    const txData = {
+    const txParams = {
       chainId: CHAIN_ID,
       tokenAddresses,
       amounts: [(-inSwapAmountWei).toString(), quotedOutSwapAmount],
     };
+    const { body, headers } = buildAuthPostSolana(
+      authFields,
+      CHAIN_ID,
+      { ...txParams, externalActionId, swapData, feeStructure },
+      () => buildSolanaSwapAuthFields(authFields, wallet, txParams),
+    );
 
-    const swapAuthFields = buildSolanaSwapAuthFields(wallet, txData);
-
-    const response = await httpClient.post<TxHashResponse>(`${ENCLAVE_API_URL}/swap`, {
-      ...swapAuthFields,
-      address: wallet.address,
-      ...txData,
-      externalActionId,
-      swapData,
-      feeStructure,
-    });
+    const response = await httpClient.post<TxHashResponse>(
+      `${ENCLAVE_API_URL}/swap`,
+      body,
+      headers ? { headers } : undefined,
+    );
 
     const { txHash } = response as Extract<TxHashResponse, { success: true }>;
     expect(txHash).toBeDefined();

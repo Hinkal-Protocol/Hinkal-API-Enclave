@@ -11,6 +11,7 @@ import {
 import { createJsonRpcProvider } from '@hinkal/common/functions/utils/create-provider';
 import { requireEnv } from '@hinkal/common/functions/utils/requireEnv';
 import { prepareDepositAndWithdraw } from '../utils/enclaveIntegrationHelpers';
+import { createEnclaveSession } from '../utils/enclaveAuthHelper';
 import { DepositAndWithdrawPublicStatus } from '../../utils/resolveDepositAndWithdrawPublicStatus';
 import { DepositAndWithdrawResponse } from '../../types';
 import { fundWalletsWithUsdc } from '../utils/loadTestHelpers';
@@ -59,9 +60,13 @@ const fetchOrderStatus = async (orderId: string): Promise<OrderStatusResponse> =
 };
 
 const runOrderFlow = async (wallet: ethers.HDNodeWallet): Promise<OrderStatusResponse> => {
-  const order: Order = await prepareDepositAndWithdraw(wallet, CHAIN_ID, [
-    { address: recipientAddress, amount: DEPOSIT_AMOUNT },
-  ]);
+  const session = await createEnclaveSession(wallet);
+  const order: Order = await prepareDepositAndWithdraw(
+    wallet,
+    CHAIN_ID,
+    [{ address: recipientAddress, amount: DEPOSIT_AMOUNT }],
+    session,
+  );
 
   if (order.approvalAddress) {
     const usdc = new ethers.Contract(ARC_TESTNET_USDC_ADDRESS, ERC20ABI, wallet);

@@ -5,6 +5,7 @@ import {
   ScheduledTransactionStatus,
   waitForTransactionConfirmation,
 } from '@hinkal/common';
+import { createEnclaveSolanaSession } from '../../utils/enclaveSolanaAuthHelper';
 import {
   broadcastPalDepositTx,
   getSolanaTokenBalance,
@@ -62,9 +63,13 @@ describe('deposit-and-withdraw route (Solana mainnet)', () => {
 
     const recipientBefore = await getSolanaTokenBalance(recipientWallet);
 
-    const order = await prepareDepositAndWithdraw(senderWallet, [
-      { address: recipientWallet.address, amount: DEPOSIT_AMOUNT },
-    ]);
+    const session = await createEnclaveSolanaSession(senderWallet);
+
+    const order = await prepareDepositAndWithdraw(
+      senderWallet,
+      [{ address: recipientWallet.address, amount: DEPOSIT_AMOUNT }],
+      session,
+    );
 
     expect(order.orderId).toBeDefined();
     expect(order.serializedTx).toBeDefined();

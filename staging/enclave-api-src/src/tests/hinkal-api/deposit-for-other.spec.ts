@@ -38,7 +38,9 @@ describe('deposit-for-other route', () => {
       recipientAuthFields,
     );
 
-    await depositForOtherUsdc(senderWallet, CHAIN_ID, DEPOSIT_AMOUNT, recipientInfo);
+    const senderAuthFields = await createEnclaveSession(senderWallet);
+
+    await depositForOtherUsdc(senderWallet, CHAIN_ID, DEPOSIT_AMOUNT, recipientInfo, senderAuthFields);
 
     const senderBalanceAfter: bigint = await getSenderUsdcBalance();
     expect(senderBalanceBefore - senderBalanceAfter).toBeGreaterThanOrEqual(DEPOSIT_AMOUNT);

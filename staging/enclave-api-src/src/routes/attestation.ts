@@ -1,6 +1,7 @@
 import { Request, Response, Router } from 'express';
 import { attestationService } from '../services/AttestationService';
 import { verificationPublicKey } from '../enclaveKeypair';
+import { isLocalCryptoMode } from '../constants';
 
 const router = Router();
 
@@ -16,7 +17,11 @@ router.get('/attestation', async (req: Request, res: Response) => {
     const { jwt, imageDigest } = await attestationService.fetchAttestation(nonce);
     res.status(200).json({ jwt, imageDigest, verificationPublicKey });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch attestation token' });
+    if (isLocalCryptoMode) {
+      res.status(200).json({ verificationPublicKey });
+      return;
+    }
+    res.status(500).json({ error: 'Failed to fetch attestation' });
   }
 });
 

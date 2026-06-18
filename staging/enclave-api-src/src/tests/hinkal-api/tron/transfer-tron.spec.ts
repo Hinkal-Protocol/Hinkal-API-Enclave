@@ -6,8 +6,12 @@ import {
   waitForTransactionConfirmation,
 } from '@hinkal/common';
 import { depositUsdtToPrivate } from '../../utils/tronIntegrationHelpers';
-import { buildTransferAuthFieldsTron, createEnclaveSessionTron } from '../../utils/enclaveAuthHelperTron';
-import { toEnclaveAuthQueryParams } from '../../utils/enclaveAuthHelper';
+import {
+  buildAuthPostTron,
+  buildTransferAuthFieldsTron,
+  createEnclaveSessionTron,
+} from '../../utils/enclaveAuthHelperTron';
+import { requestSignatureGetHeader, sessionQueryParams } from '../../utils/enclaveAuthHelper';
 import { fetchFeeStructure } from '../../utils/fetchFeeStructureTron';
 import { getPrivateBalanceForToken } from '../../utils/getPrivateBalanceTron';
 import { TRON_NILE_USDT_ADDRESS } from '../../utils/tronTestConstants';
@@ -40,31 +44,35 @@ describe('transfer route (Tron Nile)', () => {
 
     const totalRelayFee = tronRelayFee(feeStructure.flatFee, feeStructure.variableRate, TRANSFER_AMOUNT);
     const depositAmount = TRANSFER_AMOUNT + totalRelayFee;
-    await depositUsdtToPrivate(wallet, depositAmount, TRON_NILE_USDT_ADDRESS, true);
+    await depositUsdtToPrivate(wallet, depositAmount, authFields, TRON_NILE_USDT_ADDRESS, true);
 
+    const recipientParams = new URLSearchParams(sessionQueryParams(authFields, wallet.chainId));
+    const recipientQueryString = recipientParams.toString();
     const { recipientInfo } = await httpClient.get<Extract<RecipientInfoResponse, { success: true }>>(
-      `${ENCLAVE_API_URL}/recipient-info?${new URLSearchParams(toEnclaveAuthQueryParams(authFields, wallet.address, wallet.chainId))}`,
+      `${ENCLAVE_API_URL}/recipient-info?${recipientQueryString}`,
+      { headers: requestSignatureGetHeader(authFields, recipientQueryString) },
     );
     expect(recipientInfo).toBeTruthy();
 
     const privateBalanceBeforeTransfer = await getPrivateBalanceForToken(wallet, TRON_NILE_USDT_ADDRESS, authFields);
 
-    const txData = {
+    const txParams = {
       chainId: wallet.chainId,
       tokenAddresses: [TRON_NILE_USDT_ADDRESS],
       amounts: [TRANSFER_AMOUNT.toString()],
       recipientAddress: recipientInfo,
     };
-
-    const transferAuthFields = buildTransferAuthFieldsTron(wallet.tronWeb, wallet.address, txData);
-
-    const response = await httpClient.post<TxHashResponse>(`${ENCLAVE_API_URL}/transfer`, {
-      ...transferAuthFields,
-      address: wallet.address,
-      ...txData,
-      feeToken: TRON_NILE_USDT_ADDRESS,
-      feeStructure,
-    });
+    const { body, headers } = buildAuthPostTron(
+      authFields,
+      wallet.chainId,
+      { ...txParams, feeToken: TRON_NILE_USDT_ADDRESS, feeStructure },
+      () => buildTransferAuthFieldsTron(authFields, wallet.tronWeb, txParams),
+    );
+    const response = await httpClient.post<TxHashResponse>(
+      `${ENCLAVE_API_URL}/transfer`,
+      body,
+      headers ? { headers } : undefined,
+    );
 
     const { txHash } = response as Extract<TxHashResponse, { success: true }>;
 

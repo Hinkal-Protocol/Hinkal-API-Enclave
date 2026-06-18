@@ -9,7 +9,7 @@ import { liveChainStateService, MONGO_CONNECTION_OPTIONS, setServerSettings } fr
 import cors from 'cors';
 import express, { json } from 'express';
 import mongoose from 'mongoose';
-import { DB_URI_ENCRYPTED, DEPLOYMENT_MODE, PORT } from './constants';
+import { DB_URI_ENCRYPTED, DEPLOYMENT_MODE, HEADER_ENCLAVE_SIGNATURE, PORT } from './constants';
 import { cryptoHelper } from './crypto';
 import { loadRoutes } from './loaders/routeLoader';
 import { enclaveDepositListenerService } from './services/EnclaveDepositListenerService';
@@ -27,7 +27,7 @@ app.use(
     },
   }),
 );
-app.use(cors({ exposedHeaders: ['X-Hinkal-Signature'] }));
+app.use(cors({ exposedHeaders: [HEADER_ENCLAVE_SIGNATURE] }));
 app.use(express.text({ type: '*/*', limit: '50mb' }));
 
 loadRoutes(app);

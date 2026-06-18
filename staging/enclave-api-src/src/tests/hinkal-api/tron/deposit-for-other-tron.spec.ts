@@ -32,7 +32,9 @@ describe('deposit-for-other route (Tron Nile)', () => {
       recipientAuthFields,
     );
 
-    await depositForOtherUsdt(senderWallet, DEPOSIT_AMOUNT, recipientInfo);
+    const senderAuthFields = await createEnclaveSessionTron(senderWallet.tronWeb, senderWallet.address);
+
+    await depositForOtherUsdt(senderWallet, DEPOSIT_AMOUNT, recipientInfo, senderAuthFields);
 
     const senderBalanceAfter = await getTronUsdtBalance(senderWallet);
     expect(senderBalanceBefore - senderBalanceAfter).toBeGreaterThanOrEqual(DEPOSIT_AMOUNT);

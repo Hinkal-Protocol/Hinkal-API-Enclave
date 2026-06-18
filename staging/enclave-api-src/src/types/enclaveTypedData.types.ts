@@ -21,7 +21,7 @@ export type EnclaveTypedDataPayload = {
 
 export type BaseAuthFields = {
   nonce: string;
-  address: string;
+  sessionId: string;
   chainId: number;
 };
 
