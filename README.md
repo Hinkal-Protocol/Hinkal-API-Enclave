@@ -151,13 +151,14 @@ Call the attestation endpoint with any nonce (a UUID you generate yourself):
 curl "https://api.hinkal.io/attestation?nonce=$(uuidgen)"
 ```
 
-The response contains `imageDigest`, extracted from the `submods.container.image_digest` field of the decoded JWT, and `verificationPublicKey` — the enclave's EC P-256 public key generated at startup and embedded in the JWT's `aud` claim:
+The response contains `imageDigest`, extracted from the `submods.container.image_digest` field of the decoded JWT, `verificationPublicKey` — the enclave's EC P-256 public key generated at startup and embedded in the JWT's `aud` claim — and `nonce`, echoing your request nonce back (covered by `x-hinkal-response-signature`, proving the response was not replayed):
 
 ```json
 {
   "imageDigest": "sha256:01c6cb76481dd3601c5cdbd899d95c95a75e5874998360187219819b511767c4",
   "jwt": "<google-signed-jwt>",
-  "verificationPublicKey": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE...\n-----END PUBLIC KEY-----\n"
+  "verificationPublicKey": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE...\n-----END PUBLIC KEY-----\n",
+  "nonce": "06B7204C-6FF2-4BF4-A4DE-6DFB09E2EFEA"
 }
 ```
 
@@ -226,7 +227,7 @@ The JWT's `aud` claim contains the enclave's `verificationPublicKey`. Because th
 
 ### Using the public key to verify Hinkal API responses
 
-The enclave signs its `/private-send` responses with the EC P-256 private key corresponding to `verificationPublicKey`. The signature is returned in the `X-Hinkal-Signature` response header.
+The enclave signs every response with the EC P-256 private key corresponding to `verificationPublicKey`. The signature is returned in the `x-hinkal-response-signature` response header.
 
 To verify a response:
 
@@ -236,13 +237,18 @@ import { createVerify } from 'crypto';
 // 1. fetch verificationPublicKey from /attestation (verifying the JWT proves it came from the TEE)
 const { verificationPublicKey } = await fetch('https://api.hinkal.io/attestation?nonce=<uuid>').then(r => r.json());
 
-// 2. call any Hinkal API endpoint, keeping the raw body string (example: /private-send)
-const response = await fetch('https://api.hinkal.io/private-send', { method: 'POST', body: ... });
+// 2. call any Hinkal API endpoint, keeping the raw body string
+const myNonce = 'E692124A-DCFE-4656-A0F5-9D348A003706';
+const response = await fetch('https://api.hinkal.io/deposit', { method: 'POST', body: ... });
 const rawBody = await response.text();
-const signature = response.headers.get('x-hinkal-signature');
+const signature = response.headers.get('x-hinkal-response-signature');
 
-// 3. verify
+// 3. verify signature
 const verify = createVerify('SHA256');
 verify.update(rawBody);
 const valid = verify.verify({ key: verificationPublicKey, dsaEncoding: 'ieee-p1363' }, signature, 'base64');
+
+// 4. verify echoed nonce — proves the response corresponds to your request, not a replay
+const responseJson = JSON.parse(rawBody);
+if (responseJson.nonce !== myNonce) throw new Error('nonce mismatch — possible replay');
 ```
