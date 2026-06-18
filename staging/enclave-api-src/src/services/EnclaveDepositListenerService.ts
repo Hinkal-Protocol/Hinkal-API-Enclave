@@ -29,6 +29,13 @@ type EvmCallTrace = {
   calls?: EvmCallTrace[];
 };
 
+type RawTransaction = {
+  hash: string;
+  from: string;
+  input: string;
+  blockNumber: string | null;
+};
+
 class EnclaveDepositListenerService {
   private solanaConnection: Connection | null = null;
 
@@ -131,13 +138,13 @@ class EnclaveDepositListenerService {
     hinkalContract: ethers.Contract,
     txHash: string,
   ): Promise<boolean> {
-    const tx = await provider.getTransaction(txHash);
+    const tx = (await provider.send('eth_getTransactionByHash', [txHash])) as RawTransaction | null;
     if (!tx) return false;
 
     const orderId = await this.extractEvmOrderId(hinkalContract, tx, provider);
     if (!orderId) return false;
 
-    const blockNumber = tx.blockNumber ?? 0;
+    const blockNumber = tx.blockNumber ? parseInt(tx.blockNumber, 16) : 0;
     setImmediate(() => {
       enclaveDepositDispatcherService
         .handleDeposit({ chainId, txHash, fromAddress: tx.from, orderId })
@@ -155,10 +162,10 @@ class EnclaveDepositListenerService {
 
   private async extractEvmOrderId(
     hinkalContract: ethers.Contract,
-    tx: ethers.TransactionResponse,
+    tx: RawTransaction,
     provider: ethers.JsonRpcProvider,
   ): Promise<string | null> {
-    const direct = this.decodeOrderId(hinkalContract, tx.data);
+    const direct = this.decodeOrderId(hinkalContract, tx.input);
     if (direct) return direct;
 
     try {
