@@ -1,3 +1,4 @@
+import { createEnclaveSessionTron } from '../../utils/enclaveAuthHelperTron';
 import axios from 'axios';
 import {
   ENCLAVE_API_URL,
@@ -64,9 +65,13 @@ describe('deposit-and-withdraw route (Tron Nile)', () => {
 
     const recipientBefore = await getTronUsdtBalance(recipientWallet);
 
-    const order = await prepareDepositAndWithdraw(senderWallet, [
-      { address: recipientWallet.address, amount: DEPOSIT_AMOUNT },
-    ]);
+    const session = await createEnclaveSessionTron(senderWallet.tronWeb, senderWallet.address);
+
+    const order = await prepareDepositAndWithdraw(
+      senderWallet,
+      [{ address: recipientWallet.address, amount: DEPOSIT_AMOUNT }],
+      session,
+    );
 
     expect(order.orderId).toBeDefined();
     expect(order.serializedTx).toBeDefined();

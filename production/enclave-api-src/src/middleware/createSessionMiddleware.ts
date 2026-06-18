@@ -1,61 +1,75 @@
 import { NextFunction, Request, Response } from 'express';
-import { EnclaveSessionAccess } from '../constants';
-import { EnclaveNonceValidationResult, openEnclaveSession } from '../models/EnclaveNonceSchema';
-import {
-  consumeRequestIdOrRespond,
-  parseSessionRequest,
-  verifyEnclaveSessionSignature,
-  verifyWithKeyRequest,
-} from './signatureMiddlewareUtils';
+import { HEADER_REQUEST_SIGNATURE, resolveSessionAuthMode } from '../constants';
+import { EnclaveSessionValidationResult, openEnclaveSession } from '../models/EnclaveSessionSchema';
+import { isValidSecp256k1PublicKey, verifyRequestSignature } from '../utils/requestSignatureUtils';
+import { parseCreateSessionRequest, verifyEnclaveSessionSignature } from './signatureMiddlewareUtils';
 
 export const createSessionMiddleware = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const body = { ...req.query, ...req.body } as Record<string, unknown>;
-    const parsed = parseSessionRequest(body);
+    const parsed = parseCreateSessionRequest(body);
     if (parsed.ok === false) {
       res.status(400).json({ error: parsed.error });
       return;
     }
 
+    const { clientPublicKey } = parsed.value;
+
+    if (!isValidSecp256k1PublicKey(clientPublicKey)) {
+      res.status(400).json({
+        error: 'Missing or invalid clientPublicKey: must be a compressed secp256k1 public key (33 bytes hex)',
+      });
+      return;
+    }
+
+    const receivedSig = req.headers[HEADER_REQUEST_SIGNATURE];
+    if (typeof receivedSig !== 'string' || !receivedSig) {
+      res.status(401).json({ error: 'Missing x-hinkal-request-signature header' });
+      return;
+    }
+
+    const rawBody = (req as Request & { rawBody?: string }).rawBody ?? '';
+    if (!verifyRequestSignature(clientPublicKey, rawBody, receivedSig)) {
+      res.status(401).json({ error: 'Invalid request signature' });
+      return;
+    }
+
     const request = parsed.value;
-    const publicKey =
-      request.writeAccess && typeof body.publicKey === 'string' && body.publicKey ? body.publicKey : undefined;
     const expiresAt = typeof body.expiresAt === 'string' && body.expiresAt ? new Date(body.expiresAt) : undefined;
 
-    const access = request.writeAccess ? EnclaveSessionAccess.Write : EnclaveSessionAccess.Read;
-    const isValid = await verifyEnclaveSessionSignature(request, access);
+    const authMode = resolveSessionAuthMode(request.useEIP712);
+    const isValid = await verifyEnclaveSessionSignature(
+      request.sessionId,
+      request.clientPublicKey,
+      request.signature,
+      request.address,
+      authMode,
+    );
 
     if (!isValid) {
       res.status(401).json({ error: 'Invalid signature' });
       return;
     }
 
-    if (publicKey) {
-      const ok = await verifyWithKeyRequest(req, res, publicKey);
-      if (!ok) return;
-    }
-
-    if (!(await consumeRequestIdOrRespond(req, res))) return;
-
-    const nonceResult = await openEnclaveSession({
-      nonce: request.nonce,
+    const sessionResult = await openEnclaveSession({
+      sessionId: request.sessionId,
       address: request.address,
-      hasWriteAccess: request.writeAccess,
-      publicKey,
+      authMode,
+      clientPublicKey,
       expiresAt,
     });
 
-    if (nonceResult === EnclaveNonceValidationResult.EXPIRED) {
-      res.status(401).json({ error: 'Nonce expired' });
+    if (sessionResult === EnclaveSessionValidationResult.EXPIRED) {
+      res.status(401).json({ error: 'Session expired' });
       return;
     }
 
-    if (nonceResult === EnclaveNonceValidationResult.CONFLICT) {
-      res.status(409).json({ error: 'Nonce already registered for a different session' });
+    if (sessionResult === EnclaveSessionValidationResult.CONFLICT) {
+      res.status(409).json({ error: 'Session already registered for a different owner' });
       return;
     }
 
-    if (nonceResult === EnclaveNonceValidationResult.ERROR) {
+    if (sessionResult === EnclaveSessionValidationResult.ERROR) {
       res.status(500).json({ error: 'Error creating session' });
       return;
     }

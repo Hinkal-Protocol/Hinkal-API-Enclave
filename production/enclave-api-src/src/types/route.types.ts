@@ -145,16 +145,16 @@ export type SerializedTokenBalance = {
 export type CreateSessionRequest = {
   signature: string;
   address: string;
+  sessionId: string;
   nonce: string;
-  writeAccess?: boolean;
+  clientPublicKey: string;
+  useEIP712?: boolean;
 };
 
 export type CreateSessionResponse =
   | {
       success: true;
       expiresAt: string;
-      hasWriteAccess: boolean;
-      publicKey?: string;
     }
   | FailedResponse;
 

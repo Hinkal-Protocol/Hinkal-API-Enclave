@@ -1,26 +1,15 @@
-import { createHash } from 'crypto';
 import { Request, Response } from 'express';
-import { secp256k1 } from '@noble/curves/secp256k1';
-import { consumeRequestId } from '../models/RequestIdSchema';
+import { consumeRequestNonce } from '../models/RequestNonceSchema';
 import { HINKAL_SUPPORTED_CHAINS } from '@hinkal/common';
-import { buildEnclaveSignMessage, EnclaveSessionAccess } from '../constants';
-import {
-  EnclaveNonceSession,
-  EnclaveNonceValidationResult,
-  getEnclaveNonceSession,
-  isEnclaveNonceSessionActive,
-  registerTxEnclaveNonce,
-} from '../models/EnclaveNonceSchema';
-import { ParsedSignatureRequest, ParseResult } from '../types';
+import { buildEnclaveSignMessage, EnclaveSessionAuthMode } from '../constants';
+import { ParsedCreateSessionRequest, ParsedSignatureRequest, ParseResult } from '../types';
 import { verifySignature } from '../utils';
 import { validate as validateUuid } from 'uuid';
 
-const ENCLAVE_NONCE_INVALID_ERROR = 'Invalid nonce: must be a UUID';
-const SESSION_NOT_FOUND_ERROR = 'Session not found. Create a session first via POST /create-session';
+const REQUEST_NONCE_INVALID_ERROR = 'Invalid nonce: must be a UUID';
+const SESSION_ID_INVALID_ERROR = 'Invalid sessionId: must be a UUID';
 
-const isValidEnclaveNonce = (nonce: string): boolean => validateUuid(nonce);
-
-const parseWriteAccess = (value: unknown): boolean => {
+const parseUseEIP712 = (value: unknown): boolean => {
   if (typeof value === 'boolean') {
     return value;
   }
@@ -30,30 +19,91 @@ const parseWriteAccess = (value: unknown): boolean => {
   return false;
 };
 
-export const parseSessionRequest = (body: Record<string, unknown>): ParseResult<ParsedSignatureRequest> => {
-  const { signature, address, nonce, writeAccess } = body;
+const parseRequestNonce = (body: Record<string, unknown>): ParseResult<string> => {
+  const { nonce } = body;
+
+  if (typeof nonce !== 'string' || !nonce) {
+    return { ok: false, error: 'Missing required field: nonce' };
+  }
+
+  if (!validateUuid(nonce)) {
+    return { ok: false, error: REQUEST_NONCE_INVALID_ERROR };
+  }
+
+  return { ok: true, value: nonce };
+};
+
+const parseRequestTimestamp = (body: Record<string, unknown>): ParseResult<number | undefined> => {
+  const { timestamp } = body;
+
+  if (timestamp === undefined || timestamp === null || timestamp === '') {
+    return { ok: true, value: undefined };
+  }
+
+  const parsed = typeof timestamp === 'number' ? timestamp : Number(timestamp);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return { ok: false, error: 'Invalid timestamp' };
+  }
+
+  return { ok: true, value: parsed };
+};
+
+export const parseCreateSessionRequest = (body: Record<string, unknown>): ParseResult<ParsedCreateSessionRequest> => {
+  const timestampResult = parseRequestTimestamp(body);
+  if (timestampResult.ok === false) return timestampResult;
+
+  const { signature, address, sessionId, useEIP712, clientPublicKey } = body;
 
   if (
     typeof signature !== 'string' ||
     !signature ||
     typeof address !== 'string' ||
     !address ||
-    typeof nonce !== 'string' ||
-    !nonce
+    typeof sessionId !== 'string' ||
+    !sessionId ||
+    typeof clientPublicKey !== 'string' ||
+    !clientPublicKey
   ) {
     return { ok: false, error: 'Missing required fields' };
   }
 
-  if (!isValidEnclaveNonce(nonce)) {
-    return { ok: false, error: ENCLAVE_NONCE_INVALID_ERROR };
+  if (!validateUuid(sessionId)) {
+    return { ok: false, error: SESSION_ID_INVALID_ERROR };
   }
 
-  return { ok: true, value: { signature, address, nonce, writeAccess: parseWriteAccess(writeAccess) } };
+  return {
+    ok: true,
+    value: {
+      signature,
+      address,
+      sessionId,
+      clientPublicKey,
+      useEIP712: parseUseEIP712(useEIP712),
+      ...(timestampResult.value !== undefined ? { timestamp: timestampResult.value } : {}),
+    },
+  };
 };
 
 export const parseSignatureRequest = (body: Record<string, unknown>): ParseResult<ParsedSignatureRequest> => {
-  const base = parseSessionRequest(body);
-  if (base.ok === false) return base;
+  const nonceResult = parseRequestNonce(body);
+  if (nonceResult.ok === false) return nonceResult;
+
+  const timestampResult = parseRequestTimestamp(body);
+  if (timestampResult.ok === false) return timestampResult;
+
+  const { signature, sessionId } = body;
+
+  if (typeof signature !== 'string' || !signature) {
+    return { ok: false, error: 'Missing required field: signature' };
+  }
+
+  if (typeof sessionId !== 'string' || !sessionId) {
+    return { ok: false, error: 'Missing required field: sessionId' };
+  }
+
+  if (!validateUuid(sessionId)) {
+    return { ok: false, error: SESSION_ID_INVALID_ERROR };
+  }
 
   const { chainId } = body;
   const parsedChainId = typeof chainId === 'number' ? chainId : Number(chainId);
@@ -61,121 +111,45 @@ export const parseSignatureRequest = (body: Record<string, unknown>): ParseResul
     return { ok: false, error: 'Invalid chainId' };
   }
 
-  return { ok: true, value: { ...base.value, chainId: parsedChainId } };
+  return {
+    ok: true,
+    value: {
+      signature,
+      nonce: nonceResult.value,
+      sessionId,
+      chainId: parsedChainId,
+      ...(timestampResult.value !== undefined ? { timestamp: timestampResult.value } : {}),
+    },
+  };
 };
 
-const respondToTxNonceRegistrationResult = (nonceResult: EnclaveNonceValidationResult, res: Response): boolean => {
-  if (nonceResult === EnclaveNonceValidationResult.EXPIRED) {
-    res.status(401).json({ error: 'Nonce expired' });
+export const consumeRequestNonceOrRespond = async (req: Request, res: Response): Promise<boolean> => {
+  const body = { ...req.query, ...req.body } as Record<string, unknown>;
+  const nonceResult = parseRequestNonce(body);
+  if (nonceResult.ok === false) {
+    res.status(400).json({ error: nonceResult.error });
     return false;
   }
-  if (nonceResult === EnclaveNonceValidationResult.CONFLICT) {
-    res.status(409).json({ error: 'Nonce already used' });
-    return false;
-  }
-  if (nonceResult === EnclaveNonceValidationResult.ERROR) {
-    res.status(500).json({ error: 'Error validating nonce' });
+
+  const consumed = await consumeRequestNonce(nonceResult.value);
+  if (!consumed) {
+    res.status(409).json({ error: 'nonce already used' });
     return false;
   }
 
   return true;
 };
 
-export const registerTxNonceOrRespond = async (nonce: string, res: Response): Promise<boolean> => {
-  const nonceResult = await registerTxEnclaveNonce(nonce);
-  return respondToTxNonceRegistrationResult(nonceResult, res);
-};
-
-export const validateExistingSessionOrRespond = async (
-  request: ParsedSignatureRequest,
-  res: Response,
-): Promise<EnclaveNonceSession | null> => {
-  const { nonce, address } = request;
-  const session = await getEnclaveNonceSession(nonce);
-
-  if (!session) {
-    res.status(401).json({ error: SESSION_NOT_FOUND_ERROR });
-    return null;
-  }
-
-  if (!isEnclaveNonceSessionActive(session)) {
-    res.status(401).json({ error: 'Nonce expired' });
-    return null;
-  }
-
-  if (session.address !== address) {
-    res.status(401).json({ error: 'Session address mismatch' });
-    return null;
-  }
-
-  return session;
-};
-
 export const verifyEnclaveSessionSignature = async (
-  request: ParsedSignatureRequest,
-  access: EnclaveSessionAccess,
+  sessionId: string,
+  clientPublicKey: string,
+  signature: string,
+  address: string,
+  authMode: EnclaveSessionAuthMode,
 ): Promise<boolean> => {
-  const { signature, address, nonce } = request;
-  const message = buildEnclaveSignMessage(nonce, access);
+  const message = buildEnclaveSignMessage(sessionId, clientPublicKey, authMode);
   const results = await Promise.all(
     HINKAL_SUPPORTED_CHAINS.map((chainId) => verifySignature(signature, address, message, chainId).catch(() => false)),
   );
   return results.some(Boolean);
-};
-
-export const getSessionAccess = (session: EnclaveNonceSession): EnclaveSessionAccess =>
-  session.hasWriteAccess ? EnclaveSessionAccess.Write : EnclaveSessionAccess.Read;
-
-export const isActiveWriteSessionForRequest = (
-  session: EnclaveNonceSession,
-  request: ParsedSignatureRequest,
-): boolean => {
-  const { address } = request;
-
-  return isEnclaveNonceSessionActive(session) && session.hasWriteAccess && session.address === address;
-};
-
-export const verifySecp256k1Signature = (payload: string, signatureHex: string, publicKeyHex: string): boolean => {
-  try {
-    const msgHash = createHash('sha256').update(payload).digest();
-    const sigBytes = new Uint8Array(Buffer.from(signatureHex, 'hex'));
-    const pubKeyBytes = new Uint8Array(Buffer.from(publicKeyHex, 'hex'));
-    return secp256k1.verify(sigBytes, msgHash, pubKeyBytes);
-  } catch {
-    return false;
-  }
-};
-
-const getRawBody = (req: Request): string => {
-  if (req.method === 'GET') {
-    return req.url.split('?')[1] ?? '';
-  }
-  return (req as Request & { rawBody?: string }).rawBody ?? JSON.stringify(req.body);
-};
-
-export const verifyWithKeyRequest = async (req: Request, res: Response, publicKey: string): Promise<boolean> => {
-  const requestSignature = req.headers['x-request-signature'];
-  if (typeof requestSignature !== 'string' || !requestSignature) {
-    res.status(401).json({ error: 'Missing X-Request-Signature header' });
-    return false;
-  }
-
-  if (!verifySecp256k1Signature(getRawBody(req), requestSignature, publicKey)) {
-    res.status(401).json({ error: 'Invalid request signature' });
-    return false;
-  }
-
-  return true;
-};
-
-export const consumeRequestIdOrRespond = async (req: Request, res: Response): Promise<boolean> => {
-  const { requestId } = { ...req.query, ...req.body } as Record<string, unknown>;
-  if (typeof requestId !== 'string' || !requestId) return true;
-  const consumed = await consumeRequestId(requestId);
-  if (!consumed) {
-    res.status(409).json({ error: 'requestId already used' });
-    return false;
-  }
-
-  return true;
 };

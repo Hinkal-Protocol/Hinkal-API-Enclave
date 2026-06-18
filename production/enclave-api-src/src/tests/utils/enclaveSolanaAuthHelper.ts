@@ -1,8 +1,6 @@
-import { randomUUID } from 'crypto';
+import { randomBytes, randomUUID } from 'crypto';
 import nacl from 'tweetnacl';
-import { ENCLAVE_API_URL, httpClient } from '@hinkal/common';
-import { buildEnclaveSignMessage, EnclaveSessionAccess } from '../../constants';
-import { CreateSessionResponse } from '../../types/route.types';
+import { buildEnclaveSignMessage, resolveSessionAuthMode } from '../../constants';
 import {
   buildSolanaDepositForOtherMessage,
   buildSolanaDepositMessage,
@@ -16,12 +14,23 @@ import {
 import type {
   DepositForOtherAuthFields,
   PrivateSendAuthFields,
+  SwapAuthFields,
   TokenAmountsAuthFields,
   TransferLikeAuthFields,
   WithdrawStuckUtxosAuthFields,
 } from '../../utils/enclaveAuthNormalization';
-import type { EnclaveAuthFields } from './enclaveAuthHelper';
+import {
+  createEnclaveSessionFromSignature,
+  type EnclaveSessionAuthFields,
+  type EnclaveTxAuthFields,
+  requestSignaturePostHeader,
+  resolveTestUseEIP712,
+  sessionBodyParams,
+} from './enclaveAuthHelper';
 import type { SolanaTestWallet } from './solanaTestWallet';
+import { secp256k1 } from '@noble/curves/secp256k1';
+
+const toHex = (bytes: Uint8Array): string => Buffer.from(bytes).toString('hex');
 
 const signRawMessage = (message: string, wallet: SolanaTestWallet): string => {
   const messageBytes = Buffer.from(message, 'utf8');
@@ -29,104 +38,156 @@ const signRawMessage = (message: string, wallet: SolanaTestWallet): string => {
   return Buffer.from(signature).toString('hex');
 };
 
-const buildAuthFields = (message: string, nonce: string, wallet: SolanaTestWallet): EnclaveAuthFields => ({
+const buildTxAuthFields = (
+  sessionId: string,
+  message: string,
+  nonce: string,
+  wallet: SolanaTestWallet,
+): EnclaveTxAuthFields => ({
+  sessionId,
   signature: signRawMessage(message, wallet),
   nonce,
+  timestamp: Date.now(),
 });
 
-export const buildEnclaveSolanaAuthFields = (
-  wallet: SolanaTestWallet,
-  options?: { writeAccess?: boolean },
-): EnclaveAuthFields => {
-  const nonce = randomUUID();
-  const access = options?.writeAccess ? EnclaveSessionAccess.Write : EnclaveSessionAccess.Read;
-  const authFields = buildAuthFields(buildEnclaveSignMessage(nonce, access), nonce, wallet);
-  return options?.writeAccess ? { ...authFields, writeAccess: true } : authFields;
+export const createEnclaveSolanaSession = async (wallet: SolanaTestWallet): Promise<EnclaveSessionAuthFields> => {
+  const useEIP712 = resolveTestUseEIP712();
+  const privateKey = new Uint8Array(randomBytes(32));
+  const clientPublicKey = toHex(secp256k1.getPublicKey(privateKey, true));
+  const sessionId = randomUUID();
+  const authMode = resolveSessionAuthMode(useEIP712);
+  const signature = signRawMessage(buildEnclaveSignMessage(sessionId, clientPublicKey, authMode), wallet);
+  return createEnclaveSessionFromSignature(signature, wallet.address, sessionId, privateKey, useEIP712);
 };
 
-export const createEnclaveSolanaSession = async (
-  wallet: SolanaTestWallet,
-  options?: { writeAccess?: boolean },
-): Promise<EnclaveAuthFields> => {
-  const authFields = buildEnclaveSolanaAuthFields(wallet, options);
-  const response = await httpClient.post<CreateSessionResponse>(`${ENCLAVE_API_URL}/create-session`, {
-    ...authFields,
-    address: wallet.address,
-  });
-
-  if (response.success === false) {
-    throw new Error(response.error);
+export const buildAuthPostSolana = (
+  session: EnclaveSessionAuthFields,
+  chainId: number,
+  txData: Record<string, unknown>,
+  buildTypedDataAuth: () => EnclaveTxAuthFields,
+): { body: Record<string, unknown>; headers?: Record<string, string> } => {
+  if (!session.useEIP712) {
+    const body = { ...sessionBodyParams(session, chainId), ...txData };
+    return { body, headers: requestSignaturePostHeader(session, body) };
   }
-
-  return authFields;
+  const authFields = buildTypedDataAuth();
+  return { body: { ...authFields, ...txData } };
 };
 
-type WithoutNonceAndAddress<T> = Omit<T, 'nonce' | 'address'>;
+type WithoutNonceAndSessionId<T> = Omit<T, 'nonce' | 'sessionId'>;
 
-const withNonce =
-  (nonce: string, address: string) =>
-  <T extends object>(params: T) => ({ nonce, address, ...params });
+const withNonceAndSessionId =
+  (nonce: string, sessionId: string) =>
+  <T extends object>(params: T) => ({ nonce, sessionId, ...params });
 
 export const buildSolanaDepositAuthFields = (
+  session: { sessionId: string },
   wallet: SolanaTestWallet,
-  params: WithoutNonceAndAddress<TokenAmountsAuthFields>,
-): EnclaveAuthFields => {
+  params: WithoutNonceAndSessionId<TokenAmountsAuthFields>,
+): EnclaveTxAuthFields => {
   const nonce = randomUUID();
-  return buildAuthFields(buildSolanaDepositMessage(withNonce(nonce, wallet.address)(params)), nonce, wallet);
+  return buildTxAuthFields(
+    session.sessionId,
+    buildSolanaDepositMessage(withNonceAndSessionId(nonce, session.sessionId)(params)),
+    nonce,
+    wallet,
+  );
 };
 
 export const buildSolanaProoflessDepositAuthFields = (
+  session: { sessionId: string },
   wallet: SolanaTestWallet,
-  params: WithoutNonceAndAddress<TokenAmountsAuthFields>,
-): EnclaveAuthFields => {
+  params: WithoutNonceAndSessionId<TokenAmountsAuthFields>,
+): EnclaveTxAuthFields => {
   const nonce = randomUUID();
-  return buildAuthFields(buildSolanaProoflessDepositMessage(withNonce(nonce, wallet.address)(params)), nonce, wallet);
+  return buildTxAuthFields(
+    session.sessionId,
+    buildSolanaProoflessDepositMessage(withNonceAndSessionId(nonce, session.sessionId)(params)),
+    nonce,
+    wallet,
+  );
 };
 
 export const buildSolanaDepositForOtherAuthFields = (
+  session: { sessionId: string },
   wallet: SolanaTestWallet,
-  params: WithoutNonceAndAddress<DepositForOtherAuthFields>,
-): EnclaveAuthFields => {
+  params: WithoutNonceAndSessionId<DepositForOtherAuthFields>,
+): EnclaveTxAuthFields => {
   const nonce = randomUUID();
-  return buildAuthFields(buildSolanaDepositForOtherMessage(withNonce(nonce, wallet.address)(params)), nonce, wallet);
+  return buildTxAuthFields(
+    session.sessionId,
+    buildSolanaDepositForOtherMessage(withNonceAndSessionId(nonce, session.sessionId)(params)),
+    nonce,
+    wallet,
+  );
 };
 
 export const buildSolanaTransferAuthFields = (
+  session: { sessionId: string },
   wallet: SolanaTestWallet,
-  params: WithoutNonceAndAddress<TransferLikeAuthFields>,
-): EnclaveAuthFields => {
+  params: WithoutNonceAndSessionId<TransferLikeAuthFields>,
+): EnclaveTxAuthFields => {
   const nonce = randomUUID();
-  return buildAuthFields(buildSolanaTransferMessage(withNonce(nonce, wallet.address)(params)), nonce, wallet);
+  return buildTxAuthFields(
+    session.sessionId,
+    buildSolanaTransferMessage(withNonceAndSessionId(nonce, session.sessionId)(params)),
+    nonce,
+    wallet,
+  );
 };
 
 export const buildSolanaWithdrawAuthFields = (
+  session: { sessionId: string },
   wallet: SolanaTestWallet,
-  params: WithoutNonceAndAddress<TransferLikeAuthFields>,
-): EnclaveAuthFields => {
+  params: WithoutNonceAndSessionId<TransferLikeAuthFields>,
+): EnclaveTxAuthFields => {
   const nonce = randomUUID();
-  return buildAuthFields(buildSolanaWithdrawMessage(withNonce(nonce, wallet.address)(params)), nonce, wallet);
+  return buildTxAuthFields(
+    session.sessionId,
+    buildSolanaWithdrawMessage(withNonceAndSessionId(nonce, session.sessionId)(params)),
+    nonce,
+    wallet,
+  );
 };
 
 export const buildSolanaSwapAuthFields = (
+  session: { sessionId: string },
   wallet: SolanaTestWallet,
-  params: WithoutNonceAndAddress<TokenAmountsAuthFields>,
-): EnclaveAuthFields => {
+  params: WithoutNonceAndSessionId<SwapAuthFields>,
+): EnclaveTxAuthFields => {
   const nonce = randomUUID();
-  return buildAuthFields(buildSolanaSwapMessage(withNonce(nonce, wallet.address)(params)), nonce, wallet);
+  return buildTxAuthFields(
+    session.sessionId,
+    buildSolanaSwapMessage(withNonceAndSessionId(nonce, session.sessionId)(params)),
+    nonce,
+    wallet,
+  );
 };
 
 export const buildSolanaPrivateSendAuthFields = (
+  session: { sessionId: string },
   wallet: SolanaTestWallet,
-  params: WithoutNonceAndAddress<PrivateSendAuthFields>,
-): EnclaveAuthFields => {
+  params: WithoutNonceAndSessionId<PrivateSendAuthFields>,
+): EnclaveTxAuthFields => {
   const nonce = randomUUID();
-  return buildAuthFields(buildSolanaPrivateSendMessage(withNonce(nonce, wallet.address)(params)), nonce, wallet);
+  return buildTxAuthFields(
+    session.sessionId,
+    buildSolanaPrivateSendMessage(withNonceAndSessionId(nonce, session.sessionId)(params)),
+    nonce,
+    wallet,
+  );
 };
 
 export const buildSolanaWithdrawStuckUtxosAuthFields = (
+  session: { sessionId: string },
   wallet: SolanaTestWallet,
-  params: WithoutNonceAndAddress<WithdrawStuckUtxosAuthFields>,
-): EnclaveAuthFields => {
+  params: WithoutNonceAndSessionId<WithdrawStuckUtxosAuthFields>,
+): EnclaveTxAuthFields => {
   const nonce = randomUUID();
-  return buildAuthFields(buildSolanaWithdrawStuckUtxosMessage(withNonce(nonce, wallet.address)(params)), nonce, wallet);
+  return buildTxAuthFields(
+    session.sessionId,
+    buildSolanaWithdrawStuckUtxosMessage(withNonceAndSessionId(nonce, session.sessionId)(params)),
+    nonce,
+    wallet,
+  );
 };

@@ -1,5 +1,6 @@
 import { getAddress } from 'ethers';
 import { BaseAuthFields, DepositAndWithdrawRecipient, ParseResult } from '../types';
+import type { SerializedFeeStructure } from './enclaveAuthNormalization';
 
 const parseChainId = (chainId: unknown): number | undefined => {
   const parsed = typeof chainId === 'number' ? chainId : Number(chainId);
@@ -8,11 +9,15 @@ const parseChainId = (chainId: unknown): number | undefined => {
 
 const parseBaseAuthBody = (
   body: Record<string, unknown>,
-): ParseResult<{ nonce: string; address: string; chainId: number }> => {
-  const { address, nonce, chainId } = body;
+): ParseResult<{ nonce: string; sessionId: string; chainId: number }> => {
+  const { nonce, sessionId, chainId } = body;
 
-  if (typeof address !== 'string' || !address || typeof nonce !== 'string' || !nonce) {
-    return { ok: false, error: 'Missing required fields' };
+  if (typeof nonce !== 'string' || !nonce) {
+    return { ok: false, error: 'Missing required field: nonce' };
+  }
+
+  if (typeof sessionId !== 'string' || !sessionId) {
+    return { ok: false, error: 'Missing required field: sessionId' };
   }
 
   const parsedChainId = parseChainId(chainId);
@@ -20,7 +25,7 @@ const parseBaseAuthBody = (
     return { ok: false, error: 'Invalid chainId' };
   }
 
-  return { ok: true, value: { nonce, address, chainId: parsedChainId } };
+  return { ok: true, value: { nonce, sessionId, chainId: parsedChainId } };
 };
 
 const parseStringArray = (value: unknown, fieldName: string): ParseResult<string[]> => {
@@ -80,6 +85,19 @@ export const parseTokenDepositForOtherAuthBody = (
   return { ok: true, value: { ...deposit.value, recipientInfo } };
 };
 
+const parseFeeFields = (body: Record<string, unknown>) => {
+  const feeToken = typeof body.feeToken === 'string' && body.feeToken ? body.feeToken : undefined;
+  const raw = body.feeStructure;
+  let feeStructure: SerializedFeeStructure | undefined;
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    const { feeToken: ft, flatFee, variableRate } = raw as Record<string, unknown>;
+    if (typeof ft === 'string' && typeof flatFee === 'string' && typeof variableRate === 'string') {
+      feeStructure = { feeToken: ft, flatFee, variableRate };
+    }
+  }
+  return { feeToken, feeStructure };
+};
+
 export const parseTokenTransferAuthBody = (
   body: Record<string, unknown>,
 ): ParseResult<
@@ -87,6 +105,8 @@ export const parseTokenTransferAuthBody = (
     tokenAddresses: string[];
     amounts: string[];
     recipientAddress: string;
+    feeToken?: string;
+    feeStructure?: SerializedFeeStructure;
   }
 > => {
   const deposit = parseTokenDepositAuthBody(body);
@@ -100,6 +120,7 @@ export const parseTokenTransferAuthBody = (
     value: {
       ...deposit.value,
       recipientAddress: recipient.value,
+      ...parseFeeFields(body),
     },
   };
 };
@@ -110,15 +131,30 @@ export const parseTokenSwapAuthBody = (
   BaseAuthFields & {
     tokenAddresses: string[];
     amounts: string[];
+    externalActionId: string;
+    swapData: string;
+    feeToken?: string;
+    feeStructure?: SerializedFeeStructure;
   }
 > => {
   const deposit = parseTokenDepositAuthBody(body);
   if (deposit.ok === false) return deposit;
 
+  const { externalActionId, swapData } = body;
+  if (typeof externalActionId !== 'string' || !externalActionId) {
+    return { ok: false, error: 'Missing or invalid externalActionId' };
+  }
+  if (typeof swapData !== 'string' || !swapData) {
+    return { ok: false, error: 'Missing or invalid swapData' };
+  }
+
   return {
     ok: true,
     value: {
       ...deposit.value,
+      externalActionId,
+      swapData,
+      ...parseFeeFields(body),
     },
   };
 };
@@ -156,6 +192,8 @@ export const parseDepositAndWithdrawAuthBody = (
   BaseAuthFields & {
     tokenAddress: string;
     recipients: DepositAndWithdrawRecipient[];
+    feeToken?: string;
+    txCompletionTime?: number;
   }
 > => {
   const base = parseBaseAuthBody(body);
@@ -169,12 +207,17 @@ export const parseDepositAndWithdrawAuthBody = (
   }
   if (recipients.ok === false) return recipients;
 
+  const feeToken = typeof body.feeToken === 'string' && body.feeToken ? body.feeToken : undefined;
+  const txCompletionTime = typeof body.txCompletionTime === 'number' ? body.txCompletionTime : undefined;
+
   return {
     ok: true,
     value: {
       ...base.value,
       tokenAddress,
       recipients: recipients.value,
+      feeToken,
+      txCompletionTime,
     },
   };
 };

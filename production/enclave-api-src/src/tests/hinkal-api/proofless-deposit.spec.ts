@@ -35,7 +35,7 @@ describe('proofless-deposit route', () => {
       authFields,
     );
 
-    await depositUsdcToPrivate(wallet, CHAIN_ID, DEPOSIT_AMOUNT, ARC_TESTNET_USDC_ADDRESS, true);
+    await depositUsdcToPrivate(wallet, CHAIN_ID, DEPOSIT_AMOUNT, authFields, ARC_TESTNET_USDC_ADDRESS, true);
 
     const balanceAfter: bigint = await getUsdcBalance();
     expect(balanceBefore - balanceAfter).toBeGreaterThanOrEqual(DEPOSIT_AMOUNT);

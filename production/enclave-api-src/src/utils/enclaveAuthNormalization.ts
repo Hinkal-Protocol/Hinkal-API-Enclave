@@ -2,12 +2,22 @@ import { BaseAuthFields, DepositAndWithdrawRecipient } from '../types';
 
 export type TokenAmountPair = { tokenAddress: string; amount: string };
 
+export type SerializedFeeStructure = { feeToken: string; flatFee: string; variableRate: string };
+
+export type FeeAuthFields = {
+  feeToken?: string;
+  feeStructure?: SerializedFeeStructure;
+};
+
 export type TokenAmountsAuthFields = BaseAuthFields & { tokenAddresses: string[]; amounts: string[] };
-export type TransferLikeAuthFields = TokenAmountsAuthFields & { recipientAddress: string };
+export type TransferLikeAuthFields = TokenAmountsAuthFields & { recipientAddress: string } & FeeAuthFields;
+export type SwapAuthFields = TokenAmountsAuthFields & { externalActionId: string; swapData: string } & FeeAuthFields;
 export type DepositForOtherAuthFields = TokenAmountsAuthFields & { recipientInfo: string };
 export type PrivateSendAuthFields = BaseAuthFields & {
   tokenAddress: string;
   recipients: DepositAndWithdrawRecipient[];
+  feeToken?: string;
+  txCompletionTime?: number;
 };
 export type WithdrawStuckUtxosAuthFields = BaseAuthFields & { tokenAddress: string; recipientAddress: string };
 

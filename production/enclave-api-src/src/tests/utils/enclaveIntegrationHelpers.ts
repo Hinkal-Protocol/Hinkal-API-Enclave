@@ -10,13 +10,19 @@ import {
   waitLittle,
 } from '@hinkal/common';
 import {
+  buildAuthPost,
   buildDepositAndWithdrawAuthFields,
   buildDepositAuthFields,
   buildDepositForOtherAuthFields,
   buildProoflessDepositAuthFields,
+  buildTransferAuthFields,
+  buildWithdrawAuthFields,
   buildWithdrawStuckUtxosAuthFields,
-  type EnclaveAuthFields,
-  toEnclaveAuthQueryParams,
+  type EnclaveSessionAuthFields,
+  requestSignatureGetHeader,
+  requestSignaturePostHeader,
+  sessionBodyParams,
+  sessionQueryParams,
 } from './enclaveAuthHelper';
 import {
   BalanceResponse,
@@ -31,12 +37,13 @@ import { fetchFeeStructure } from './fetchFeeStructure';
 export const getRecipientInfo = async (
   wallet: ethers.Wallet,
   chainId: number,
-  authFields: EnclaveAuthFields,
+  authFields: EnclaveSessionAuthFields,
 ): Promise<string> => {
-  const params = new URLSearchParams(toEnclaveAuthQueryParams(authFields, wallet.address, chainId));
-
-  const response = await httpClient.get<RecipientInfoResponse>(`${ENCLAVE_API_URL}/recipient-info?${params}`);
-
+  const params = new URLSearchParams(sessionQueryParams(authFields, chainId));
+  const headers = requestSignatureGetHeader(authFields, params.toString());
+  const response = await httpClient.get<RecipientInfoResponse>(`${ENCLAVE_API_URL}/recipient-info?${params}`, {
+    headers,
+  });
   if (response.success === false) throw new Error(response.error);
   return response.recipientInfo;
 };
@@ -46,22 +53,19 @@ export const depositForOtherUsdc = async (
   chainId: number,
   amount: bigint,
   recipientInfo: string,
+  session: EnclaveSessionAuthFields,
   tokenAddress = ARC_TESTNET_USDC_ADDRESS,
 ): Promise<void> => {
-  const txDataParams = {
-    chainId,
-    tokenAddresses: [tokenAddress],
-    amounts: [amount.toString()],
-    recipientInfo,
-  };
-  const authFields = await buildDepositForOtherAuthFields(senderWallet, txDataParams);
+  const params = { chainId, tokenAddresses: [tokenAddress], amounts: [amount.toString()], recipientInfo };
+  const { body, headers } = await buildAuthPost(session, chainId, params, () =>
+    buildDepositForOtherAuthFields(session, senderWallet, params),
+  );
 
-  const response = await httpClient.post<DepositResponse>(`${ENCLAVE_API_URL}/deposit-for-other`, {
-    ...authFields,
-    address: senderWallet.address,
-    ...txDataParams,
-  });
-
+  const response = await httpClient.post<DepositResponse>(
+    `${ENCLAVE_API_URL}/deposit-for-other`,
+    body,
+    headers ? { headers } : undefined,
+  );
   const { txData } = response as Extract<DepositResponse, { success: true }>;
 
   const usdc = new ethers.Contract(tokenAddress, ERC20ABI, senderWallet);
@@ -76,31 +80,19 @@ export const depositUsdcToPrivate = async (
   wallet: ethers.Wallet | ethers.HDNodeWallet,
   chainId: number,
   amount: bigint,
+  session: EnclaveSessionAuthFields,
   tokenAddress = ARC_TESTNET_USDC_ADDRESS,
   proofless = false,
 ): Promise<void> => {
-  const txDataParams = {
-    chainId,
-    tokenAddresses: [tokenAddress],
-    amounts: [amount.toString()],
-  };
-  const authFields = proofless
-    ? await buildProoflessDepositAuthFields(wallet, txDataParams)
-    : await buildDepositAuthFields(wallet, txDataParams);
+  const params = { chainId, tokenAddresses: [tokenAddress], amounts: [amount.toString()] };
+  const builder = proofless ? buildProoflessDepositAuthFields : buildDepositAuthFields;
+  const { body, headers } = await buildAuthPost(session, chainId, params, () => builder(session, wallet, params));
 
-  const response = await httpClient.post<DepositResponse>(
-    `${ENCLAVE_API_URL}/${proofless ? 'proofless-deposit' : 'deposit'}`,
-    {
-      ...authFields,
-      address: wallet.address,
-      ...txDataParams,
-    },
-  );
-
+  const endpoint = `${ENCLAVE_API_URL}/${proofless ? 'proofless-deposit' : 'deposit'}`;
+  const response = await httpClient.post<DepositResponse>(endpoint, body, headers ? { headers } : undefined);
   const { txData } = response as Extract<DepositResponse, { success: true }>;
 
   const usdc = new ethers.Contract(tokenAddress, ERC20ABI, wallet);
-
   const TX_OPTS = { evmTimeoutMs: 5 * 60 * 1000 };
 
   const approveTx = await usdc.approve(txData.to, amount);
@@ -113,14 +105,11 @@ export const depositUsdcToPrivate = async (
 export const refreshCache = async (
   wallet: ethers.Wallet | ethers.HDNodeWallet,
   chainId: number,
-  authFields: EnclaveAuthFields,
+  authFields: EnclaveSessionAuthFields,
 ): Promise<void> => {
-  const response = await httpClient.post<RefreshCacheResponse>(`${ENCLAVE_API_URL}/refresh-cache`, {
-    ...authFields,
-    address: wallet.address,
-    chainId,
-  });
-
+  const body = sessionBodyParams(authFields, chainId);
+  const headers = requestSignaturePostHeader(authFields, body);
+  const response = await httpClient.post<RefreshCacheResponse>(`${ENCLAVE_API_URL}/refresh-cache`, body, { headers });
   if (response.success === false) throw new Error(response.error);
 };
 
@@ -128,14 +117,14 @@ export const getStuckUtxoBalance = async (
   wallet: ethers.Wallet,
   chainId: number,
   tokenAddress: string,
-  authFields: EnclaveAuthFields,
+  authFields: EnclaveSessionAuthFields,
 ): Promise<bigint> => {
-  const params = new URLSearchParams(toEnclaveAuthQueryParams(authFields, wallet.address, chainId));
-
-  const response = await httpClient.get<BalanceResponse>(`${ENCLAVE_API_URL}/stuck-utxo-balance?${params}`);
-
+  const params = new URLSearchParams(sessionQueryParams(authFields, chainId));
+  const headers = requestSignatureGetHeader(authFields, params.toString());
+  const response = await httpClient.get<BalanceResponse>(`${ENCLAVE_API_URL}/stuck-utxo-balance?${params}`, {
+    headers,
+  });
   if (response.success === false) throw new Error(response.error);
-
   return BigInt(
     response.balances.find((b) => b.tokenAddress.toLowerCase() === tokenAddress.toLowerCase())?.balance ?? '0',
   );
@@ -146,22 +135,18 @@ export const withdrawStuckUtxos = async (
   chainId: number,
   tokenAddress: string,
   recipientAddress: string,
+  session: EnclaveSessionAuthFields,
 ): Promise<string[]> => {
-  const txDataParams = {
-    chainId,
-    tokenAddress,
-    recipientAddress,
-  };
-  const authFields = await buildWithdrawStuckUtxosAuthFields(wallet, txDataParams);
+  const params = { chainId, tokenAddress, recipientAddress };
+  const { body, headers } = await buildAuthPost(session, chainId, params, () =>
+    buildWithdrawStuckUtxosAuthFields(session, wallet, params),
+  );
 
   try {
     const response = await httpClient.post<{ success: true; txHashes: string[] }>(
       `${ENCLAVE_API_URL}/withdraw-stuck-utxos`,
-      {
-        ...authFields,
-        address: wallet.address,
-        ...txDataParams,
-      },
+      body,
+      headers ? { headers } : undefined,
     );
     return response.txHashes;
   } catch (err: unknown) {
@@ -172,7 +157,11 @@ export const withdrawStuckUtxos = async (
   }
 };
 
-const postWithRelayerRetry = async (url: string, body: Record<string, unknown>): Promise<TxHashResponse> => {
+const postWithRelayerRetry = async (
+  url: string,
+  body: Record<string, unknown>,
+  headers?: Record<string, string>,
+): Promise<TxHashResponse> => {
   const MAX_RETRIES = 10;
   const RETRY_DELAY_MS = 5_000;
 
@@ -180,7 +169,7 @@ const postWithRelayerRetry = async (url: string, body: Record<string, unknown>):
     let response: TxHashResponse | undefined;
     try {
       // eslint-disable-next-line no-await-in-loop
-      response = await httpClient.post<TxHashResponse>(url, body);
+      response = await httpClient.post<TxHashResponse>(url, body, headers ? { headers } : undefined);
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { error?: string }; status?: number } };
       const serverError = axiosErr.response?.data?.error ?? '';
@@ -203,7 +192,7 @@ export const withdrawUsdc = async (
   chainId: number,
   amount: bigint,
   recipientAddress: string,
-  authFields: EnclaveAuthFields,
+  session: EnclaveSessionAuthFields,
 ): Promise<string> => {
   const feeStructure = await fetchFeeStructure(
     wallet,
@@ -211,19 +200,25 @@ export const withdrawUsdc = async (
     ARC_TESTNET_USDC_ADDRESS,
     [ARC_TESTNET_USDC_ADDRESS],
     ExternalActionId.Transact,
-    authFields,
+    session as EnclaveSessionAuthFields,
   );
 
-  const response = await postWithRelayerRetry(`${ENCLAVE_API_URL}/withdraw`, {
-    ...authFields,
-    address: wallet.address,
+  const txParams = {
     chainId,
     tokenAddresses: [ARC_TESTNET_USDC_ADDRESS],
     amounts: [amount.toString()],
     recipientAddress,
+  };
+  const authParams = {
+    ...txParams,
     feeToken: ARC_TESTNET_USDC_ADDRESS,
     feeStructure,
-  });
+  };
+  const { body, headers } = await buildAuthPost(session, chainId, authParams, () =>
+    buildWithdrawAuthFields(session, wallet as ethers.Wallet, authParams),
+  );
+
+  const response = await postWithRelayerRetry(`${ENCLAVE_API_URL}/withdraw`, body, headers);
   const { txHash } = response as Extract<TxHashResponse, { success: true }>;
   await waitForEthereumTransactionConfirmation(chainId, txHash);
   return txHash;
@@ -234,7 +229,7 @@ export const transferUsdc = async (
   chainId: number,
   amount: bigint,
   recipientInfo: string,
-  authFields: EnclaveAuthFields,
+  session: EnclaveSessionAuthFields,
 ): Promise<string> => {
   const feeStructure = await fetchFeeStructure(
     wallet,
@@ -242,20 +237,26 @@ export const transferUsdc = async (
     ARC_TESTNET_USDC_ADDRESS,
     [ARC_TESTNET_USDC_ADDRESS],
     ExternalActionId.Transact,
-    authFields,
+    session as EnclaveSessionAuthFields,
     HINKAL_PRIVATE_SEND_VARIABLE_RATE,
   );
 
-  const response = await postWithRelayerRetry(`${ENCLAVE_API_URL}/transfer`, {
-    ...authFields,
-    address: wallet.address,
+  const txParams = {
     chainId,
     tokenAddresses: [ARC_TESTNET_USDC_ADDRESS],
     amounts: [amount.toString()],
     recipientAddress: recipientInfo,
+  };
+  const authParams = {
+    ...txParams,
     feeToken: ARC_TESTNET_USDC_ADDRESS,
     feeStructure,
-  });
+  };
+  const { body, headers } = await buildAuthPost(session, chainId, authParams, () =>
+    buildTransferAuthFields(session, wallet as ethers.Wallet, authParams),
+  );
+
+  const response = await postWithRelayerRetry(`${ENCLAVE_API_URL}/transfer`, body, headers);
   const { txHash } = response as Extract<TxHashResponse, { success: true }>;
   await waitForEthereumTransactionConfirmation(chainId, txHash);
   return txHash;
@@ -265,19 +266,21 @@ export const prepareDepositAndWithdraw = async (
   wallet: ethers.Wallet | ethers.HDNodeWallet,
   chainId: number,
   recipients: { address: string; amount: bigint }[],
+  session: EnclaveSessionAuthFields,
 ): Promise<Extract<DepositAndWithdrawResponse, { success: true }>> => {
   const txDataParams = {
     chainId,
     tokenAddress: ARC_TESTNET_USDC_ADDRESS,
     recipients: recipients.map((r) => ({ address: r.address, amount: r.amount.toString() })),
   };
-  const authFields = await buildDepositAndWithdrawAuthFields(wallet, txDataParams);
+  const { body, headers } = await buildAuthPost(session, chainId, txDataParams, () =>
+    buildDepositAndWithdrawAuthFields(session, wallet, txDataParams),
+  );
 
-  const response = await httpClient.post<DepositAndWithdrawResponse>(`${ENCLAVE_API_URL}/private-send`, {
-    ...authFields,
-    address: wallet.address,
-    ...txDataParams,
-  });
-
+  const response = await httpClient.post<DepositAndWithdrawResponse>(
+    `${ENCLAVE_API_URL}/private-send`,
+    body,
+    headers ? { headers } : undefined,
+  );
   return response as Extract<DepositAndWithdrawResponse, { success: true }>;
 };

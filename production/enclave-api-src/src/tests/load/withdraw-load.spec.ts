@@ -26,7 +26,8 @@ beforeAll(async () => {
 
   await Promise.all(
     testWallets.map(async (wallet) => {
-      await depositUsdcToPrivate(wallet, CHAIN_ID, DEPOSIT_AMOUNT, ARC_TESTNET_USDC_ADDRESS);
+      const authFields = await createEnclaveSession(wallet);
+      await depositUsdcToPrivate(wallet, CHAIN_ID, DEPOSIT_AMOUNT, authFields);
     }),
   );
 });

@@ -3,14 +3,15 @@ import { ENCLAVE_API_URL, httpClient, networkRegistry, waitForTransactionConfirm
 import { createCustomSolanaConnection } from '@hinkal/common/functions/utils/create-provider';
 import { getSolanaPublicBalances } from '@hinkal/common/functions/utils/publicBalance.utils';
 import { DepositAndWithdrawResponse, RecipientInfoResponse, SolanaDepositResponse } from '../../types';
+import { SOLANA_MAINNET_USDC_ADDRESS } from './solanaTestConstants';
+import { type EnclaveSessionAuthFields, requestSignatureGetHeader, sessionQueryParams } from './enclaveAuthHelper';
 import {
+  buildAuthPostSolana,
   buildSolanaDepositAuthFields,
   buildSolanaDepositForOtherAuthFields,
   buildSolanaPrivateSendAuthFields,
   buildSolanaProoflessDepositAuthFields,
 } from './enclaveSolanaAuthHelper';
-import { SOLANA_MAINNET_USDC_ADDRESS } from './solanaTestConstants';
-import type { EnclaveAuthFields } from './enclaveAuthHelper';
 import type { SolanaTestWallet } from './solanaTestWallet';
 
 const getSolanaConnection = (chainId: number) => {
@@ -44,14 +45,16 @@ export const getSolanaTokenBalance = async (
   return balances.find((b) => b.token.erc20TokenAddress === tokenAddress)?.balance ?? 0n;
 };
 
-export const getRecipientInfo = async (wallet: SolanaTestWallet, authFields: EnclaveAuthFields): Promise<string> => {
-  const params = new URLSearchParams({
-    signature: authFields.signature,
-    nonce: authFields.nonce,
-    address: wallet.address,
-    chainId: wallet.chainId.toString(),
+export const getRecipientInfo = async (
+  wallet: SolanaTestWallet,
+  authFields: EnclaveSessionAuthFields,
+): Promise<string> => {
+  const params = new URLSearchParams(sessionQueryParams(authFields, wallet.chainId));
+  const queryString = params.toString();
+  const headers = requestSignatureGetHeader(authFields, queryString);
+  const response = await httpClient.get<RecipientInfoResponse>(`${ENCLAVE_API_URL}/recipient-info?${queryString}`, {
+    headers,
   });
-  const response = await httpClient.get<RecipientInfoResponse>(`${ENCLAVE_API_URL}/recipient-info?${params}`);
   if (response.success === false) throw new Error(response.error);
   return response.recipientInfo;
 };
@@ -59,21 +62,24 @@ export const getRecipientInfo = async (wallet: SolanaTestWallet, authFields: Enc
 export const depositUsdcToPrivate = async (
   wallet: SolanaTestWallet,
   amount: bigint,
+  session: EnclaveSessionAuthFields,
   tokenAddress = SOLANA_MAINNET_USDC_ADDRESS,
   proofless = false,
 ): Promise<void> => {
-  const depositParams = {
+  const params = {
     chainId: wallet.chainId,
     tokenAddresses: [tokenAddress],
     amounts: [amount.toString()],
   };
-  const authFields = proofless
-    ? buildSolanaProoflessDepositAuthFields(wallet, depositParams)
-    : buildSolanaDepositAuthFields(wallet, depositParams);
+  const builder = proofless ? buildSolanaProoflessDepositAuthFields : buildSolanaDepositAuthFields;
+  const { body, headers } = buildAuthPostSolana(session, wallet.chainId, params, () =>
+    builder(session, wallet, params),
+  );
 
   const response = await httpClient.post<SolanaDepositResponse>(
     `${ENCLAVE_API_URL}/${proofless ? 'proofless-deposit' : 'deposit'}`,
-    { ...authFields, address: wallet.address, ...depositParams },
+    body,
+    headers ? { headers } : undefined,
   );
 
   const { txData } = response as Extract<SolanaDepositResponse, { success: true }>;
@@ -84,26 +90,23 @@ export const depositForOtherUsdc = async (
   senderWallet: SolanaTestWallet,
   amount: bigint,
   recipientInfo: string,
+  session: EnclaveSessionAuthFields,
   tokenAddress = SOLANA_MAINNET_USDC_ADDRESS,
 ): Promise<void> => {
-  const authFields = buildSolanaDepositForOtherAuthFields(senderWallet, {
-    chainId: senderWallet.chainId,
-    tokenAddresses: [tokenAddress],
-    amounts: [amount.toString()],
-    recipientInfo,
-  });
-
-  const requestBody = {
-    ...authFields,
-    address: senderWallet.address,
+  const params = {
     chainId: senderWallet.chainId,
     tokenAddresses: [tokenAddress],
     amounts: [amount.toString()],
     recipientInfo,
   };
+  const { body, headers } = buildAuthPostSolana(session, senderWallet.chainId, params, () =>
+    buildSolanaDepositForOtherAuthFields(session, senderWallet, params),
+  );
+
   const response = await httpClient.post<SolanaDepositResponse>(
     `${ENCLAVE_API_URL}/deposit-solana-for-other`,
-    requestBody,
+    body,
+    headers ? { headers } : undefined,
   );
 
   const { txData } = response as Extract<SolanaDepositResponse, { success: true }>;
@@ -113,20 +116,23 @@ export const depositForOtherUsdc = async (
 export const prepareDepositAndWithdraw = async (
   wallet: SolanaTestWallet,
   recipients: { address: string; amount: bigint }[],
+  session: EnclaveSessionAuthFields,
   tokenAddress = SOLANA_MAINNET_USDC_ADDRESS,
 ): Promise<Extract<DepositAndWithdrawResponse, { success: true }>> => {
-  const txDataParams = {
+  const params = {
     chainId: wallet.chainId,
     tokenAddress,
     recipients: recipients.map((r) => ({ address: r.address, amount: r.amount.toString() })),
   };
-  const authFields = buildSolanaPrivateSendAuthFields(wallet, txDataParams);
+  const { body, headers } = buildAuthPostSolana(session, wallet.chainId, params, () =>
+    buildSolanaPrivateSendAuthFields(session, wallet, params),
+  );
 
-  const response = await httpClient.post<DepositAndWithdrawResponse>(`${ENCLAVE_API_URL}/private-send`, {
-    ...authFields,
-    address: wallet.address,
-    ...txDataParams,
-  });
+  const response = await httpClient.post<DepositAndWithdrawResponse>(
+    `${ENCLAVE_API_URL}/private-send`,
+    body,
+    headers ? { headers } : undefined,
+  );
 
   return response as Extract<DepositAndWithdrawResponse, { success: true }>;
 };

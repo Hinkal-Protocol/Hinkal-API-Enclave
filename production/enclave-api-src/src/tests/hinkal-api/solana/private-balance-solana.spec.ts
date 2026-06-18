@@ -2,7 +2,7 @@ import { caseInsensitiveEqual, ENCLAVE_API_URL, httpClient } from '@hinkal/commo
 import { createEnclaveSolanaSession } from '../../utils/enclaveSolanaAuthHelper';
 import { SOLANA_MAINNET_CHAIN_ID, SOLANA_MAINNET_USDC_ADDRESS } from '../../utils/solanaTestConstants';
 import { getEnclaveSolanaTestWallet, type SolanaTestWallet } from '../../utils/solanaTestWallet';
-import { toEnclaveAuthQueryParams } from '../../utils/enclaveAuthHelper';
+import { requestSignatureGetHeader, sessionQueryParams } from '../../utils/enclaveAuthHelper';
 import { BalanceResponse } from '../../../types';
 
 let wallet: SolanaTestWallet;
@@ -16,9 +16,11 @@ describe('private-balance route (Solana mainnet)', () => {
 
   it('returns private balances and USDC balance is a valid non-negative amount', async () => {
     const authFields = await createEnclaveSolanaSession(wallet);
-    const params = new URLSearchParams(toEnclaveAuthQueryParams(authFields, wallet.address, SOLANA_MAINNET_CHAIN_ID));
+    const params = new URLSearchParams(sessionQueryParams(authFields, SOLANA_MAINNET_CHAIN_ID));
+    const queryString = params.toString();
+    const headers = requestSignatureGetHeader(authFields, queryString);
 
-    const response = await httpClient.get<BalanceResponse>(`${ENCLAVE_API_URL}/balance?${params}`);
+    const response = await httpClient.get<BalanceResponse>(`${ENCLAVE_API_URL}/balance?${queryString}`, { headers });
 
     if (response.success === false) throw new Error(response.error);
 

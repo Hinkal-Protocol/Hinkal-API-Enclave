@@ -32,13 +32,12 @@ router.post(
     req: Request<object, DepositAndWithdrawResponse, DepositAndWithdrawRequest>,
     res: Response<DepositAndWithdrawResponse>,
   ) => {
-    const { address, chainId, tokenAddress, recipients, feeToken, txCompletionTime } =
-      req.body as DepositAndWithdrawRequest;
+    const { chainId, tokenAddress, recipients, feeToken, txCompletionTime } = req.body as DepositAndWithdrawRequest;
 
-    if (!address || !chainId || !tokenAddress || !recipients?.length) {
+    if (!chainId || !tokenAddress || !recipients?.length) {
       res.status(400).json({
         success: false,
-        error: 'Missing required fields: address, chainId, tokenAddress, recipients',
+        error: 'Missing required fields: chainId, tokenAddress, recipients',
       });
       return;
     }
@@ -67,7 +66,7 @@ router.post(
       );
 
       const { serializedTx, utxoAmounts } = await hinkalInitializerService.withHinkalForAddress(
-        address,
+        res.locals.address,
         chainId,
         async (hinkal) => {
           if (isSolanaLike(chainId)) {
@@ -125,7 +124,7 @@ router.post(
       const sealed = await sealDocument({
         orderId,
         chainId,
-        senderAddress: address,
+        senderAddress: res.locals.address,
         recipients,
         tokenAddress: token.erc20TokenAddress,
         feeToken: feeStructure.feeToken,

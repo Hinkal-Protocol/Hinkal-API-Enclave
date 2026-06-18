@@ -5,8 +5,10 @@ import { EnclaveTypedDataPayload, EnclaveTypedDataPrimaryType, TypedDataField } 
 import {
   buildSortedTokenPairs,
   DepositForOtherAuthFields,
+  FeeAuthFields,
   PrivateSendAuthFields,
   sortRecipientsByAddress,
+  SwapAuthFields,
   TokenAmountPair,
   TokenAmountsAuthFields,
   TransferLikeAuthFields,
@@ -15,6 +17,27 @@ import {
 import type { DepositAndWithdrawRecipient } from '../types';
 
 const ENCLAVE_TYPED_DATA_DOMAIN_NAME = 'Hinkal Enclave';
+
+const FEE_TOKEN_FIELD: TypedDataField = { name: 'feeToken', type: 'address' };
+const FEE_STRUCTURE_FIELD: TypedDataField = { name: 'feeStructure', type: 'FeeStructure' };
+const TX_COMPLETION_TIME_FIELD: TypedDataField = { name: 'txCompletionTime', type: 'uint256' };
+
+const buildFeeValueFields = (fields: FeeAuthFields) => {
+  const value: Record<string, unknown> = {};
+
+  if (fields.feeToken) {
+    value.feeToken = getAddress(fields.feeToken);
+  }
+  if (fields.feeStructure) {
+    value.feeStructure = {
+      feeToken: getAddress(fields.feeStructure.feeToken),
+      flatFee: BigInt(fields.feeStructure.flatFee),
+      variableRate: BigInt(fields.feeStructure.variableRate),
+    };
+  }
+
+  return value;
+};
 
 const ENCLAVE_TYPED_DATA_TYPES: Record<string, TypedDataField[]> = {
   TokenAmount: [
@@ -25,47 +48,62 @@ const ENCLAVE_TYPED_DATA_TYPES: Record<string, TypedDataField[]> = {
     { name: 'recipient', type: 'address' },
     { name: 'amount', type: 'int256' },
   ],
+  FeeStructure: [
+    { name: 'feeToken', type: 'address' },
+    { name: 'flatFee', type: 'uint256' },
+    { name: 'variableRate', type: 'uint256' },
+  ],
   Deposit: [
     { name: 'nonce', type: 'string' },
+    { name: 'sessionId', type: 'string' },
     { name: 'chainId', type: 'uint256' },
     { name: 'tokenAmounts', type: 'TokenAmount[]' },
   ],
   ProoflessDeposit: [
     { name: 'nonce', type: 'string' },
+    { name: 'sessionId', type: 'string' },
     { name: 'chainId', type: 'uint256' },
     { name: 'tokenAmounts', type: 'TokenAmount[]' },
   ],
   DepositForOther: [
     { name: 'nonce', type: 'string' },
+    { name: 'sessionId', type: 'string' },
     { name: 'chainId', type: 'uint256' },
     { name: 'tokenAmounts', type: 'TokenAmount[]' },
     { name: 'recipientInfo', type: 'string' },
   ],
   Transfer: [
     { name: 'nonce', type: 'string' },
+    { name: 'sessionId', type: 'string' },
     { name: 'chainId', type: 'uint256' },
     { name: 'tokenAmounts', type: 'TokenAmount[]' },
     { name: 'recipient', type: 'string' },
   ],
   Withdraw: [
     { name: 'nonce', type: 'string' },
+    { name: 'sessionId', type: 'string' },
     { name: 'chainId', type: 'uint256' },
     { name: 'tokenAmounts', type: 'TokenAmount[]' },
     { name: 'recipient', type: 'string' },
   ],
   Swap: [
     { name: 'nonce', type: 'string' },
+    { name: 'sessionId', type: 'string' },
     { name: 'chainId', type: 'uint256' },
     { name: 'tokenAmounts', type: 'TokenAmount[]' },
+    { name: 'externalActionId', type: 'string' },
+    { name: 'swapData', type: 'string' },
   ],
   PrivateSend: [
     { name: 'nonce', type: 'string' },
+    { name: 'sessionId', type: 'string' },
     { name: 'chainId', type: 'uint256' },
     { name: 'tokenAddress', type: 'address' },
     { name: 'recipients', type: 'RecipientAmount[]' },
   ],
   WithdrawStuckUtxos: [
     { name: 'nonce', type: 'string' },
+    { name: 'sessionId', type: 'string' },
     { name: 'chainId', type: 'uint256' },
     { name: 'tokenAddress', type: 'address' },
     { name: 'recipient', type: 'address' },
@@ -77,23 +115,36 @@ const getEnclaveTypedDataDomain = (chainId: number): TypedDataDomain => ({
   chainId,
 });
 
-const getTypesForPrimary = (primaryType: EnclaveTypedDataPrimaryType): Record<string, TypedDataField[]> => {
+const getPrimaryFields = (
+  primaryType: EnclaveTypedDataPrimaryType,
+  value: Record<string, unknown>,
+): TypedDataField[] => {
+  const fields = [...ENCLAVE_TYPED_DATA_TYPES[primaryType]];
+
+  if (value.feeToken) fields.push(FEE_TOKEN_FIELD);
+  if (value.feeStructure) fields.push(FEE_STRUCTURE_FIELD);
+  if (value.txCompletionTime !== undefined) fields.push(TX_COMPLETION_TIME_FIELD);
+
+  return fields;
+};
+
+const getTypesForPrimary = (
+  primaryType: EnclaveTypedDataPrimaryType,
+  value: Record<string, unknown>,
+): Record<string, TypedDataField[]> => {
+  const fields = getPrimaryFields(primaryType, value);
   const types: Record<string, TypedDataField[]> = {
-    [primaryType]: ENCLAVE_TYPED_DATA_TYPES[primaryType],
+    [primaryType]: fields,
   };
 
-  const usesTokenAmount = ENCLAVE_TYPED_DATA_TYPES[primaryType].some(
-    (field) => field.type === 'TokenAmount' || field.type === 'TokenAmount[]',
-  );
-  if (usesTokenAmount) {
+  if (fields.some((f) => f.type === 'TokenAmount' || f.type === 'TokenAmount[]')) {
     types.TokenAmount = ENCLAVE_TYPED_DATA_TYPES.TokenAmount;
   }
-
-  const usesRecipientAmount = ENCLAVE_TYPED_DATA_TYPES[primaryType].some(
-    (field) => field.type === 'RecipientAmount' || field.type === 'RecipientAmount[]',
-  );
-  if (usesRecipientAmount) {
+  if (fields.some((f) => f.type === 'RecipientAmount' || f.type === 'RecipientAmount[]')) {
     types.RecipientAmount = ENCLAVE_TYPED_DATA_TYPES.RecipientAmount;
+  }
+  if (fields.some((f) => f.type === 'FeeStructure')) {
+    types.FeeStructure = ENCLAVE_TYPED_DATA_TYPES.FeeStructure;
   }
 
   return types;
@@ -128,18 +179,19 @@ const buildTypedData = (
   value: Record<string, unknown>,
 ): EnclaveTypedDataPayload => ({
   domain: getEnclaveTypedDataDomain(chainId),
-  types: getTypesForPrimary(primaryType),
+  types: getTypesForPrimary(primaryType, value),
   value,
 });
 
 const buildTokenAmountsTypedData = (
   primaryType: Extract<EnclaveTypedDataPrimaryType, 'Deposit' | 'ProoflessDeposit' | 'Swap'>,
-  { nonce, chainId, tokenAddresses, amounts }: TokenAmountsAuthFields,
+  { nonce, sessionId, chainId, tokenAddresses, amounts }: TokenAmountsAuthFields,
 ): EnclaveTypedDataPayload => {
   const pairs = normalizeTokenAmountPairs(tokenAddresses, amounts);
 
   return buildTypedData(primaryType, chainId, {
     nonce,
+    sessionId,
     chainId: BigInt(chainId),
     tokenAmounts: toTokenAmountValues(pairs),
   });
@@ -156,6 +208,7 @@ export const buildDepositForOtherTypedData = (params: DepositForOtherAuthFields)
 
   return buildTypedData('DepositForOther', params.chainId, {
     nonce: params.nonce,
+    sessionId: params.sessionId,
     chainId: BigInt(params.chainId),
     tokenAmounts: toTokenAmountValues(pairs),
     recipientInfo: params.recipientInfo,
@@ -170,9 +223,11 @@ const buildTransferLikeTypedData = (
 
   return buildTypedData(primaryType, params.chainId, {
     nonce: params.nonce,
+    sessionId: params.sessionId,
     chainId: BigInt(params.chainId),
     tokenAmounts: toTokenAmountValues(pairs),
     recipient: params.recipientAddress,
+    ...buildFeeValueFields(params),
   });
 };
 
@@ -182,20 +237,43 @@ export const buildTransferTypedData = (params: TransferLikeAuthFields): EnclaveT
 export const buildWithdrawTypedData = (params: TransferLikeAuthFields): EnclaveTypedDataPayload =>
   buildTransferLikeTypedData('Withdraw', params);
 
-export const buildSwapTypedData = (params: TokenAmountsAuthFields): EnclaveTypedDataPayload =>
-  buildTokenAmountsTypedData('Swap', params);
+export const buildSwapTypedData = (params: SwapAuthFields): EnclaveTypedDataPayload => {
+  const pairs = normalizeTokenAmountPairs(params.tokenAddresses, params.amounts);
 
-export const buildDepositAndWithdrawTypedData = (params: PrivateSendAuthFields): EnclaveTypedDataPayload =>
-  buildTypedData('PrivateSend', params.chainId, {
+  return buildTypedData('Swap', params.chainId, {
     nonce: params.nonce,
+    sessionId: params.sessionId,
+    chainId: BigInt(params.chainId),
+    tokenAmounts: toTokenAmountValues(pairs),
+    externalActionId: params.externalActionId,
+    swapData: params.swapData,
+    ...buildFeeValueFields(params),
+  });
+};
+
+export const buildDepositAndWithdrawTypedData = (params: PrivateSendAuthFields): EnclaveTypedDataPayload => {
+  const value: Record<string, unknown> = {
+    nonce: params.nonce,
+    sessionId: params.sessionId,
     chainId: BigInt(params.chainId),
     tokenAddress: getAddress(params.tokenAddress),
     recipients: normalizeDepositAndWithdrawRecipients(params.recipients),
-  });
+  };
+
+  if (params.feeToken) {
+    value.feeToken = getAddress(params.feeToken);
+  }
+  if (params.txCompletionTime !== undefined) {
+    value.txCompletionTime = BigInt(params.txCompletionTime);
+  }
+
+  return buildTypedData('PrivateSend', params.chainId, value);
+};
 
 export const buildWithdrawStuckUtxosTypedData = (params: WithdrawStuckUtxosAuthFields): EnclaveTypedDataPayload =>
   buildTypedData('WithdrawStuckUtxos', params.chainId, {
     nonce: params.nonce,
+    sessionId: params.sessionId,
     chainId: BigInt(params.chainId),
     tokenAddress: getAddress(params.tokenAddress),
     recipient: getAddress(params.recipientAddress),

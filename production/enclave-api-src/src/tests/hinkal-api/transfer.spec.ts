@@ -12,7 +12,13 @@ import {
 import { createJsonRpcProvider } from '@hinkal/common/functions/utils/create-provider';
 import { requireEnv } from '@hinkal/common/functions/utils/requireEnv';
 import { depositUsdcToPrivate } from '../utils/enclaveIntegrationHelpers';
-import { buildTransferAuthFields, createEnclaveSession } from '../utils/enclaveAuthHelper';
+import {
+  buildAuthPost,
+  buildTransferAuthFields,
+  createEnclaveSession,
+  requestSignatureGetHeader,
+  sessionQueryParams,
+} from '../utils/enclaveAuthHelper';
 import { fetchFeeStructure } from '../utils/fetchFeeStructure';
 import { RecipientInfoResponse, TxHashResponse } from '../../types';
 import { getPrivateBalanceForToken } from '../utils/getPrivateBalance';
@@ -35,13 +41,15 @@ describe('transfer route', () => {
   it('returns tx hash after transferring USDC to a private recipient', async () => {
     const authFields = await createEnclaveSession(wallet);
 
-    await depositUsdcToPrivate(wallet, CHAIN_ID, DEPOSIT_AMOUNT);
+    await depositUsdcToPrivate(wallet, CHAIN_ID, DEPOSIT_AMOUNT, authFields);
 
-    const recipientInfoResponse = await httpClient.post<RecipientInfoResponse>(`${ENCLAVE_API_URL}/recipient-info`, {
-      ...authFields,
-      address: wallet.address,
-      chainId: CHAIN_ID,
-    });
+    const recipientParams = new URLSearchParams(sessionQueryParams(authFields, CHAIN_ID));
+    const recipientQueryString = recipientParams.toString();
+    const recipientHeaders = requestSignatureGetHeader(authFields, recipientQueryString);
+    const recipientInfoResponse = await httpClient.get<RecipientInfoResponse>(
+      `${ENCLAVE_API_URL}/recipient-info?${recipientQueryString}`,
+      { headers: recipientHeaders },
+    );
 
     const { recipientInfo } = recipientInfoResponse as Extract<RecipientInfoResponse, { success: true }>;
     expect(recipientInfo).toBeTruthy();
@@ -63,22 +71,25 @@ describe('transfer route', () => {
       HINKAL_PRIVATE_SEND_VARIABLE_RATE,
     );
 
-    const txData = {
+    const txParams = {
       chainId: CHAIN_ID,
       tokenAddresses: [ARC_TESTNET_USDC_ADDRESS],
       amounts: [TRANSFER_AMOUNT.toString()],
       recipientAddress: recipientInfo,
     };
-
-    const transferAuthFields = await buildTransferAuthFields(wallet, txData);
-
-    const response = await httpClient.post<TxHashResponse>(`${ENCLAVE_API_URL}/transfer`, {
-      ...transferAuthFields,
-      address: wallet.address,
-      ...txData,
+    const authParams = {
+      ...txParams,
       feeToken: ARC_TESTNET_USDC_ADDRESS,
       feeStructure,
-    });
+    };
+    const { body, headers } = await buildAuthPost(authFields, CHAIN_ID, authParams, () =>
+      buildTransferAuthFields(authFields, wallet, authParams),
+    );
+    const response = await httpClient.post<TxHashResponse>(
+      `${ENCLAVE_API_URL}/transfer`,
+      body,
+      headers ? { headers } : undefined,
+    );
 
     const { txHash } = response as Extract<TxHashResponse, { success: true }>;
 

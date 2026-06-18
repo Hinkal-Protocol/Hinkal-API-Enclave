@@ -13,8 +13,9 @@ import {
 } from '@hinkal/common';
 import { createJsonRpcProvider } from '@hinkal/common/functions/utils/create-provider';
 import { requireEnv } from '@hinkal/common/functions/utils/requireEnv';
+import { HEADER_ENCLAVE_SIGNATURE } from '../../constants';
 import { prepareDepositAndWithdraw } from '../utils/enclaveIntegrationHelpers';
-import { buildDepositAndWithdrawAuthFields } from '../utils/enclaveAuthHelper';
+import { buildAuthPost, buildDepositAndWithdrawAuthFields, createEnclaveSession } from '../utils/enclaveAuthHelper';
 import { DepositAndWithdrawPublicStatus } from '../../utils/resolveDepositAndWithdrawPublicStatus';
 import {
   DEFAULT_POLL_INTERVAL_MS,
@@ -98,25 +99,22 @@ describe('deposit-and-withdraw route', () => {
   jest.setTimeout(600_000);
 
   it('response is signed by enclave key', async () => {
-    const authFields = await buildDepositAndWithdrawAuthFields(wallet, {
+    const txData = {
       chainId: CHAIN_ID,
       tokenAddress: ARC_TESTNET_USDC_ADDRESS,
       recipients: [{ address: RECIPIENT_ADDRESS, amount: '300000' }],
+    };
+
+    const session = await createEnclaveSession(wallet);
+    const { body, headers } = await buildAuthPost(session, CHAIN_ID, txData, () =>
+      buildDepositAndWithdrawAuthFields(session, wallet, txData),
+    );
+    const response = await axios.post<string>(`${ENCLAVE_API_URL}/private-send`, body, {
+      ...(headers ? { headers } : {}),
+      responseType: 'text',
     });
 
-    const response = await axios.post(
-      `${ENCLAVE_API_URL}/private-send`,
-      {
-        ...authFields,
-        address: wallet.address,
-        chainId: CHAIN_ID,
-        tokenAddress: ARC_TESTNET_USDC_ADDRESS,
-        recipients: [{ address: RECIPIENT_ADDRESS, amount: '300000' }],
-      },
-      { responseType: 'text' },
-    );
-
-    const signature = response.headers['x-hinkal-signature'] as string;
+    const signature = response.headers[HEADER_ENCLAVE_SIGNATURE] as string;
     expect(signature).toBeTruthy();
 
     const verify = createVerify('SHA256');
@@ -127,11 +125,16 @@ describe('deposit-and-withdraw route', () => {
   it('single recipient: prepares order, broadcasts deposit, polls until scheduled txs complete, recipient receives USDC', async () => {
     const DEPOSIT_AMOUNT = BigInt('300000'); // 0.3 USDC
 
+    const session = await createEnclaveSession(wallet);
+
     const recipientBefore = await getUsdcBalance(RECIPIENT_ADDRESS);
 
-    const order = await prepareDepositAndWithdraw(wallet, CHAIN_ID, [
-      { address: RECIPIENT_ADDRESS, amount: DEPOSIT_AMOUNT },
-    ]);
+    const order = await prepareDepositAndWithdraw(
+      wallet,
+      CHAIN_ID,
+      [{ address: RECIPIENT_ADDRESS, amount: DEPOSIT_AMOUNT }],
+      session,
+    );
 
     expect(order.orderId).toBeDefined();
     expect(order.serializedTx).toBeDefined();
@@ -168,10 +171,16 @@ describe('deposit-and-withdraw route', () => {
       getUsdcBalance(recipient2.address),
     ]);
 
-    const order = await prepareDepositAndWithdraw(wallet, CHAIN_ID, [
-      { address: RECIPIENT_ADDRESS, amount: AMOUNT_1 },
-      { address: recipient2.address, amount: AMOUNT_2 },
-    ]);
+    const session = await createEnclaveSession(wallet);
+    const order = await prepareDepositAndWithdraw(
+      wallet,
+      CHAIN_ID,
+      [
+        { address: RECIPIENT_ADDRESS, amount: AMOUNT_1 },
+        { address: recipient2.address, amount: AMOUNT_2 },
+      ],
+      session,
+    );
 
     expect(order.orderId).toBeDefined();
     expect(order.serializedTx).toBeDefined();

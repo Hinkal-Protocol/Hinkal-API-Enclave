@@ -14,7 +14,7 @@ router.post(
   verifySwapSignatureMiddleware,
   async (req: Request<object, TxHashResponse, SwapRequest>, res: Response<TxHashResponse>) => {
     try {
-      const { address, chainId, tokenAddresses, amounts, externalActionId, swapData, feeToken, feeStructure } =
+      const { chainId, tokenAddresses, amounts, externalActionId, swapData, feeToken, feeStructure } =
         req.body as SwapRequest;
 
       if (tokenAddresses.length !== amounts.length) {
@@ -40,16 +40,20 @@ router.post(
       const resolvedFeeToken = isSolanaLike(chainId) ? tokenAddresses[1] : feeToken;
 
       const resolvedFeeStructure = parseFeeStructure(feeStructure);
-      const txHash = await hinkalInitializerService.withHinkalForAddress(address, chainId, async (hinkal) => {
-        return hinkal.swap(
-          erc20Tokens,
-          amounts.map(BigInt),
-          externalActionId,
-          swapData,
-          resolvedFeeToken,
-          resolvedFeeStructure,
-        );
-      });
+      const txHash = await hinkalInitializerService.withHinkalForAddress(
+        res.locals.address,
+        chainId,
+        async (hinkal) => {
+          return hinkal.swap(
+            erc20Tokens,
+            amounts.map(BigInt),
+            externalActionId,
+            swapData,
+            resolvedFeeToken,
+            resolvedFeeStructure,
+          );
+        },
+      );
 
       res.status(200).json({ success: true, txHash });
     } catch (error) {
@@ -61,11 +65,11 @@ router.post(
 
 router.get('/get-swap-data', verifySignatureMiddleware, async (req: Request, res: Response<GetSwapDataResponse>) => {
   try {
-    const { address, inputTokenAddress, outputTokenAddress, amount, slippagePercentage } =
+    const { inputTokenAddress, outputTokenAddress, amount, slippagePercentage } =
       req.query as unknown as GetSwapDataRequest;
     const chainId = Number(req.query.chainId);
 
-    if (!address || !chainId || !inputTokenAddress || !outputTokenAddress || !amount) {
+    if (!chainId || !inputTokenAddress || !outputTokenAddress || !amount) {
       res.status(400).json({ success: false, error: 'Missing required swap parameters' });
       return;
     }
@@ -92,7 +96,7 @@ router.get('/get-swap-data', verifySignatureMiddleware, async (req: Request, res
           inSwapAmount: amount,
           slippagePercentage,
         })
-      : await hinkalInitializerService.withHinkalForAddress(address, chainId, async (hinkal) => {
+      : await hinkalInitializerService.withHinkalForAddress(res.locals.address, chainId, async (hinkal) => {
           return getBestSwapQuote({
             hinkal,
             chainId,

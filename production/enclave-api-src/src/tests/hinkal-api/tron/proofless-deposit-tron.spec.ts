@@ -20,7 +20,7 @@ describe('proofless-deposit route (Tron Nile)', () => {
     const balanceBefore = await getTronUsdtBalance(wallet);
     const privateBalanceBefore = await getPrivateBalanceForToken(wallet, TRON_NILE_USDT_ADDRESS, authFields);
 
-    await depositUsdtToPrivate(wallet, DEPOSIT_AMOUNT, TRON_NILE_USDT_ADDRESS, true);
+    await depositUsdtToPrivate(wallet, DEPOSIT_AMOUNT, authFields, TRON_NILE_USDT_ADDRESS, true);
 
     const balanceAfter = await getTronUsdtBalance(wallet);
     expect(balanceBefore - balanceAfter).toBeGreaterThanOrEqual(DEPOSIT_AMOUNT);

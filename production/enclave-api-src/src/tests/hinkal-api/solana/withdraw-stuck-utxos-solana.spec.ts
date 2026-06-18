@@ -1,10 +1,11 @@
 import { ENCLAVE_API_URL, httpClient, waitForTransactionConfirmation } from '@hinkal/common';
 import {
+  buildAuthPostSolana,
   buildSolanaWithdrawStuckUtxosAuthFields,
   createEnclaveSolanaSession,
 } from '../../utils/enclaveSolanaAuthHelper';
 import { getSolanaTokenBalance } from '../../utils/solanaIntegrationHelpers';
-import { toEnclaveAuthQueryParams } from '../../utils/enclaveAuthHelper';
+import { requestSignatureGetHeader, sessionQueryParams } from '../../utils/enclaveAuthHelper';
 import { SOLANA_MAINNET_USDC_ADDRESS } from '../../utils/solanaTestConstants';
 import { getEnclaveSolanaTestWallet, type SolanaTestWallet } from '../../utils/solanaTestWallet';
 import { BalanceResponse } from '../../../types';
@@ -17,8 +18,12 @@ beforeAll(() => {
 
 const getStuckUtxoBalance = async (): Promise<bigint> => {
   const authFields = await createEnclaveSolanaSession(wallet);
-  const params = new URLSearchParams(toEnclaveAuthQueryParams(authFields, wallet.address, wallet.chainId));
-  const response = await httpClient.get<BalanceResponse>(`${ENCLAVE_API_URL}/stuck-utxo-balance?${params}`);
+  const params = new URLSearchParams(sessionQueryParams(authFields, wallet.chainId));
+  const queryString = params.toString();
+  const headers = requestSignatureGetHeader(authFields, queryString);
+  const response = await httpClient.get<BalanceResponse>(`${ENCLAVE_API_URL}/stuck-utxo-balance?${queryString}`, {
+    headers,
+  });
   if (response.success === false) throw new Error(response.error);
   return BigInt(
     response.balances.find((b) => b.tokenAddress.toLowerCase() === SOLANA_MAINNET_USDC_ADDRESS.toLowerCase())
@@ -40,20 +45,24 @@ describe('POST /withdraw-stuck-utxos (Solana mainnet)', () => {
   jest.setTimeout(300_000);
 
   it('withdraws any stuck USDC UTXOs to recipient and verifies balance clears', async () => {
+    const session = await createEnclaveSolanaSession(wallet);
     const stuckBefore = await getStuckUtxoBalance();
     const recipientAddress = wallet.address;
     const publicBalanceBefore = await getSolanaTokenBalance(wallet, SOLANA_MAINNET_USDC_ADDRESS);
 
-    const txDataParams = {
+    const txParams = {
       chainId: wallet.chainId,
       tokenAddress: SOLANA_MAINNET_USDC_ADDRESS,
       recipientAddress,
     };
-    const authFields = buildSolanaWithdrawStuckUtxosAuthFields(wallet, txDataParams);
+    const { body, headers } = buildAuthPostSolana(session, wallet.chainId, txParams, () =>
+      buildSolanaWithdrawStuckUtxosAuthFields(session, wallet, txParams),
+    );
 
     const response = await httpClient.post<{ success: true; txHashes: string[] }>(
       `${ENCLAVE_API_URL}/withdraw-stuck-utxos`,
-      { ...authFields, address: wallet.address, ...txDataParams },
+      body,
+      headers ? { headers } : undefined,
     );
 
     const { txHashes } = response;

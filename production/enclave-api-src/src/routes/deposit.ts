@@ -28,7 +28,7 @@ router.post(
     res: Response<DepositResponse | SolanaDepositResponse>,
   ) => {
     try {
-      const { address, chainId, tokenAddresses, amounts } = req.body;
+      const { chainId, tokenAddresses, amounts } = req.body;
 
       if (tokenAddresses.length !== amounts.length) {
         res.status(400).json({ success: false, error: 'tokenAddresses and amounts must have the same length' });
@@ -45,12 +45,16 @@ router.post(
         return;
       }
 
-      const txData = await hinkalInitializerService.withHinkalForAddress(address, chainId, async (hinkal) => {
-        if (isSolanaLike(chainId)) {
-          return hinkal.depositSolana(BigInt(amounts[0]), validated.tokens[0], true);
-        }
-        return hinkal.deposit(validated.tokens, amounts.map(BigInt), false, true);
-      });
+      const txData = await hinkalInitializerService.withHinkalForAddress(
+        res.locals.address,
+        chainId,
+        async (hinkal) => {
+          if (isSolanaLike(chainId)) {
+            return hinkal.depositSolana(BigInt(amounts[0]), validated.tokens[0], true);
+          }
+          return hinkal.deposit(validated.tokens, amounts.map(BigInt), false, true);
+        },
+      );
 
       res.status(200).json(toJsonSafe({ success: true, txData }) as DepositResponse);
     } catch (error) {
@@ -65,7 +69,7 @@ router.post(
   verifyDepositForOtherSignatureMiddleware,
   async (req: Request<object, DepositResponse, DepositForOtherRequest>, res: Response<DepositResponse>) => {
     try {
-      const { address, chainId, tokenAddresses, amounts, recipientInfo } = req.body;
+      const { chainId, tokenAddresses, amounts, recipientInfo } = req.body;
 
       if (tokenAddresses.length !== amounts.length) {
         res.status(400).json({ success: false, error: 'tokenAddresses and amounts must have the same length' });
@@ -78,9 +82,13 @@ router.post(
         return;
       }
 
-      const txData = await hinkalInitializerService.withHinkalForAddress(address, chainId, async (hinkal) => {
-        return hinkal.depositForOther(validated.tokens, amounts.map(BigInt), recipientInfo, false, true);
-      });
+      const txData = await hinkalInitializerService.withHinkalForAddress(
+        res.locals.address,
+        chainId,
+        async (hinkal) => {
+          return hinkal.depositForOther(validated.tokens, amounts.map(BigInt), recipientInfo, false, true);
+        },
+      );
 
       res.status(200).json(toJsonSafe({ success: true, txData }) as DepositResponse);
     } catch (error) {
@@ -97,7 +105,7 @@ router.post(
     res: Response<SolanaDepositResponse>,
   ) => {
     try {
-      const { address, chainId, tokenAddresses, amounts, recipientInfo } = req.body;
+      const { chainId, tokenAddresses, amounts, recipientInfo } = req.body;
       const tokenAddress = tokenAddresses?.[0];
       const amount = amounts?.[0];
 
@@ -107,9 +115,13 @@ router.post(
         return;
       }
 
-      const txData = await hinkalInitializerService.withHinkalForAddress(address, chainId, async (hinkal) => {
-        return hinkal.depositSolanaForOther(BigInt(amount), token, recipientInfo, true);
-      });
+      const txData = await hinkalInitializerService.withHinkalForAddress(
+        res.locals.address,
+        chainId,
+        async (hinkal) => {
+          return hinkal.depositSolanaForOther(BigInt(amount), token, recipientInfo, true);
+        },
+      );
 
       res.status(200).json({ success: true, txData });
     } catch (error) {
@@ -127,7 +139,7 @@ router.post(
     res: Response<ProoflessDepositResponse>,
   ) => {
     try {
-      const { address, chainId, tokenAddresses, amounts } = req.body;
+      const { chainId, tokenAddresses, amounts } = req.body;
 
       if (tokenAddresses.length !== amounts.length) {
         res.status(400).json({ success: false, error: 'tokenAddresses and amounts must have the same length' });
@@ -144,12 +156,16 @@ router.post(
         return;
       }
 
-      const result = await hinkalInitializerService.withHinkalForAddress(address, chainId, async (hinkal) => {
-        if (isSolanaLike(chainId)) {
-          return hinkal.depositSolana(BigInt(amounts[0]), validated.tokens[0], true);
-        }
-        return hinkal.prooflessDeposit(validated.tokens, amounts.map(BigInt), undefined, undefined, true);
-      });
+      const result = await hinkalInitializerService.withHinkalForAddress(
+        res.locals.address,
+        chainId,
+        async (hinkal) => {
+          if (isSolanaLike(chainId)) {
+            return hinkal.depositSolana(BigInt(amounts[0]), validated.tokens[0], true);
+          }
+          return hinkal.prooflessDeposit(validated.tokens, amounts.map(BigInt), undefined, undefined, true);
+        },
+      );
 
       res.status(200).json(toJsonSafe({ success: true, txData: result }) as ProoflessDepositResponse);
     } catch (error) {

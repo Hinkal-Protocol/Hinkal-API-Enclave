@@ -5,9 +5,13 @@ import {
   httpClient,
   waitForTransactionConfirmation,
 } from '@hinkal/common';
-import { buildSolanaTransferAuthFields, createEnclaveSolanaSession } from '../../utils/enclaveSolanaAuthHelper';
+import {
+  buildAuthPostSolana,
+  buildSolanaTransferAuthFields,
+  createEnclaveSolanaSession,
+} from '../../utils/enclaveSolanaAuthHelper';
 import { depositUsdcToPrivate } from '../../utils/solanaIntegrationHelpers';
-import { toEnclaveAuthQueryParams } from '../../utils/enclaveAuthHelper';
+import { requestSignatureGetHeader, sessionQueryParams } from '../../utils/enclaveAuthHelper';
 import { fetchFeeStructure } from '../../utils/fetchFeeStructureSolana';
 import { getPrivateBalanceForToken } from '../../utils/getPrivateBalanceSolana';
 import { SOLANA_MAINNET_USDC_ADDRESS } from '../../utils/solanaTestConstants';
@@ -41,10 +45,13 @@ describe('transfer route (Solana mainnet)', () => {
 
     const totalRelayFee = solanaRelayFee(feeStructure.flatFee, feeStructure.variableRate, TRANSFER_AMOUNT);
     const depositAmount = TRANSFER_AMOUNT + totalRelayFee;
-    await depositUsdcToPrivate(wallet, depositAmount, SOLANA_MAINNET_USDC_ADDRESS, true);
+    await depositUsdcToPrivate(wallet, depositAmount, authFields, SOLANA_MAINNET_USDC_ADDRESS, true);
 
+    const recipientParams = new URLSearchParams(sessionQueryParams(authFields, wallet.chainId));
+    const recipientQueryString = recipientParams.toString();
     const { recipientInfo } = await httpClient.get<Extract<RecipientInfoResponse, { success: true }>>(
-      `${ENCLAVE_API_URL}/recipient-info?${new URLSearchParams(toEnclaveAuthQueryParams(authFields, wallet.address, wallet.chainId))}`,
+      `${ENCLAVE_API_URL}/recipient-info?${recipientQueryString}`,
+      { headers: requestSignatureGetHeader(authFields, recipientQueryString) },
     );
     expect(recipientInfo).toBeTruthy();
 
@@ -54,21 +61,21 @@ describe('transfer route (Solana mainnet)', () => {
       authFields,
     );
 
-    const txData = {
+    const txParams = {
       chainId: wallet.chainId,
       tokenAddresses: [SOLANA_MAINNET_USDC_ADDRESS],
       amounts: [TRANSFER_AMOUNT.toString()],
       recipientAddress: recipientInfo,
     };
+    const { body, headers } = buildAuthPostSolana(authFields, wallet.chainId, { ...txParams, feeStructure }, () =>
+      buildSolanaTransferAuthFields(authFields, wallet, txParams),
+    );
 
-    const transferAuthFields = buildSolanaTransferAuthFields(wallet, txData);
-
-    const response = await httpClient.post<TxHashResponse>(`${ENCLAVE_API_URL}/transfer`, {
-      ...transferAuthFields,
-      address: wallet.address,
-      ...txData,
-      feeStructure,
-    });
+    const response = await httpClient.post<TxHashResponse>(
+      `${ENCLAVE_API_URL}/transfer`,
+      body,
+      headers ? { headers } : undefined,
+    );
 
     const { txHash } = response as Extract<TxHashResponse, { success: true }>;
 
