@@ -64,11 +64,13 @@ describe('withdraw route', () => {
       amounts: [WITHDRAW_AMOUNT.toString()],
       recipientAddress: wallet.address,
     };
-    const { body, headers } = await buildAuthPost(
-      authFields,
-      CHAIN_ID,
-      { ...txParams, feeToken: ARC_TESTNET_USDC_ADDRESS, feeStructure },
-      () => buildWithdrawAuthFields(authFields, wallet, txParams),
+    const authParams = {
+      ...txParams,
+      feeToken: ARC_TESTNET_USDC_ADDRESS,
+      feeStructure,
+    };
+    const { body, headers } = await buildAuthPost(authFields, CHAIN_ID, authParams, () =>
+      buildWithdrawAuthFields(authFields, wallet, authParams),
     );
     const response = await httpClient.post<TxHashResponse>(
       `${ENCLAVE_API_URL}/withdraw`,

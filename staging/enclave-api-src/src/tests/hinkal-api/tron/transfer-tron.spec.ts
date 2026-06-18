@@ -62,11 +62,13 @@ describe('transfer route (Tron Nile)', () => {
       amounts: [TRANSFER_AMOUNT.toString()],
       recipientAddress: recipientInfo,
     };
-    const { body, headers } = buildAuthPostTron(
-      authFields,
-      wallet.chainId,
-      { ...txParams, feeToken: TRON_NILE_USDT_ADDRESS, feeStructure },
-      () => buildTransferAuthFieldsTron(authFields, wallet.tronWeb, txParams),
+    const authParams = {
+      ...txParams,
+      feeToken: TRON_NILE_USDT_ADDRESS,
+      feeStructure,
+    };
+    const { body, headers } = buildAuthPostTron(authFields, wallet.chainId, authParams, () =>
+      buildTransferAuthFieldsTron(authFields, wallet.tronWeb, authParams),
     );
     const response = await httpClient.post<TxHashResponse>(
       `${ENCLAVE_API_URL}/transfer`,

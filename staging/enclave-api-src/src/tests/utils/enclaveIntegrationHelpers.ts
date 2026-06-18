@@ -209,11 +209,13 @@ export const withdrawUsdc = async (
     amounts: [amount.toString()],
     recipientAddress,
   };
-  const { body, headers } = await buildAuthPost(
-    session,
-    chainId,
-    { ...txParams, feeToken: ARC_TESTNET_USDC_ADDRESS, feeStructure },
-    () => buildWithdrawAuthFields(session, wallet as ethers.Wallet, txParams),
+  const authParams = {
+    ...txParams,
+    feeToken: ARC_TESTNET_USDC_ADDRESS,
+    feeStructure,
+  };
+  const { body, headers } = await buildAuthPost(session, chainId, authParams, () =>
+    buildWithdrawAuthFields(session, wallet as ethers.Wallet, authParams),
   );
 
   const response = await postWithRelayerRetry(`${ENCLAVE_API_URL}/withdraw`, body, headers);
@@ -245,11 +247,13 @@ export const transferUsdc = async (
     amounts: [amount.toString()],
     recipientAddress: recipientInfo,
   };
-  const { body, headers } = await buildAuthPost(
-    session,
-    chainId,
-    { ...txParams, feeToken: ARC_TESTNET_USDC_ADDRESS, feeStructure },
-    () => buildTransferAuthFields(session, wallet as ethers.Wallet, txParams),
+  const authParams = {
+    ...txParams,
+    feeToken: ARC_TESTNET_USDC_ADDRESS,
+    feeStructure,
+  };
+  const { body, headers } = await buildAuthPost(session, chainId, authParams, () =>
+    buildTransferAuthFields(session, wallet as ethers.Wallet, authParams),
   );
 
   const response = await postWithRelayerRetry(`${ENCLAVE_API_URL}/transfer`, body, headers);
