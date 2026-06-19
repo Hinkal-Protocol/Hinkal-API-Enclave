@@ -1,4 +1,5 @@
 import { generateHashFromSeedPhrases, WalletManager } from '@hinkal/common';
+import { MONGO_DUPLICATE_KEY_ERROR } from '../constants';
 import { UserKeysModel } from '../models/UserKeysSchema';
 import { cryptoHelper } from '../crypto';
 
@@ -26,6 +27,22 @@ class UserKeysService {
     });
 
     return signature;
+  }
+
+  public async findOrCreatePrivateKey(ethereumAddress: string) {
+    const existing = await this.findByEthereumAddress(ethereumAddress);
+    if (existing) return existing;
+
+    try {
+      return await this.createAndStorePrivateKey(ethereumAddress);
+    } catch (err: unknown) {
+      if ((err as { code?: number })?.code !== MONGO_DUPLICATE_KEY_ERROR) throw err;
+
+      // It is possible that other request created the key after we checked for it, so we need to check again before throwing the error.
+      const createdByOtherRequest = await this.findByEthereumAddress(ethereumAddress);
+      if (!createdByOtherRequest) throw err;
+      return createdByOtherRequest;
+    }
   }
 }
 
