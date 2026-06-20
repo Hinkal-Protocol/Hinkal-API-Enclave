@@ -1,5 +1,5 @@
 import { Request, Response, Router } from 'express';
-import { getErrorMessage, networkRegistry } from '@hinkal/common';
+import { getErrorMessage, HINKAL_SUPPORTED_CHAINS, networkRegistry } from '@hinkal/common';
 import { SupportedChainsResponse, SupportedTokensRequest, SupportedTokensResponse } from '../types/route.types';
 import { getPopularTokensForChain } from '../utils/supported.utils';
 import { POPULAR_TOKEN_CHAIN_IDS } from '@hinkal/erc20-registry';
@@ -35,7 +35,7 @@ router.get(
 
 router.get('/supported-chains', async (_req: Request, res: Response<SupportedChainsResponse>) => {
   try {
-    const chains = POPULAR_TOKEN_CHAIN_IDS.map((chainId) => ({
+    const chains = HINKAL_SUPPORTED_CHAINS.map((chainId) => ({
       chainId,
       name: networkRegistry[chainId]?.name ?? '',
     }));
