@@ -21,6 +21,7 @@ const ENCLAVE_TYPED_DATA_DOMAIN_NAME = 'Hinkal Enclave';
 const FEE_TOKEN_FIELD: TypedDataField = { name: 'feeToken', type: 'address' };
 const FEE_STRUCTURE_FIELD: TypedDataField = { name: 'feeStructure', type: 'FeeStructure' };
 const TX_COMPLETION_TIME_FIELD: TypedDataField = { name: 'txCompletionTime', type: 'uint256' };
+const REF_FIELD: TypedDataField = { name: 'ref', type: 'string' };
 
 const buildFeeValueFields = (fields: FeeAuthFields) => {
   const value: Record<string, unknown> = {};
@@ -124,6 +125,7 @@ const getPrimaryFields = (
   if (value.feeToken) fields.push(FEE_TOKEN_FIELD);
   if (value.feeStructure) fields.push(FEE_STRUCTURE_FIELD);
   if (value.txCompletionTime !== undefined) fields.push(TX_COMPLETION_TIME_FIELD);
+  if (value.ref !== undefined) fields.push(REF_FIELD);
 
   return fields;
 };
@@ -265,6 +267,9 @@ export const buildDepositAndWithdrawTypedData = (params: PrivateSendAuthFields):
   }
   if (params.txCompletionTime !== undefined) {
     value.txCompletionTime = BigInt(params.txCompletionTime);
+  }
+  if (params.ref !== undefined) {
+    value.ref = params.ref;
   }
 
   return buildTypedData('PrivateSend', params.chainId, value);

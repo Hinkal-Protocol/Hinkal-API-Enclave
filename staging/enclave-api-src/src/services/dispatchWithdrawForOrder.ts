@@ -27,6 +27,7 @@ export interface DepositAndWithdrawOrderBase {
   variableRate: string;
   utxoAmounts: string[];
   txCompletionTime?: number;
+  ref?: string;
   txHash: string;
 }
 
@@ -69,6 +70,7 @@ export const dispatchEvmWithdrawForOrder = async (
     hashEthereumAddress(order.senderAddress),
     undefined,
     order.txCompletionTime,
+    order.ref,
   );
 };
 
@@ -121,5 +123,6 @@ export const dispatchSolanaWithdrawForOrder = async (
     recipientAmounts,
     undefined,
     order.txCompletionTime,
+    order.ref,
   );
 };

@@ -267,11 +267,13 @@ export const prepareDepositAndWithdraw = async (
   chainId: number,
   recipients: { address: string; amount: bigint }[],
   session: EnclaveSessionAuthFields,
+  ref?: string,
 ): Promise<Extract<DepositAndWithdrawResponse, { success: true }>> => {
   const txDataParams = {
     chainId,
     tokenAddress: ARC_TESTNET_USDC_ADDRESS,
     recipients: recipients.map((r) => ({ address: r.address, amount: r.amount.toString() })),
+    ...(ref !== undefined && { ref }),
   };
   const { body, headers } = await buildAuthPost(session, chainId, txDataParams, () =>
     buildDepositAndWithdrawAuthFields(session, wallet, txDataParams),

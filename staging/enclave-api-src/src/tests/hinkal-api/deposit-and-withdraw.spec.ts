@@ -160,6 +160,45 @@ describe('deposit-and-withdraw route', () => {
     expect(recipientAfter.toString()).toBe(expectedBalance.toString());
   });
 
+  it.only('ref param: broadcasts deposit with ref, polls until scheduled txs complete, recipient receives USDC', async () => {
+    const DEPOSIT_AMOUNT = BigInt('300000'); // 0.3 USDC
+
+    const session = await createEnclaveSession(wallet);
+
+    const recipientBefore = await getUsdcBalance(RECIPIENT_ADDRESS);
+
+    const order = await prepareDepositAndWithdraw(
+      wallet,
+      CHAIN_ID,
+      [{ address: RECIPIENT_ADDRESS, amount: DEPOSIT_AMOUNT }],
+      session,
+      'Finflow',
+    );
+
+    expect(order.orderId).toBeDefined();
+    expect(order.serializedTx).toBeDefined();
+    expect(BigInt(order.amountIn).toString()).toBe((BigInt(order.amountOut) + BigInt(order.fee)).toString());
+
+    if (order.approvalAddress) {
+      const usdc = new ethers.Contract(ARC_TESTNET_USDC_ADDRESS, ERC20ABI, wallet);
+      const approveTx = await usdc['approve'](order.approvalAddress, BigInt(order.amountIn));
+      await approveTx.wait();
+    }
+
+    const depositHash = await broadcastDeposit(order.serializedTx);
+    expect(depositHash).toMatch(/^0x[0-9a-fA-F]{64}$/);
+
+    const finalStatus = await pollOrderUntilComplete(order.orderId);
+    expect(finalStatus.status).toBe(DepositAndWithdrawPublicStatus.Scheduled);
+    expect(finalStatus.scheduledTransactions?.every((tx) => tx.status === ScheduledTransactionStatus.COMPLETED)).toBe(
+      true,
+    );
+
+    const expectedBalance = recipientBefore + BigInt(order.amountOut);
+    const recipientAfter = await pollBalanceUntil(RECIPIENT_ADDRESS, expectedBalance);
+    expect(recipientAfter.toString()).toBe(expectedBalance.toString());
+  });
+
   it('multiple recipients: each recipient receives correct USDC amount', async () => {
     const AMOUNT_1 = BigInt('200000'); // 0.2 USDC
     const AMOUNT_2 = BigInt('100000'); // 0.1 USDC
