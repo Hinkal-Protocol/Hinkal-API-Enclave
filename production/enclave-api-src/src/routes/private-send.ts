@@ -1,6 +1,7 @@
 import { Request, Response, Router } from 'express';
 import { verifyDepositAndWithdrawSignatureMiddleware } from '../middleware';
 import { DepositAndWithdrawRequest, DepositAndWithdrawResponse } from '../types';
+import { WHITELISTED_REFERRALS } from '@hinkal/backend-common';
 import {
   ExternalActionId,
   getErrorMessage,
@@ -32,13 +33,19 @@ router.post(
     req: Request<object, DepositAndWithdrawResponse, DepositAndWithdrawRequest>,
     res: Response<DepositAndWithdrawResponse>,
   ) => {
-    const { chainId, tokenAddress, recipients, feeToken, txCompletionTime } = req.body as DepositAndWithdrawRequest;
+    const { chainId, tokenAddress, recipients, feeToken, txCompletionTime, ref } =
+      req.body as DepositAndWithdrawRequest;
 
     if (!chainId || !tokenAddress || !recipients?.length) {
       res.status(400).json({
         success: false,
         error: 'Missing required fields: chainId, tokenAddress, recipients',
       });
+      return;
+    }
+
+    if (ref !== undefined && !WHITELISTED_REFERRALS.includes(ref)) {
+      res.status(400).json({ success: false, error: `Invalid ref: '${ref}' is not a whitelisted referral` });
       return;
     }
 
@@ -132,6 +139,7 @@ router.post(
         variableRate: feeStructure.variableRate.toString(),
         utxoAmounts: utxoAmounts.map((a) => a.toString()),
         ...(txCompletionTime !== undefined && { txCompletionTime }),
+        ...(ref !== undefined && { ref }),
         status: DepositAndWithdrawOrderStatus.AwaitingDeposit,
         preparedAt: new Date(),
       });

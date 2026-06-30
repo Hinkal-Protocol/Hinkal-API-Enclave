@@ -220,6 +220,7 @@ export type DepositAndWithdrawRequest = {
   recipients: { address: string; amount: string }[];
   feeToken?: string;
   txCompletionTime?: number;
+  ref?: string;
 };
 
 export type DepositAndWithdrawResponse =

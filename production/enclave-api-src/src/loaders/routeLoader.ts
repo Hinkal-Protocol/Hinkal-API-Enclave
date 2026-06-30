@@ -31,7 +31,7 @@ import waasBalances from '../routes/waas/waas-balance';
 import privateSend from '../routes/private-send';
 import withdrawStuckUtxos from '../routes/withdraw-stuck-utxos';
 import attestation from '../routes/attestation';
-import supported from '../routes/supported';
+import info from '../routes/info';
 
 export const loadRoutes = (app: Express) => {
   app.use(BASE_URL, ping);
@@ -51,7 +51,7 @@ export const loadRoutes = (app: Express) => {
   hinkalAPIRouter.use(withdraw);
   hinkalAPIRouter.use(transfer);
   hinkalAPIRouter.use(swap);
-  hinkalAPIRouter.use(supported);
+  hinkalAPIRouter.use(info);
   app.use(BASE_URL, hinkalAPIRouter);
 
   // PAL routes

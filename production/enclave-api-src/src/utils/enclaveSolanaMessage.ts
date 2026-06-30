@@ -61,7 +61,8 @@ export const buildSolanaPrivateSendMessage = (params: PrivateSendAuthFields): st
     `\nToken Address: ${params.tokenAddress}` +
     `\nRecipients:\n${renderRecipients(normalized)}` +
     `\nFee Token: ${params.feeToken ?? ''}` +
-    `\nTx Completion Time: ${params.txCompletionTime ?? 0}`
+    `\nTx Completion Time: ${params.txCompletionTime ?? 0}` +
+    `\nRef: ${params.ref ?? ''}`
   );
 };
 

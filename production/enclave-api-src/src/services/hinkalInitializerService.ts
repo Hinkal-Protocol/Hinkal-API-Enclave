@@ -60,9 +60,8 @@ class HinkalInitializerService {
   };
 
   private async initalizeHinkalForAddress(ethereumAddress: string, chainId: number) {
-    let userKey = await userKeysService.findByEthereumAddress(ethereumAddress);
-    if (!userKey) userKey = await userKeysService.createAndStorePrivateKey(ethereumAddress);
-    const hinkal = new Hinkal<unknown>({ useFileCache: true });
+    const userKey = await userKeysService.findOrCreatePrivateKey(ethereumAddress);
+    const hinkal = new Hinkal<unknown>({ useFileCache: true, allowParallelBalanceLocalDecryption: true });
     const { wallet, providerAdapter } = buildVoidProviderAdapter(chainId, ethereumAddress);
     await this.finalizeHinkalInit(hinkal, wallet, providerAdapter, chainId, userKey);
     return hinkal;
@@ -75,7 +74,7 @@ class HinkalInitializerService {
     fromAddress: string,
     chainId: number,
   ): Promise<Hinkal<unknown>> {
-    const hinkal = new Hinkal({ useFileCache: true });
+    const hinkal = new Hinkal({ useFileCache: true, allowParallelBalanceLocalDecryption: true });
 
     const { seedHash, childWallet } = await walletSecretsService.getSeedHashAndChildWallet(
       organizationId,

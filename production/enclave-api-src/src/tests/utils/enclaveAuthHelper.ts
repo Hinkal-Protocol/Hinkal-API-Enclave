@@ -178,6 +178,7 @@ export const buildDepositAndWithdrawAuthFields = (
     recipients: { address: string; amount: string }[];
     feeToken?: string;
     txCompletionTime?: number;
+    ref?: string;
   },
 ) =>
   signEnclaveTypedData(session.sessionId, wallet, (nonce, sessionId) =>

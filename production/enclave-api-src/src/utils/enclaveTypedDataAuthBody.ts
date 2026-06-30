@@ -194,6 +194,7 @@ export const parseDepositAndWithdrawAuthBody = (
     recipients: DepositAndWithdrawRecipient[];
     feeToken?: string;
     txCompletionTime?: number;
+    ref?: string;
   }
 > => {
   const base = parseBaseAuthBody(body);
@@ -209,6 +210,7 @@ export const parseDepositAndWithdrawAuthBody = (
 
   const feeToken = typeof body.feeToken === 'string' && body.feeToken ? body.feeToken : undefined;
   const txCompletionTime = typeof body.txCompletionTime === 'number' ? body.txCompletionTime : undefined;
+  const ref = typeof body.ref === 'string' && body.ref ? body.ref : undefined;
 
   return {
     ok: true,
@@ -218,6 +220,7 @@ export const parseDepositAndWithdrawAuthBody = (
       recipients: recipients.value,
       feeToken,
       txCompletionTime,
+      ref,
     },
   };
 };

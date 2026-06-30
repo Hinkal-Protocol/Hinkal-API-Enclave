@@ -18,6 +18,7 @@ export type PrivateSendAuthFields = BaseAuthFields & {
   recipients: DepositAndWithdrawRecipient[];
   feeToken?: string;
   txCompletionTime?: number;
+  ref?: string;
 };
 export type WithdrawStuckUtxosAuthFields = BaseAuthFields & { tokenAddress: string; recipientAddress: string };
 
