@@ -1,5 +1,5 @@
 import { Request, Response, Router } from 'express';
-import { getErrorMessage, HINKAL_SUPPORTED_CHAINS, isSolanaLike, networkRegistry } from '@hinkal/common';
+import { chainIds, getErrorMessage, HINKAL_SUPPORTED_CHAINS, isSolanaLike, networkRegistry } from '@hinkal/common';
 import { SupportedChainsResponse, SupportedTokensRequest, SupportedTokensResponse } from '../types/route.types';
 import { getPopularTokensForChain } from '../utils/supported.utils';
 import { POPULAR_TOKEN_CHAIN_IDS } from '@hinkal/erc20-registry';
@@ -46,17 +46,25 @@ router.get('/supported-chains', async (_req: Request, res: Response<SupportedCha
   }
 });
 
-router.get('/approval-addresses', (_req: Request, res: Response) => {
+router.get('/contract-addresses', (_req: Request, res: Response) => {
   try {
     const addresses = Object.fromEntries(
-      HINKAL_SUPPORTED_CHAINS.filter((chainId) => !isSolanaLike(chainId)).map((chainId) => {
-        const { contractData } = networkRegistry[chainId];
-        const entry: Record<string, string> = { hinkalAddress: contractData.hinkalAddress };
-        if (contractData.depositOnChainUtxosExternalActionAddress) {
-          entry.depositOnChainUtxosExternalActionAddress = contractData.depositOnChainUtxosExternalActionAddress;
-        }
-        return [chainId, entry];
-      }),
+      HINKAL_SUPPORTED_CHAINS.filter((chainId) => !isSolanaLike(chainId) && chainId !== chainIds.tronNile).map(
+        (chainId) => {
+          const { contractData } = networkRegistry[chainId];
+          const entry: Record<string, string> = { hinkalAddress: contractData.hinkalAddress };
+          if (contractData.hinkalHelperAddress) {
+            entry.hinkalHelperAddress = contractData.hinkalHelperAddress;
+          }
+          if (contractData.hinkalWrapperAddress) {
+            entry.hinkalWrapperAddress = contractData.hinkalWrapperAddress;
+          }
+          if (contractData.depositOnChainUtxosExternalActionAddress) {
+            entry.depositOnChainUtxosExternalActionAddress = contractData.depositOnChainUtxosExternalActionAddress;
+          }
+          return [chainId, entry];
+        },
+      ),
     );
 
     res.status(200).json({ success: true, addresses });
