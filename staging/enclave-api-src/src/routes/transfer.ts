@@ -3,6 +3,7 @@ import { getErrorMessage, isSolanaLike } from '@hinkal/common';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { TransferRequest, TxHashResponse } from '../types/route.types';
 import { parseFeeStructure } from '../utils/parseFeeStructure';
+import { resolveRecipientInfo } from '../utils/transactionHelpers';
 import { verifyTransferSignatureMiddleware } from '../middleware';
 import { getERC20Token } from '@hinkal/erc20-registry';
 
@@ -29,6 +30,7 @@ router.post(
         return;
       }
 
+      const resolvedRecipientInfo = await resolveRecipientInfo(recipientAddress);
       const resolvedFeeToken = isSolanaLike(chainId) ? tokenAddresses[0] : feeToken;
       const txHash = await hinkalInitializerService.withHinkalForAddress(
         res.locals.address,
@@ -37,7 +39,7 @@ router.post(
           return hinkal.transfer(
             erc20Tokens,
             amounts.map((amount) => -1n * BigInt(amount)),
-            recipientAddress,
+            resolvedRecipientInfo,
             resolvedFeeToken,
             parseFeeStructure(feeStructure),
           );

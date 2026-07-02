@@ -38,9 +38,9 @@ const parseStringArray = (value: unknown, fieldName: string): ParseResult<string
   return { ok: true, value };
 };
 
-const parseRecipientAddress = (value: unknown): ParseResult<string> => {
+const parseRecipientAddress = (value: unknown, errorMessage = 'Missing recipient address'): ParseResult<string> => {
   if (typeof value !== 'string' || !value) {
-    return { ok: false, error: 'Missing recipient address' };
+    return { ok: false, error: errorMessage };
   }
   try {
     return { ok: true, value: getAddress(value) };
@@ -77,12 +77,10 @@ export const parseTokenDepositForOtherAuthBody = (
   const deposit = parseTokenDepositAuthBody(body);
   if (deposit.ok === false) return deposit;
 
-  const { recipientInfo } = body;
-  if (typeof recipientInfo !== 'string' || !recipientInfo) {
-    return { ok: false, error: 'Missing recipientInfo' };
-  }
+  const recipient = parseRecipientAddress(body.recipientInfo, 'Missing recipientInfo');
+  if (recipient.ok === false) return recipient;
 
-  return { ok: true, value: { ...deposit.value, recipientInfo } };
+  return { ok: true, value: { ...deposit.value, recipientInfo: recipient.value } };
 };
 
 const parseFeeFields = (body: Record<string, unknown>) => {
@@ -99,6 +97,33 @@ const parseFeeFields = (body: Record<string, unknown>) => {
 };
 
 export const parseTokenTransferAuthBody = (
+  body: Record<string, unknown>,
+): ParseResult<
+  BaseAuthFields & {
+    tokenAddresses: string[];
+    amounts: string[];
+    recipientAddress: string;
+    feeToken?: string;
+    feeStructure?: SerializedFeeStructure;
+  }
+> => {
+  const deposit = parseTokenDepositAuthBody(body);
+  if (deposit.ok === false) return deposit;
+
+  const recipient = parseRecipientAddress(body.recipientAddress);
+  if (recipient.ok === false) return recipient;
+
+  return {
+    ok: true,
+    value: {
+      ...deposit.value,
+      recipientAddress: recipient.value,
+      ...parseFeeFields(body),
+    },
+  };
+};
+
+export const parseTokenWithdrawAuthBody = (
   body: Record<string, unknown>,
 ): ParseResult<
   BaseAuthFields & {

@@ -83,7 +83,12 @@ export const buildProoflessDepositAuthFieldsTron = (
 export const buildDepositForOtherAuthFieldsTron = (
   session: { sessionId: string },
   tronWeb: TronWeb,
-  params: { chainId: number; tokenAddresses: string[]; amounts: string[]; recipientInfo: string },
+  params: {
+    chainId: number;
+    tokenAddresses: string[];
+    amounts: string[];
+    recipientInfo: string;
+  },
 ) =>
   signEnclaveTypedDataTron(session.sessionId, tronWeb, (nonce, sessionId) =>
     buildDepositForOtherTypedData({ nonce, sessionId, ...params }),

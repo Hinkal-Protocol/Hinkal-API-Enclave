@@ -11,6 +11,7 @@ import {
   SolanaDepositResponse,
 } from '../types/route.types';
 import { validateTokens } from '../utils';
+import { resolveRecipientInfo } from '../utils/transactionHelpers';
 import {
   verifyDepositForOtherSignatureMiddleware,
   verifyDepositSignatureMiddleware,
@@ -82,11 +83,13 @@ router.post(
         return;
       }
 
+      const resolvedRecipientInfo = await resolveRecipientInfo(recipientInfo);
+
       const txData = await hinkalInitializerService.withHinkalForAddress(
         res.locals.address,
         chainId,
         async (hinkal) => {
-          return hinkal.depositForOther(validated.tokens, amounts.map(BigInt), recipientInfo, false, true);
+          return hinkal.depositForOther(validated.tokens, amounts.map(BigInt), resolvedRecipientInfo, false, true);
         },
       );
 
@@ -115,11 +118,13 @@ router.post(
         return;
       }
 
+      const resolvedRecipientInfo = await resolveRecipientInfo(recipientInfo);
+
       const txData = await hinkalInitializerService.withHinkalForAddress(
         res.locals.address,
         chainId,
         async (hinkal) => {
-          return hinkal.depositSolanaForOther(BigInt(amount), token, recipientInfo, true);
+          return hinkal.depositSolanaForOther(BigInt(amount), token, resolvedRecipientInfo, true);
         },
       );
 
