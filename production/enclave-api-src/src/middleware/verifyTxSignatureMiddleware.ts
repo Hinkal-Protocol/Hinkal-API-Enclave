@@ -27,6 +27,7 @@ import {
   parseTokenDepositForOtherAuthBody,
   parseTokenSwapAuthBody,
   parseTokenTransferAuthBody,
+  parseTokenWithdrawAuthBody,
   parseWithdrawStuckUtxosAuthBody,
 } from '../utils/enclaveTypedDataAuthBody';
 import { consumeRequestNonceOrRespond, parseSignatureRequest } from './signatureMiddlewareUtils';
@@ -166,7 +167,7 @@ export const verifyDepositForOtherSignatureMiddleware = createVerifyEnclaveTxMid
 );
 
 export const verifyWithdrawSignatureMiddleware = createVerifyEnclaveTxMiddleware(
-  parseTokenTransferAuthBody,
+  parseTokenWithdrawAuthBody,
   buildWithdrawTypedData,
   buildSolanaWithdrawMessage,
 );

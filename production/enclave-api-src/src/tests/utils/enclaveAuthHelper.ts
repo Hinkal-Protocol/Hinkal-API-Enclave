@@ -114,7 +114,12 @@ export const buildProoflessDepositAuthFields = (
 export const buildDepositForOtherAuthFields = (
   session: { sessionId: string },
   wallet: ethers.Wallet,
-  params: { chainId: number; tokenAddresses: string[]; amounts: string[]; recipientInfo: string },
+  params: {
+    chainId: number;
+    tokenAddresses: string[];
+    amounts: string[];
+    recipientInfo: string;
+  },
 ) =>
   signEnclaveTypedData(session.sessionId, wallet, (nonce, sessionId) =>
     buildDepositForOtherTypedData({ nonce, sessionId, ...params }),
