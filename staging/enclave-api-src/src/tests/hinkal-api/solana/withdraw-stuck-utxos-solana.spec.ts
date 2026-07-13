@@ -20,7 +20,7 @@ const getStuckUtxoBalance = async (): Promise<bigint> => {
   const authFields = await createEnclaveSolanaSession(wallet);
   const params = new URLSearchParams(sessionQueryParams(authFields, wallet.chainId));
   const queryString = params.toString();
-  const headers = requestSignatureGetHeader(authFields, queryString);
+  const headers = requestSignatureGetHeader(authFields, '/stuck-utxo-balance', queryString);
   const response = await httpClient.get<BalanceResponse>(`${ENCLAVE_API_URL}/stuck-utxo-balance?${queryString}`, {
     headers,
   });
@@ -55,7 +55,7 @@ describe('POST /withdraw-stuck-utxos (Solana mainnet)', () => {
       tokenAddress: SOLANA_MAINNET_USDC_ADDRESS,
       recipientAddress,
     };
-    const { body, headers } = buildAuthPostSolana(session, wallet.chainId, txParams, () =>
+    const { body, headers } = buildAuthPostSolana(session, wallet.chainId, '/withdraw-stuck-utxos', txParams, () =>
       buildSolanaWithdrawStuckUtxosAuthFields(session, wallet, txParams),
     );
 

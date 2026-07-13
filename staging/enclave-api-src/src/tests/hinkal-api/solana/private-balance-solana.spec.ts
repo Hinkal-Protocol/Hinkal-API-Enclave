@@ -18,7 +18,7 @@ describe('private-balance route (Solana mainnet)', () => {
     const authFields = await createEnclaveSolanaSession(wallet);
     const params = new URLSearchParams(sessionQueryParams(authFields, SOLANA_MAINNET_CHAIN_ID));
     const queryString = params.toString();
-    const headers = requestSignatureGetHeader(authFields, queryString);
+    const headers = requestSignatureGetHeader(authFields, '/balance', queryString);
 
     const response = await httpClient.get<BalanceResponse>(`${ENCLAVE_API_URL}/balance?${queryString}`, { headers });
 

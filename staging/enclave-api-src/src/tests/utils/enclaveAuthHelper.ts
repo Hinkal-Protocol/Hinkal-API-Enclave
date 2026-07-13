@@ -21,6 +21,7 @@ import {
   buildWithdrawStuckUtxosTypedData,
   buildWithdrawTypedData,
 } from '../../utils/enclaveTypedData';
+import { buildActionBinding, buildRequestSignaturePayload } from '../../utils/requestBinding';
 
 // --- Types ---
 
@@ -48,16 +49,24 @@ const signPayload = (privateKey: Uint8Array, payload: string): string => {
 
 export const requestSignatureGetHeader = (
   session: EnclaveSessionAuthFields,
+  routePath: string,
   queryString: string,
 ): Record<string, string> => ({
-  [HEADER_REQUEST_SIGNATURE]: signPayload(session.privateKey, queryString),
+  [HEADER_REQUEST_SIGNATURE]: signPayload(
+    session.privateKey,
+    buildRequestSignaturePayload(buildActionBinding('GET', routePath), queryString),
+  ),
 });
 
 export const requestSignaturePostHeader = (
   session: EnclaveSessionAuthFields,
+  routePath: string,
   body: Record<string, unknown>,
 ): Record<string, string> => ({
-  [HEADER_REQUEST_SIGNATURE]: signPayload(session.privateKey, JSON.stringify(body)),
+  [HEADER_REQUEST_SIGNATURE]: signPayload(
+    session.privateKey,
+    buildRequestSignaturePayload(buildActionBinding('POST', routePath), JSON.stringify(body)),
+  ),
 });
 
 // --- Session params helpers ---
@@ -204,12 +213,13 @@ export const buildWithdrawStuckUtxosAuthFields = (
 export const buildAuthPost = async (
   session: EnclaveSessionAuthFields,
   chainId: number,
+  routePath: string,
   txData: Record<string, unknown>,
   buildTypedDataAuth: () => Promise<EnclaveTxAuthFields>,
 ): Promise<{ body: Record<string, unknown>; headers?: Record<string, string> }> => {
   if (!session.useEIP712) {
     const body = { ...sessionBodyParams(session, chainId), ...txData };
-    return { body, headers: requestSignaturePostHeader(session, body) };
+    return { body, headers: requestSignaturePostHeader(session, routePath, body) };
   }
   const authFields = await buildTypedDataAuth();
   return { body: { ...authFields, ...txData } };

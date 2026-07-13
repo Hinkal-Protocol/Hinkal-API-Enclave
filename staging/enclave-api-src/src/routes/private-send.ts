@@ -92,28 +92,14 @@ router.post(
           }
 
           if (isTronLike(chainId)) {
-            const result = await hinkalPalTronDepositPrepare(
-              hinkal,
-              chainId,
-              token,
-              recipientAmounts,
-              feeStructure,
-              orderId,
-            );
+            const result = await hinkalPalTronDepositPrepare(hinkal, token, recipientAmounts, feeStructure, orderId);
             return {
               serializedTx: Buffer.from(JSON.stringify(result.unsignedTx)).toString('base64'),
               utxoAmounts: result.utxoAmounts,
             };
           }
 
-          const result = await hinkalPalEvmDepositPrepare(
-            hinkal,
-            chainId,
-            token,
-            recipientAmounts,
-            feeStructure,
-            orderId,
-          );
+          const result = await hinkalPalEvmDepositPrepare(hinkal, token, recipientAmounts, feeStructure, orderId);
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const txData = { ...(result.unsignedTx as any) };
           delete txData.from;
@@ -147,7 +133,7 @@ router.post(
 
       const approvalAddress = isSolanaLike(chainId)
         ? null
-        : (networkRegistry[chainId].contractData.depositOnChainUtxosExternalActionAddress ?? null);
+        : (networkRegistry[chainId].contractData.hinkalAddress ?? null);
 
       res.status(200).json({
         success: true,

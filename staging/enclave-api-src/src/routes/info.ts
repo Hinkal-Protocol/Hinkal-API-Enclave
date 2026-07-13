@@ -56,12 +56,6 @@ router.get('/contract-addresses', (_req: Request, res: Response) => {
           if (contractData.hinkalHelperAddress) {
             entry.hinkalHelperAddress = contractData.hinkalHelperAddress;
           }
-          if (contractData.hinkalWrapperAddress) {
-            entry.hinkalWrapperAddress = contractData.hinkalWrapperAddress;
-          }
-          if (contractData.depositOnChainUtxosExternalActionAddress) {
-            entry.depositOnChainUtxosExternalActionAddress = contractData.depositOnChainUtxosExternalActionAddress;
-          }
           return [chainId, entry];
         },
       ),

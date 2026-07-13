@@ -4,6 +4,7 @@ import { Request, Response } from 'express';
 import { validate as validateUuid } from 'uuid';
 import { EnclaveSessionAuthMode, HEADER_REQUEST_SIGNATURE } from '../constants';
 import { EnclaveSession, getEnclaveSession, isEnclaveSessionActive } from '../models/EnclaveSessionSchema';
+import { buildRequestSignaturePayload, getRequestActionBinding } from './requestBinding';
 
 const sha256Bytes = (payload: string): Uint8Array => new Uint8Array(createHash('sha256').update(payload).digest());
 
@@ -71,7 +72,13 @@ export const verifyRequestSignatureSession = async (
     return null;
   }
 
-  if (!verifyRequestSignature(session.clientPublicKey, payload, receivedSig)) {
+  const binding = getRequestActionBinding(req);
+  if (!binding) {
+    res.status(500).json({ error: 'Unable to resolve request route for signature verification' });
+    return null;
+  }
+
+  if (!verifyRequestSignature(session.clientPublicKey, buildRequestSignaturePayload(binding, payload), receivedSig)) {
     res.status(401).json({ error: 'Invalid request signature' });
     return null;
   }

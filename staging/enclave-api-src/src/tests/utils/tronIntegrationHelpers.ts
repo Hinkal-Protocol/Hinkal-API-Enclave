@@ -105,7 +105,7 @@ export const getRecipientInfo = async (
 ): Promise<string> => {
   const params = new URLSearchParams(sessionQueryParams(authFields, wallet.chainId));
   const queryString = params.toString();
-  const headers = requestSignatureGetHeader(authFields, queryString);
+  const headers = requestSignatureGetHeader(authFields, '/recipient-info', queryString);
   const response = await httpClient.get<RecipientInfoResponse>(`${ENCLAVE_API_URL}/recipient-info?${queryString}`, {
     headers,
   });
@@ -126,7 +126,7 @@ export const depositForOtherUsdt = async (
     amounts: [amount.toString()],
     recipientInfo,
   };
-  const { body, headers } = buildAuthPostTron(session, senderWallet.chainId, params, () =>
+  const { body, headers } = buildAuthPostTron(session, senderWallet.chainId, '/deposit-for-other', params, () =>
     buildDepositForOtherAuthFieldsTron(session, senderWallet.tronWeb, params),
   );
 
@@ -148,12 +148,13 @@ export const depositUsdtToPrivate = async (
 ): Promise<void> => {
   const params = { chainId: wallet.chainId, tokenAddresses: [tokenAddress], amounts: [amount.toString()] };
   const builder = proofless ? buildProoflessDepositAuthFieldsTron : buildDepositAuthFieldsTron;
-  const { body, headers } = buildAuthPostTron(session, wallet.chainId, params, () =>
+  const routePath = `/${proofless ? 'proofless-deposit' : 'deposit'}`;
+  const { body, headers } = buildAuthPostTron(session, wallet.chainId, routePath, params, () =>
     builder(session, wallet.tronWeb, params),
   );
 
   const response = await httpClient.post<DepositResponse>(
-    `${ENCLAVE_API_URL}/${proofless ? 'proofless-deposit' : 'deposit'}`,
+    `${ENCLAVE_API_URL}${routePath}`,
     body,
     headers ? { headers } : undefined,
   );
@@ -176,7 +177,7 @@ export const prepareDepositAndWithdraw = async (
       amount: r.amount.toString(),
     })),
   };
-  const { body, headers } = buildAuthPostTron(session, wallet.chainId, params, () =>
+  const { body, headers } = buildAuthPostTron(session, wallet.chainId, '/private-send', params, () =>
     buildDepositAndWithdrawAuthFieldsTron(session, wallet.tronWeb, params),
   );
 

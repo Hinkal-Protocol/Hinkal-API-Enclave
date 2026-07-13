@@ -106,7 +106,7 @@ describe('deposit-and-withdraw route', () => {
     };
 
     const session = await createEnclaveSession(wallet);
-    const { body, headers } = await buildAuthPost(session, CHAIN_ID, txData, () =>
+    const { body, headers } = await buildAuthPost(session, CHAIN_ID, '/private-send', txData, () =>
       buildDepositAndWithdrawAuthFields(session, wallet, txData),
     );
     const response = await axios.post<string>(`${ENCLAVE_API_URL}/private-send`, body, {

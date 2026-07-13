@@ -59,8 +59,12 @@ describe('withdraw route (Solana mainnet)', () => {
       amounts: [WITHDRAW_AMOUNT.toString()],
       recipientAddress: wallet.address,
     };
-    const { body, headers } = buildAuthPostSolana(authFields, wallet.chainId, { ...txParams, feeStructure }, () =>
-      buildSolanaWithdrawAuthFields(authFields, wallet, txParams),
+    const { body, headers } = buildAuthPostSolana(
+      authFields,
+      wallet.chainId,
+      '/withdraw',
+      { ...txParams, feeStructure },
+      () => buildSolanaWithdrawAuthFields(authFields, wallet, txParams),
     );
 
     const response = await httpClient.post<TxHashResponse>(

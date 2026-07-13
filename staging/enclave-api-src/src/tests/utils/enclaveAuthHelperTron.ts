@@ -51,12 +51,13 @@ const signEnclaveTypedDataTron = (
 export const buildAuthPostTron = (
   session: EnclaveSessionAuthFields,
   chainId: number,
+  routePath: string,
   txData: Record<string, unknown>,
   buildTypedDataAuth: () => EnclaveTxAuthFields,
 ): { body: Record<string, unknown>; headers?: Record<string, string> } => {
   if (!session.useEIP712) {
     const body = { ...sessionBodyParams(session, chainId), ...txData };
-    return { body, headers: requestSignaturePostHeader(session, body) };
+    return { body, headers: requestSignaturePostHeader(session, routePath, body) };
   }
   const authFields = buildTypedDataAuth();
   return { body: { ...authFields, ...txData } };

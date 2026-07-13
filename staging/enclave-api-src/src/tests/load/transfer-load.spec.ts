@@ -29,7 +29,7 @@ beforeAll(async () => {
   const recipientQueryString = recipientParams.toString();
   const recipientInfoResponse = await httpClient.get<RecipientInfoResponse>(
     `${ENCLAVE_API_URL}/recipient-info?${recipientQueryString}`,
-    { headers: requestSignatureGetHeader(funderAuthFields, recipientQueryString) },
+    { headers: requestSignatureGetHeader(funderAuthFields, '/recipient-info', recipientQueryString) },
   );
   funderRecipientInfo = (recipientInfoResponse as Extract<RecipientInfoResponse, { success: true }>).recipientInfo;
 

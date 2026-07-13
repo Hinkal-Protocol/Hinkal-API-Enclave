@@ -33,7 +33,13 @@ router.post('/waas/public-to-private', xStampMiddleware, async (req: Request, re
       fromAddress,
       parsedChainId,
       async (hinkal) => {
-        return hinkal.prooflessDeposit([token], [amountWei], [constructStealthAddressStructure(recipientInfo)]);
+        const encryptionKey = recipientInfo.split(',')[5];
+        return hinkal.prooflessDeposit(
+          [token],
+          [amountWei],
+          [constructStealthAddressStructure(recipientInfo)],
+          [encryptionKey],
+        );
       },
     );
 

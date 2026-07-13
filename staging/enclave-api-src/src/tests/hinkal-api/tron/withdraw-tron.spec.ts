@@ -59,7 +59,7 @@ describe('withdraw route (Tron Nile)', () => {
       feeToken: TRON_NILE_USDT_ADDRESS,
       feeStructure,
     };
-    const { body, headers } = buildAuthPostTron(authFields, wallet.chainId, authParams, () =>
+    const { body, headers } = buildAuthPostTron(authFields, wallet.chainId, '/withdraw', authParams, () =>
       buildWithdrawAuthFieldsTron(authFields, wallet.tronWeb, authParams),
     );
     const response = await httpClient.post<TxHashResponse>(

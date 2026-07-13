@@ -50,7 +50,7 @@ describe('transfer route (Tron Nile)', () => {
     const recipientQueryString = recipientParams.toString();
     const { recipientInfo } = await httpClient.get<Extract<RecipientInfoResponse, { success: true }>>(
       `${ENCLAVE_API_URL}/recipient-info?${recipientQueryString}`,
-      { headers: requestSignatureGetHeader(authFields, recipientQueryString) },
+      { headers: requestSignatureGetHeader(authFields, '/recipient-info', recipientQueryString) },
     );
     expect(recipientInfo).toBeTruthy();
 
@@ -67,7 +67,7 @@ describe('transfer route (Tron Nile)', () => {
       feeToken: TRON_NILE_USDT_ADDRESS,
       feeStructure,
     };
-    const { body, headers } = buildAuthPostTron(authFields, wallet.chainId, authParams, () =>
+    const { body, headers } = buildAuthPostTron(authFields, wallet.chainId, '/transfer', authParams, () =>
       buildTransferAuthFieldsTron(authFields, wallet.tronWeb, authParams),
     );
     const response = await httpClient.post<TxHashResponse>(

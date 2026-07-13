@@ -39,7 +39,7 @@ const getPrivateBalanceForToken = async (
 ): Promise<bigint> => {
   const params = new URLSearchParams(sessionQueryParams(authFields, CHAIN_ID));
   const queryString = params.toString();
-  const headers = requestSignatureGetHeader(authFields, queryString);
+  const headers = requestSignatureGetHeader(authFields, '/balance', queryString);
   const response = await httpClient.get<BalanceResponse>(`${ENCLAVE_API_URL}/balance?${queryString}`, { headers });
   if (response.success === false) throw new Error(response.error);
   return BigInt(response.balances.find((b) => caseInsensitiveEqual(b.tokenAddress, tokenAddress))?.balance ?? '0');
@@ -58,7 +58,7 @@ const fetchSolanaSwapData = async (
     amount,
   });
   const queryString = params.toString();
-  const headers = requestSignatureGetHeader(authFields, queryString);
+  const headers = requestSignatureGetHeader(authFields, '/get-swap-data', queryString);
   const response = await httpClient.get<GetSwapDataResponse>(`${ENCLAVE_API_URL}/get-swap-data?${queryString}`, {
     headers,
   });
@@ -127,6 +127,7 @@ describe('Solana swap routes', () => {
     const { body, headers } = buildAuthPostSolana(
       authFields,
       CHAIN_ID,
+      '/swap',
       { ...txParams, externalActionId, swapData, feeStructure },
       () => buildSolanaSwapAuthFields(authFields, wallet, txParams),
     );

@@ -2,10 +2,7 @@ import { NextFunction, Request, Response } from 'express';
 import { StampNonceModel } from '../models/StampNonceSchema';
 import { XStamp } from '../types';
 import nacl from 'tweetnacl';
-
-const serializePayloadForSignature = (params: Record<string, unknown>): string => {
-  return JSON.stringify(Object.entries(params));
-};
+import { buildStampMessage, getRequestActionBinding } from '../utils/requestBinding';
 
 const parseXStamp = (xStamp: string): XStamp | null => {
   try {
@@ -50,8 +47,14 @@ export const xStampMiddleware = async (req: Request, res: Response, next: NextFu
       return;
     }
 
+    const binding = getRequestActionBinding(req);
+    if (!binding) {
+      res.status(500).send({ status: 'error', message: 'Unable to resolve request route for stamp verification' });
+      return;
+    }
+
     const params = req.method === 'GET' ? req.query : req.body;
-    if (!verifyStamp(serializePayloadForSignature(params), parsed)) {
+    if (!verifyStamp(buildStampMessage(binding, params), parsed)) {
       res.status(401).send({ status: 'error', message: 'Invalid stamp signature' });
       return;
     }

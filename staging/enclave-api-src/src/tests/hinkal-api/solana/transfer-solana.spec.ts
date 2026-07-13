@@ -51,7 +51,7 @@ describe('transfer route (Solana mainnet)', () => {
     const recipientQueryString = recipientParams.toString();
     const { recipientInfo } = await httpClient.get<Extract<RecipientInfoResponse, { success: true }>>(
       `${ENCLAVE_API_URL}/recipient-info?${recipientQueryString}`,
-      { headers: requestSignatureGetHeader(authFields, recipientQueryString) },
+      { headers: requestSignatureGetHeader(authFields, '/recipient-info', recipientQueryString) },
     );
     expect(recipientInfo).toBeTruthy();
 
@@ -67,8 +67,12 @@ describe('transfer route (Solana mainnet)', () => {
       amounts: [TRANSFER_AMOUNT.toString()],
       recipientAddress: recipientInfo,
     };
-    const { body, headers } = buildAuthPostSolana(authFields, wallet.chainId, { ...txParams, feeStructure }, () =>
-      buildSolanaTransferAuthFields(authFields, wallet, txParams),
+    const { body, headers } = buildAuthPostSolana(
+      authFields,
+      wallet.chainId,
+      '/transfer',
+      { ...txParams, feeStructure },
+      () => buildSolanaTransferAuthFields(authFields, wallet, txParams),
     );
 
     const response = await httpClient.post<TxHashResponse>(
