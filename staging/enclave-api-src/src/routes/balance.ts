@@ -7,6 +7,8 @@ import { refreshAddressCache } from '../utils/balance.utils';
 
 const router = Router();
 
+const FORCE_NO_CACHE_FOR_TESTING = true;
+
 router.get(
   '/balance',
   verifySignatureMiddleware,
@@ -17,7 +19,7 @@ router.get(
         res.locals.address,
         chainIdNum,
         async (hinkal) => {
-          return hinkal.getTotalBalance(chainIdNum, undefined, undefined, false, true);
+          return hinkal.getTotalBalance(chainIdNum, undefined, undefined, FORCE_NO_CACHE_FOR_TESTING, true);
         },
       );
 
@@ -45,7 +47,7 @@ router.get(
         res.locals.address,
         chainIdNum,
         async (hinkal) => {
-          return hinkal.getTotalBalance(chainIdNum, undefined, undefined, false, true, true);
+          return hinkal.getTotalBalance(chainIdNum, undefined, undefined, FORCE_NO_CACHE_FOR_TESTING, true, true);
         },
       );
 
