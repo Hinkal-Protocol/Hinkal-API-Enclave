@@ -130,7 +130,7 @@ jobs:
         env:
           SECRETS_BLOB: ${{ env.DEPLOYMENT_MODE == 'production' && secrets.PROD_ENCLAVE_API_SECRETS || secrets.STAGING_ENCLAVE_API_SECRETS }}
         run: |
-          for field in DB_URI_ENCRYPTED ENCLAVE_HMAC_ENCRYPTED_SEED DEPLOYMENT_MODE ENCLAVE_UTXO_PUBLIC_KEY ENCLAVE_UTXO_PRIVATE_KEY; do
+          for field in DB_URI_ENCRYPTED ENCLAVE_HMAC_ENCRYPTED_SEED DEPLOYMENT_MODE ENCLAVE_UTXO_PRIVATE_KEY_ENCRYPTED; do
             value=$(printf '%s' "$SECRETS_BLOB" | jq -r --arg f "$field" '.[$f]')
             if [ -z "$value" ] || [ "$value" = "null" ]; then
               echo "$field not found in enclave-api secrets blob" >&2
@@ -155,5 +155,4 @@ jobs:
           artifact-registry-region: ${{ env.ARTIFACT_REGISTRY_REGION }}
           db-uri-encrypted: ${{ steps.secrets.outputs.db_uri_encrypted }}
           enclave-hmac-encrypted-seed: ${{ steps.secrets.outputs.enclave_hmac_encrypted_seed }}
-          enclave-utxo-public-key: ${{ steps.secrets.outputs.enclave_utxo_public_key }}
-          enclave-utxo-private-key: ${{ steps.secrets.outputs.enclave_utxo_private_key }}
+          enclave-utxo-private-key-encrypted: ${{ steps.secrets.outputs.enclave_utxo_private_key_encrypted }}

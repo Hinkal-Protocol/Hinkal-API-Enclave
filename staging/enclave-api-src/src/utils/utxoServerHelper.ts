@@ -8,11 +8,7 @@ export enum UtxoOpcode {
   GET_BALANCE = 1,
 }
 
-export const sendToUtxoServer = (
-  chainId: number,
-  decryptedInput: Buffer,
-  opcode: UtxoOpcode = UtxoOpcode.DECRYPT_BALANCE,
-): Promise<Buffer> =>
+export const sendToUtxoServer = (opcode: UtxoOpcode, chainId: number, ...bodyParts: Buffer[]): Promise<Buffer> =>
   new Promise((resolve, reject) => {
     const socket = net.createConnection({ host: HOST, port: PORT });
     let buf = Buffer.alloc(0);
@@ -21,7 +17,8 @@ export const sendToUtxoServer = (
     socket.once('connect', () => {
       const chainIdBuf = Buffer.allocUnsafe(4);
       chainIdBuf.writeUInt32BE(chainId, 0);
-      const payload = Buffer.concat([Buffer.from([opcode]), chainIdBuf, decryptedInput]);
+      const body = Buffer.concat([chainIdBuf, ...bodyParts]);
+      const payload = Buffer.concat([Buffer.from([opcode]), body]);
       const header = Buffer.allocUnsafe(4);
       header.writeUInt32BE(payload.length, 0);
       socket.write(Buffer.concat([header, payload]));

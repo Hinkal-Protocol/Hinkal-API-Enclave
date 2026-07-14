@@ -67,3 +67,4 @@ export const KMS_KEY_RING_ID = requireEnvWhenKms('KMS_KEY_RING');
 export const KMS_KEY_ID = requireEnvWhenKms('KMS_KEY_NAME');
 export const KMS_KEY_VERSION = process.env.KMS_KEY_VERSION ?? '1';
 export const ENCLAVE_SA_EMAIL = requireEnvWhenKms('ENCLAVE_SA_EMAIL');
+export const ENCLAVE_UTXO_PRIVATE_KEY_ENCRYPTED = requireEnvWhenKms('ENCLAVE_UTXO_PRIVATE_KEY_ENCRYPTED');
