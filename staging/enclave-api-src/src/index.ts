@@ -15,6 +15,7 @@ import { loadRoutes } from './loaders/routeLoader';
 import { enclaveDepositListenerService } from './services/EnclaveDepositListenerService';
 import { generateProof } from './utils/generateProof';
 import { decryptUtxosDirect } from './utils/decryptUtxosDirect';
+import { provisionUtxoServerKey } from './utils/provisionUtxoServerKey';
 
 const app = express();
 
@@ -35,6 +36,7 @@ loadRoutes(app);
 if (DEPLOYMENT_MODE !== 'development') {
   setCustomProofGenerator(generateProof);
   setCustomUtxoDecryptor(decryptUtxosDirect);
+  provisionUtxoServerKey().catch((err) => Logger.error('provisionUtxoServerKey failed', getErrorMessage(err), err));
 }
 
 const resolveDbUri = async (): Promise<string> => {

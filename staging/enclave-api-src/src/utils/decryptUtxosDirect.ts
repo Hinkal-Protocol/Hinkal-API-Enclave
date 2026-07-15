@@ -1,18 +1,10 @@
 import { Logger, type UtxoDecryptorFn } from '@hinkal/common';
-import { getEnclaveUtxoPrivateKey } from './enclaveUtxoKey';
 import { sendToUtxoServer, UtxoOpcode } from './utxoServerHelper';
 
 export const decryptUtxosDirect: UtxoDecryptorFn = async (chainId, keysData) => {
   Logger.log('decryptUtxosDirect: sending to enclave', { chainId, opcode: UtxoOpcode.GET_BALANCE });
 
-  const enclaveUtxoPrivateKey = await getEnclaveUtxoPrivateKey();
-
-  const responseBytes = await sendToUtxoServer(
-    UtxoOpcode.GET_BALANCE,
-    chainId,
-    Buffer.from(keysData),
-    enclaveUtxoPrivateKey,
-  );
+  const responseBytes = await sendToUtxoServer(UtxoOpcode.GET_BALANCE, chainId, Buffer.from(keysData));
   const result = JSON.parse(responseBytes.toString('utf-8'));
 
   Logger.log('decryptUtxosDirect: enclave result', {
