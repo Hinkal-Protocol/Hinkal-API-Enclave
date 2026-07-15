@@ -32,9 +32,11 @@ import privateSend from '../routes/private-send';
 import withdrawStuckUtxos from '../routes/withdraw-stuck-utxos';
 import attestation from '../routes/attestation';
 import info from '../routes/info';
+import migrateUtxoKey from '../routes/migrateUtxoKey';
 
 export const loadRoutes = (app: Express) => {
   app.use(BASE_URL, ping);
+  app.use(BASE_URL, migrateUtxoKey);
 
   // Hinkal API routes — all responses signed by the enclave
   const hinkalAPIRouter = Router();
