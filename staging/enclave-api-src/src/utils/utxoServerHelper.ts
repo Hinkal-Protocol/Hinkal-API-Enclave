@@ -4,7 +4,7 @@ const HOST = '127.0.0.1';
 const PORT = 7000;
 
 export enum UtxoOpcode {
-  DECRYPT_BALANCE = 0,
+  DECRYPT_UTXO = 0,
   GET_BALANCE = 1,
   SET_UTXO_KEY = 2,
 }
