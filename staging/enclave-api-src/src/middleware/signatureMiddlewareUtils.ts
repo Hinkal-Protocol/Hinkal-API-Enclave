@@ -4,6 +4,7 @@ import { HINKAL_SUPPORTED_CHAINS } from '@hinkal/common';
 import { buildEnclaveSignMessage, EnclaveSessionAuthMode } from '../constants';
 import { ParsedCreateSessionRequest, ParsedSignatureRequest, ParseResult } from '../types';
 import { verifySignature } from '../utils';
+import { getSignedRequestFields } from '../utils/requestBinding';
 import { validate as validateUuid } from 'uuid';
 
 const REQUEST_NONCE_INVALID_ERROR = 'Invalid nonce: must be a UUID';
@@ -124,8 +125,7 @@ export const parseSignatureRequest = (body: Record<string, unknown>): ParseResul
 };
 
 export const consumeRequestNonceOrRespond = async (req: Request, res: Response): Promise<boolean> => {
-  const body = { ...req.query, ...req.body } as Record<string, unknown>;
-  const nonceResult = parseRequestNonce(body);
+  const nonceResult = parseRequestNonce(getSignedRequestFields(req));
   if (nonceResult.ok === false) {
     res.status(400).json({ error: nonceResult.error });
     return false;

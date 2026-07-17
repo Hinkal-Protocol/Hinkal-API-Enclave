@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 import { validate as validateUuid } from 'uuid';
 import { EnclaveSessionAuthMode, HEADER_REQUEST_SIGNATURE } from '../constants';
 import { EnclaveSession, getEnclaveSession, isEnclaveSessionActive } from '../models/EnclaveSessionSchema';
-import { buildRequestSignaturePayload, getRequestActionBinding } from './requestBinding';
+import { buildRequestSignaturePayload, getRequestActionBinding, getSignedRequestFields } from './requestBinding';
 
 const sha256Bytes = (payload: string): Uint8Array => new Uint8Array(createHash('sha256').update(payload).digest());
 
@@ -36,8 +36,7 @@ export const verifyRequestSignatureSession = async (
   requireNormalAuthMode: boolean,
   payload: string,
 ): Promise<EnclaveSession | null> => {
-  const body = { ...req.query, ...req.body } as Record<string, unknown>;
-  const { sessionId, nonce } = body;
+  const { sessionId, nonce } = getSignedRequestFields(req);
 
   if (typeof sessionId !== 'string' || !sessionId || !validateUuid(sessionId)) {
     res.status(400).json({ error: 'Missing or invalid sessionId' });

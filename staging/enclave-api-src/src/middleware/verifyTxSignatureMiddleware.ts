@@ -32,6 +32,7 @@ import {
 } from '../utils/enclaveTypedDataAuthBody';
 import { consumeRequestNonceOrRespond, parseSignatureRequest } from './signatureMiddlewareUtils';
 import { verifyRequestSignatureSession } from '../utils/requestSignatureUtils';
+import { getSignedRequestFields } from '../utils/requestBinding';
 import { EnclaveSessionAuthMode, HEADER_REQUEST_SIGNATURE } from '../constants';
 import { getEnclaveSession, isEnclaveSessionActive } from '../models/EnclaveSessionSchema';
 import { EnclaveTypedDataPayload, ParsedSignatureRequest, ParseResult } from '../types';
@@ -82,7 +83,7 @@ export const createVerifyTypedDataSignatureMiddleware = (
         return;
       }
 
-      const body = { ...req.query, ...req.body } as Record<string, unknown>;
+      const body = getSignedRequestFields(req);
       const parsed = parseSignatureRequest(body);
       if (parsed.ok === false) {
         res.status(400).json({ error: parsed.error });

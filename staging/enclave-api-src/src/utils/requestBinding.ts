@@ -27,3 +27,6 @@ export const buildStampMessage = (binding: string, params: Record<string, unknow
 
 /** secp256k1 request-signature payload: binds the action to the raw body/query. */
 export const buildRequestSignaturePayload = (binding: string, payload: string): string => `${binding}\n${payload}`;
+
+export const getSignedRequestFields = (req: Request): Record<string, unknown> =>
+  ((req.method === 'POST' ? req.body : req.query) as Record<string, unknown> | undefined) ?? {};

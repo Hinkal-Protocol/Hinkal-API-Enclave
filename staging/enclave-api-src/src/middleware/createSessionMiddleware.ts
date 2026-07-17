@@ -2,11 +2,12 @@ import { NextFunction, Request, Response } from 'express';
 import { HEADER_REQUEST_SIGNATURE, resolveSessionAuthMode } from '../constants';
 import { EnclaveSessionValidationResult, openEnclaveSession } from '../models/EnclaveSessionSchema';
 import { isValidSecp256k1PublicKey, verifyRequestSignature } from '../utils/requestSignatureUtils';
+import { getSignedRequestFields } from '../utils/requestBinding';
 import { parseCreateSessionRequest, verifyEnclaveSessionSignature } from './signatureMiddlewareUtils';
 
 export const createSessionMiddleware = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const body = { ...req.query, ...req.body } as Record<string, unknown>;
+    const body = getSignedRequestFields(req);
     const parsed = parseCreateSessionRequest(body);
     if (parsed.ok === false) {
       res.status(400).json({ error: parsed.error });
