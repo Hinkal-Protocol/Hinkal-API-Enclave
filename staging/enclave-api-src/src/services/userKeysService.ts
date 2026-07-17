@@ -3,12 +3,19 @@ import { MONGO_DUPLICATE_KEY_ERROR } from '../constants';
 import { UserKeysModel } from '../models/UserKeysSchema';
 import { cryptoHelper } from '../crypto';
 import { assertString } from '../utils/queryGuards';
+import { sealDocument, toRecord, verifyRawDoc } from '../utils/documentSigning';
+
+const USER_KEYS_INTEGRITY_LABEL = 'user-keys';
 
 class UserKeysService {
   public async findByEthereumAddress(ethereumAddress: string) {
-    const record = await UserKeysModel.findOne({ ethereumAddress: assertString(ethereumAddress, 'ethereumAddress') });
+    const record = await UserKeysModel.findOne({
+      ethereumAddress: assertString(ethereumAddress, 'ethereumAddress'),
+    }).lean();
     if (!record) return null;
-    const decrypted = await cryptoHelper.decrypt(Buffer.from(record.encryptedSignature, 'base64'));
+    const verified = await verifyRawDoc(toRecord(record), USER_KEYS_INTEGRITY_LABEL);
+    if (!verified) return null;
+    const decrypted = await cryptoHelper.decrypt(Buffer.from(verified.encryptedSignature as string, 'base64'));
     return decrypted.toString('utf8');
   }
 
@@ -21,11 +28,12 @@ class UserKeysService {
       cryptoHelper.encrypt(Buffer.from(signature, 'utf8')),
     ]);
 
-    await UserKeysModel.create({
+    const sealed = await sealDocument({
       ethereumAddress,
       encryptedMnemonic: encryptedMnemonic.toString('base64'),
       encryptedSignature: encryptedSignature.toString('base64'),
     });
+    await UserKeysModel.create(sealed);
 
     return signature;
   }

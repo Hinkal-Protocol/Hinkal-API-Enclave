@@ -1,10 +1,19 @@
 import mongoose, { Schema } from 'mongoose';
+import { EnclaveHmac, EnclaveHmacSchema } from './EnclaveHmacSchema';
 
-const UserKeysSchema = new Schema(
+interface UserKeys {
+  ethereumAddress: string;
+  encryptedMnemonic: string;
+  encryptedSignature: string;
+  enclaveHmac: EnclaveHmac;
+}
+
+const UserKeysSchema = new Schema<UserKeys>(
   {
     ethereumAddress: { type: String, required: true, unique: true, index: true },
     encryptedMnemonic: { type: String, required: true },
     encryptedSignature: { type: String, required: true },
+    enclaveHmac: { type: EnclaveHmacSchema, required: true },
   },
   { collection: 'userkeysv2' },
 );

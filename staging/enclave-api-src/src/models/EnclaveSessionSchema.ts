@@ -1,7 +1,10 @@
 import mongoose, { Schema } from 'mongoose';
 import { EnclaveSessionAuthMode, MONGO_DUPLICATE_KEY_ERROR } from '../constants';
+import { sealDocument, toRecord, verifyRawDoc } from '../utils/documentSigning';
+import { EnclaveHmacSchema } from './EnclaveHmacSchema';
 
 const ENCLAVE_SESSION_EXPIRATION_MS = 24 * 60 * 60 * 1000;
+const ENCLAVE_SESSION_INTEGRITY_LABEL = 'enclave-session';
 
 const EnclaveSessionSchema = new Schema({
   sessionId: { type: String, required: true, unique: true },
@@ -13,6 +16,7 @@ const EnclaveSessionSchema = new Schema({
   },
   address: { type: String, required: true },
   clientPublicKey: { type: String, required: true },
+  enclaveHmac: { type: EnclaveHmacSchema, required: true },
 });
 
 EnclaveSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
@@ -40,8 +44,11 @@ type OpenEnclaveSessionParams = Pick<EnclaveSession, 'sessionId' | 'address' | '
 
 export const isEnclaveSessionActive = (session: EnclaveSession): boolean => session.expiresAt > new Date();
 
-export const getEnclaveSession = async (sessionId: string): Promise<EnclaveSession | null> =>
-  EnclaveSessionModel.findOne({ sessionId }).lean<EnclaveSession>();
+export const getEnclaveSession = async (sessionId: string): Promise<EnclaveSession | null> => {
+  const raw = await EnclaveSessionModel.findOne({ sessionId }).lean();
+  const verified = await verifyRawDoc(toRecord(raw), ENCLAVE_SESSION_INTEGRITY_LABEL);
+  return verified as EnclaveSession | null;
+};
 
 const sessionValidationResult = (session: EnclaveSession): EnclaveSessionValidationResult =>
   isEnclaveSessionActive(session) ? EnclaveSessionValidationResult.VALID : EnclaveSessionValidationResult.EXPIRED;
@@ -66,13 +73,14 @@ export const openEnclaveSession = async (params: OpenEnclaveSessionParams): Prom
       : new Date(now.getTime() + ENCLAVE_SESSION_EXPIRATION_MS);
 
   try {
-    await EnclaveSessionModel.create({
+    const sealed = await sealDocument({
       sessionId: params.sessionId,
       expiresAt,
       authMode: params.authMode,
       address: params.address,
       clientPublicKey: params.clientPublicKey,
     });
+    await EnclaveSessionModel.create(sealed);
     return EnclaveSessionValidationResult.VALID;
   } catch (err: unknown) {
     if ((err as { code?: number })?.code !== MONGO_DUPLICATE_KEY_ERROR) {
