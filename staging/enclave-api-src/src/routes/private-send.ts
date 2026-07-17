@@ -1,8 +1,9 @@
 import { Request, Response, Router } from 'express';
-import { verifyDepositAndWithdrawSignatureMiddleware } from '../middleware';
+import { verifyDepositAndWithdrawSignatureMiddleware, verifySignatureMiddleware } from '../middleware';
 import { DepositAndWithdrawRequest, DepositAndWithdrawResponse } from '../types';
 import { WHITELISTED_REFERRALS } from '@hinkal/backend-common';
 import {
+  caseInsensitiveEqual,
   ExternalActionId,
   getErrorMessage,
   getFeeStructure,
@@ -151,12 +152,12 @@ router.post(
   },
 );
 
-router.get('/private-send/:orderId', async (req: Request, res: Response) => {
+router.get('/private-send/:orderId', verifySignatureMiddleware, async (req: Request, res: Response) => {
   try {
     const { orderId } = req.params as { orderId: string };
     const order = await enclaveDepositDispatcherService.getOrder(orderId);
 
-    if (!order) {
+    if (!order || !caseInsensitiveEqual(order.senderAddress, res.locals.address as string)) {
       res.status(404).json({ success: false, error: `Order ${orderId} not found` });
       return;
     }
