@@ -11,6 +11,8 @@ import {
 } from '../../utils/tron-wallet.utils';
 import { sendError } from '../../utils/routeError';
 import { xStampMiddleware } from '../../middleware';
+import { requireActionPermission, resolveTargetUser } from '../../utils';
+import { WaasPolicyAction } from '../../constants/policyActions';
 
 const router = Router();
 
@@ -37,6 +39,9 @@ router.post('/waas/wallet/tron/freeze', xStampMiddleware, async (req: Request, r
 
   try {
     const signerPublicKey = res.locals.signerPublicKey as string;
+    const authorizedUser = await resolveTargetUser(organizationId, userId, signerPublicKey);
+    requireActionPermission(authorizedUser, WaasPolicyAction.SIGN_TRANSACTION);
+
     const parsedChainId = parseChainId(chainId);
     if (!isTronLike(parsedChainId)) throw new HttpError(400, 'chainId is not a Tron chain');
 
@@ -62,6 +67,9 @@ router.post('/waas/wallet/tron/unfreeze', xStampMiddleware, async (req: Request,
 
   try {
     const signerPublicKey = res.locals.signerPublicKey as string;
+    const authorizedUser = await resolveTargetUser(organizationId, userId, signerPublicKey);
+    requireActionPermission(authorizedUser, WaasPolicyAction.SIGN_TRANSACTION);
+
     const parsedChainId = parseChainId(chainId);
     if (!isTronLike(parsedChainId)) throw new HttpError(400, 'chainId is not a Tron chain');
 
@@ -87,6 +95,9 @@ router.post('/waas/wallet/tron/delegate-resource', xStampMiddleware, async (req:
 
   try {
     const signerPublicKey = res.locals.signerPublicKey as string;
+    const authorizedUser = await resolveTargetUser(organizationId, userId, signerPublicKey);
+    requireActionPermission(authorizedUser, WaasPolicyAction.SIGN_TRANSACTION);
+
     const parsedChainId = parseChainId(chainId);
     if (!isTronLike(parsedChainId)) throw new HttpError(400, 'chainId is not a Tron chain');
 

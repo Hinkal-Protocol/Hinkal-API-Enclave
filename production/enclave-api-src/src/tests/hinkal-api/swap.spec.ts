@@ -99,7 +99,7 @@ describe('swap routes', () => {
       feeStructure,
     };
 
-    const { body, headers } = await buildAuthPost(authFields, CHAIN_ID, txData, () =>
+    const { body, headers } = await buildAuthPost(authFields, CHAIN_ID, '/swap', txData, () =>
       buildSwapAuthFields(authFields, wallet, txData),
     );
 

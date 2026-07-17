@@ -15,6 +15,7 @@ import { loadRoutes } from './loaders/routeLoader';
 import { enclaveDepositListenerService } from './services/EnclaveDepositListenerService';
 import { generateProof } from './utils/generateProof';
 import { decryptUtxosDirect } from './utils/decryptUtxosDirect';
+import { provisionUtxoServerKey } from './utils/provisionUtxoServerKey';
 
 const app = express();
 
@@ -35,6 +36,7 @@ loadRoutes(app);
 if (DEPLOYMENT_MODE !== 'development') {
   setCustomProofGenerator(generateProof);
   setCustomUtxoDecryptor(decryptUtxosDirect);
+  provisionUtxoServerKey().catch((err) => Logger.error('provisionUtxoServerKey failed', getErrorMessage(err), err));
 }
 
 const resolveDbUri = async (): Promise<string> => {
@@ -47,6 +49,7 @@ const startServer = async () => {
     await preProcessing();
     const dbUri = await resolveDbUri();
     mongoose.set('strictQuery', true);
+    mongoose.set('sanitizeFilter', true);
     await mongoose.connect(dbUri, MONGO_CONNECTION_OPTIONS);
     await liveChainStateService.warmup();
     await enclaveDepositListenerService.init();
@@ -56,7 +59,7 @@ const startServer = async () => {
     });
     setServerSettings(server);
   } catch (err) {
-    Logger.error('enclave-api failed to start:', getErrorMessage(err), err);
+    Logger.error('enclave-api failed to start', getErrorMessage(err), err);
   }
 };
 

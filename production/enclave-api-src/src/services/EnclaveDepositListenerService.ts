@@ -63,18 +63,9 @@ class EnclaveDepositListenerService {
   private async initEvmChain(chainId: number, fromBlock: number): Promise<void> {
     const { maxPageSize } = networkRegistry[chainId];
     const hinkalContract = getContract(chainId, Web3Contracts.Hinkal);
-    const depositOnChainUtxosContract = getContract(chainId, Web3Contracts.DepositOnChainUtxos);
     const mutex = getChainBalanceFetchingMutex(chainId);
 
-    const emitter = new PollingBlockchainEventEmitter(
-      chainId,
-      hinkalContract,
-      fromBlock,
-      false,
-      mutex,
-      maxPageSize,
-      depositOnChainUtxosContract,
-    );
+    const emitter = new PollingBlockchainEventEmitter(chainId, hinkalContract, fromBlock, false, mutex, maxPageSize);
 
     emitter.addEventProcessorFunction(async (events, scannedToBlock) =>
       this.processEvmEvents(chainId, events, hinkalContract, scannedToBlock),
@@ -193,10 +184,9 @@ class EnclaveDepositListenerService {
   private decodeOrderId(hinkalContract: ethers.Contract, data: string): string | null {
     try {
       const decoded = hinkalContract.interface.parseTransaction({ data });
-      const preHookMetadata: string | undefined = decoded?.args.circomData?.hookData?.preHookMetadata;
-      if (!preHookMetadata || preHookMetadata === '0x' || preHookMetadata === '0x00') return null;
-      const parsed = JSON.parse(ethers.toUtf8String(preHookMetadata)) as { orderId?: string };
-      return parsed.orderId ?? null;
+      if (decoded?.name !== 'prooflessDeposit') return null;
+      const orderId: string | undefined = decoded.args.orderId;
+      return orderId || null;
     } catch {
       return null;
     }

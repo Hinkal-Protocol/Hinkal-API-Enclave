@@ -69,7 +69,7 @@ describe('withdraw route', () => {
       feeToken: ARC_TESTNET_USDC_ADDRESS,
       feeStructure,
     };
-    const { body, headers } = await buildAuthPost(authFields, CHAIN_ID, authParams, () =>
+    const { body, headers } = await buildAuthPost(authFields, CHAIN_ID, '/withdraw', authParams, () =>
       buildWithdrawAuthFields(authFields, wallet, authParams),
     );
     const response = await httpClient.post<TxHashResponse>(

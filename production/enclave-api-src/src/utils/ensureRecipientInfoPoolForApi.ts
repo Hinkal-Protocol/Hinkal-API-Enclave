@@ -55,6 +55,7 @@ export const ensureRecipientInfoPoolForApi = async (
     async (hinkal) => {
       return Array.from({ length: RECIPIENT_INFO_TARGET_POOL_SIZE }, () => hinkal.getRecipientInfo());
     },
+    true,
   );
 
   const hashedEthereumAddress = hashEthereumAddress(walletAddress);

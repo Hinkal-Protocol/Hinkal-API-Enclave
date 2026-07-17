@@ -1,6 +1,6 @@
 import { getAddress } from 'ethers';
 import { BaseAuthFields, DepositAndWithdrawRecipient, ParseResult } from '../types';
-import type { SerializedFeeStructure } from './enclaveAuthNormalization';
+import type { FeeAuthFields, SerializedFeeStructure } from './enclaveAuthNormalization';
 
 const parseChainId = (chainId: unknown): number | undefined => {
   const parsed = typeof chainId === 'number' ? chainId : Number(chainId);
@@ -83,17 +83,18 @@ export const parseTokenDepositForOtherAuthBody = (
   return { ok: true, value: { ...deposit.value, recipientInfo: recipient.value } };
 };
 
-const parseFeeFields = (body: Record<string, unknown>) => {
+const parseFeeFields = (body: Record<string, unknown>): ParseResult<FeeAuthFields> => {
   const feeToken = typeof body.feeToken === 'string' && body.feeToken ? body.feeToken : undefined;
   const raw = body.feeStructure;
-  let feeStructure: SerializedFeeStructure | undefined;
-  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
-    const { feeToken: ft, flatFee, variableRate } = raw as Record<string, unknown>;
-    if (typeof ft === 'string' && typeof flatFee === 'string' && typeof variableRate === 'string') {
-      feeStructure = { feeToken: ft, flatFee, variableRate };
-    }
+  if (!raw) return { ok: true, value: { feeToken } };
+  if (typeof raw !== 'object' || Array.isArray(raw)) {
+    return { ok: false, error: 'Invalid feeStructure' };
   }
-  return { feeToken, feeStructure };
+  const { feeToken: ft, flatFee, variableRate } = raw as Record<string, unknown>;
+  if (typeof ft !== 'string' || typeof flatFee !== 'string' || typeof variableRate !== 'string') {
+    return { ok: false, error: 'Invalid feeStructure' };
+  }
+  return { ok: true, value: { feeToken, feeStructure: { feeToken: ft, flatFee, variableRate } } };
 };
 
 export const parseTokenTransferAuthBody = (
@@ -113,12 +114,15 @@ export const parseTokenTransferAuthBody = (
   const recipient = parseRecipientAddress(body.recipientAddress);
   if (recipient.ok === false) return recipient;
 
+  const fee = parseFeeFields(body);
+  if (fee.ok === false) return fee;
+
   return {
     ok: true,
     value: {
       ...deposit.value,
       recipientAddress: recipient.value,
-      ...parseFeeFields(body),
+      ...fee.value,
     },
   };
 };
@@ -140,12 +144,15 @@ export const parseTokenWithdrawAuthBody = (
   const recipient = parseRecipientAddress(body.recipientAddress);
   if (recipient.ok === false) return recipient;
 
+  const fee = parseFeeFields(body);
+  if (fee.ok === false) return fee;
+
   return {
     ok: true,
     value: {
       ...deposit.value,
       recipientAddress: recipient.value,
-      ...parseFeeFields(body),
+      ...fee.value,
     },
   };
 };
@@ -173,13 +180,16 @@ export const parseTokenSwapAuthBody = (
     return { ok: false, error: 'Missing or invalid swapData' };
   }
 
+  const fee = parseFeeFields(body);
+  if (fee.ok === false) return fee;
+
   return {
     ok: true,
     value: {
       ...deposit.value,
       externalActionId,
       swapData,
-      ...parseFeeFields(body),
+      ...fee.value,
     },
   };
 };
@@ -234,7 +244,13 @@ export const parseDepositAndWithdrawAuthBody = (
   if (recipients.ok === false) return recipients;
 
   const feeToken = typeof body.feeToken === 'string' && body.feeToken ? body.feeToken : undefined;
-  const txCompletionTime = typeof body.txCompletionTime === 'number' ? body.txCompletionTime : undefined;
+
+  const rawTxCompletionTime = body.txCompletionTime;
+  if (rawTxCompletionTime !== undefined && rawTxCompletionTime !== null && typeof rawTxCompletionTime !== 'number') {
+    return { ok: false, error: 'Invalid txCompletionTime' };
+  }
+  const txCompletionTime = typeof rawTxCompletionTime === 'number' ? rawTxCompletionTime : undefined;
+
   const ref = typeof body.ref === 'string' && body.ref ? body.ref : undefined;
 
   return {

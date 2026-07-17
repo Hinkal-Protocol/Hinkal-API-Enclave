@@ -51,7 +51,7 @@ export const getRecipientInfo = async (
 ): Promise<string> => {
   const params = new URLSearchParams(sessionQueryParams(authFields, wallet.chainId));
   const queryString = params.toString();
-  const headers = requestSignatureGetHeader(authFields, queryString);
+  const headers = requestSignatureGetHeader(authFields, '/recipient-info', queryString);
   const response = await httpClient.get<RecipientInfoResponse>(`${ENCLAVE_API_URL}/recipient-info?${queryString}`, {
     headers,
   });
@@ -72,12 +72,13 @@ export const depositUsdcToPrivate = async (
     amounts: [amount.toString()],
   };
   const builder = proofless ? buildSolanaProoflessDepositAuthFields : buildSolanaDepositAuthFields;
-  const { body, headers } = buildAuthPostSolana(session, wallet.chainId, params, () =>
+  const routePath = `/${proofless ? 'proofless-deposit' : 'deposit'}`;
+  const { body, headers } = buildAuthPostSolana(session, wallet.chainId, routePath, params, () =>
     builder(session, wallet, params),
   );
 
   const response = await httpClient.post<SolanaDepositResponse>(
-    `${ENCLAVE_API_URL}/${proofless ? 'proofless-deposit' : 'deposit'}`,
+    `${ENCLAVE_API_URL}${routePath}`,
     body,
     headers ? { headers } : undefined,
   );
@@ -99,8 +100,12 @@ export const depositForOtherUsdc = async (
     amounts: [amount.toString()],
     recipientInfo,
   };
-  const { body, headers } = buildAuthPostSolana(session, senderWallet.chainId, params, () =>
-    buildSolanaDepositForOtherAuthFields(session, senderWallet, params),
+  const { body, headers } = buildAuthPostSolana(
+    session,
+    senderWallet.chainId,
+    '/deposit-solana-for-other',
+    params,
+    () => buildSolanaDepositForOtherAuthFields(session, senderWallet, params),
   );
 
   const response = await httpClient.post<SolanaDepositResponse>(
@@ -124,7 +129,7 @@ export const prepareDepositAndWithdraw = async (
     tokenAddress,
     recipients: recipients.map((r) => ({ address: r.address, amount: r.amount.toString() })),
   };
-  const { body, headers } = buildAuthPostSolana(session, wallet.chainId, params, () =>
+  const { body, headers } = buildAuthPostSolana(session, wallet.chainId, '/private-send', params, () =>
     buildSolanaPrivateSendAuthFields(session, wallet, params),
   );
 

@@ -45,7 +45,7 @@ describe('transfer route', () => {
 
     const recipientParams = new URLSearchParams(sessionQueryParams(authFields, CHAIN_ID));
     const recipientQueryString = recipientParams.toString();
-    const recipientHeaders = requestSignatureGetHeader(authFields, recipientQueryString);
+    const recipientHeaders = requestSignatureGetHeader(authFields, '/recipient-info', recipientQueryString);
     const recipientInfoResponse = await httpClient.get<RecipientInfoResponse>(
       `${ENCLAVE_API_URL}/recipient-info?${recipientQueryString}`,
       { headers: recipientHeaders },
@@ -82,7 +82,7 @@ describe('transfer route', () => {
       feeToken: ARC_TESTNET_USDC_ADDRESS,
       feeStructure,
     };
-    const { body, headers } = await buildAuthPost(authFields, CHAIN_ID, authParams, () =>
+    const { body, headers } = await buildAuthPost(authFields, CHAIN_ID, '/transfer', authParams, () =>
       buildTransferAuthFields(authFields, wallet, authParams),
     );
     const response = await httpClient.post<TxHashResponse>(

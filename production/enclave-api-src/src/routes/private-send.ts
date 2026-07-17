@@ -1,8 +1,9 @@
 import { Request, Response, Router } from 'express';
-import { verifyDepositAndWithdrawSignatureMiddleware } from '../middleware';
+import { verifyDepositAndWithdrawSignatureMiddleware, verifySignatureMiddleware } from '../middleware';
 import { DepositAndWithdrawRequest, DepositAndWithdrawResponse } from '../types';
 import { WHITELISTED_REFERRALS } from '@hinkal/backend-common';
 import {
+  caseInsensitiveEqual,
   ExternalActionId,
   getErrorMessage,
   getFeeStructure,
@@ -92,28 +93,14 @@ router.post(
           }
 
           if (isTronLike(chainId)) {
-            const result = await hinkalPalTronDepositPrepare(
-              hinkal,
-              chainId,
-              token,
-              recipientAmounts,
-              feeStructure,
-              orderId,
-            );
+            const result = await hinkalPalTronDepositPrepare(hinkal, token, recipientAmounts, feeStructure, orderId);
             return {
               serializedTx: Buffer.from(JSON.stringify(result.unsignedTx)).toString('base64'),
               utxoAmounts: result.utxoAmounts,
             };
           }
 
-          const result = await hinkalPalEvmDepositPrepare(
-            hinkal,
-            chainId,
-            token,
-            recipientAmounts,
-            feeStructure,
-            orderId,
-          );
+          const result = await hinkalPalEvmDepositPrepare(hinkal, token, recipientAmounts, feeStructure, orderId);
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const txData = { ...(result.unsignedTx as any) };
           delete txData.from;
@@ -147,7 +134,7 @@ router.post(
 
       const approvalAddress = isSolanaLike(chainId)
         ? null
-        : (networkRegistry[chainId].contractData.depositOnChainUtxosExternalActionAddress ?? null);
+        : (networkRegistry[chainId].contractData.hinkalAddress ?? null);
 
       res.status(200).json({
         success: true,
@@ -165,12 +152,12 @@ router.post(
   },
 );
 
-router.get('/private-send/:orderId', async (req: Request, res: Response) => {
+router.get('/private-send/:orderId', verifySignatureMiddleware, async (req: Request, res: Response) => {
   try {
     const { orderId } = req.params as { orderId: string };
     const order = await enclaveDepositDispatcherService.getOrder(orderId);
 
-    if (!order) {
+    if (!order || !caseInsensitiveEqual(order.senderAddress, res.locals.address as string)) {
       res.status(404).json({ success: false, error: `Order ${orderId} not found` });
       return;
     }

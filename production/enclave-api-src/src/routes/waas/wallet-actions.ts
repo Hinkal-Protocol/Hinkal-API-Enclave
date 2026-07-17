@@ -25,6 +25,8 @@ import {
 } from '../../utils/solana-wallet.utils';
 import { sendError } from '../../utils/routeError';
 import { xStampMiddleware } from '../../middleware';
+import { requireActionPermission, resolveTargetUser } from '../../utils';
+import { WaasPolicyAction } from '../../constants/policyActions';
 
 const router = Router();
 
@@ -41,6 +43,9 @@ router.post('/waas/wallet/sign-message', xStampMiddleware, async (req: Request, 
 
   try {
     const signerPublicKey = res.locals.signerPublicKey as string;
+    const authorizedUser = await resolveTargetUser(organizationId, userId, signerPublicKey);
+    requireActionPermission(authorizedUser, WaasPolicyAction.SIGN_TRANSACTION);
+
     const parsedChainId = parseChainId(chainId);
 
     if (isSolanaLike(parsedChainId)) {
@@ -79,6 +84,9 @@ router.post('/waas/wallet/sign-typed-data', xStampMiddleware, async (req: Reques
 
   try {
     const signerPublicKey = res.locals.signerPublicKey as string;
+    const authorizedUser = await resolveTargetUser(organizationId, userId, signerPublicKey);
+    requireActionPermission(authorizedUser, WaasPolicyAction.SIGN_TRANSACTION);
+
     const parsedChainId = parseChainId(chainId);
 
     if (isSolanaLike(parsedChainId) || isTronLike(parsedChainId)) {
@@ -106,6 +114,9 @@ router.post('/waas/wallet/send', xStampMiddleware, async (req: Request, res: Res
 
   try {
     const signerPublicKey = res.locals.signerPublicKey as string;
+    const authorizedUser = await resolveTargetUser(organizationId, userId, signerPublicKey);
+    requireActionPermission(authorizedUser, WaasPolicyAction.SIGN_TRANSACTION);
+
     const parsedChainId = parseChainId(chainId);
     const token = resolveToken(tokenAddress, parsedChainId);
     const parsedAmount = getAmountInWei(token, String(amount));
@@ -170,6 +181,9 @@ router.post('/waas/wallet/contract/approve', xStampMiddleware, async (req: Reque
 
   try {
     const signerPublicKey = res.locals.signerPublicKey as string;
+    const authorizedUser = await resolveTargetUser(organizationId, userId, signerPublicKey);
+    requireActionPermission(authorizedUser, WaasPolicyAction.SIGN_TRANSACTION);
+
     const parsedChainId = parseChainId(chainId);
 
     if (isSolanaLike(parsedChainId)) {
@@ -225,6 +239,9 @@ router.post('/waas/wallet/contract/execute', xStampMiddleware, async (req: Reque
 
   try {
     const signerPublicKey = res.locals.signerPublicKey as string;
+    const authorizedUser = await resolveTargetUser(organizationId, userId, signerPublicKey);
+    requireActionPermission(authorizedUser, WaasPolicyAction.SIGN_TRANSACTION);
+
     const parsedChainId = parseChainId(chainId);
 
     if (isSolanaLike(parsedChainId)) {

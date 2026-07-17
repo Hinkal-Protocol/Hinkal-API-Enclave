@@ -32,8 +32,9 @@ import {
 } from '../utils/enclaveTypedDataAuthBody';
 import { consumeRequestNonceOrRespond, parseSignatureRequest } from './signatureMiddlewareUtils';
 import { verifyRequestSignatureSession } from '../utils/requestSignatureUtils';
+import { getSignedRequestFields } from '../utils/requestBinding';
 import { EnclaveSessionAuthMode, HEADER_REQUEST_SIGNATURE } from '../constants';
-import { getEnclaveSession } from '../models/EnclaveSessionSchema';
+import { getEnclaveSession, isEnclaveSessionActive } from '../models/EnclaveSessionSchema';
 import { EnclaveTypedDataPayload, ParsedSignatureRequest, ParseResult } from '../types';
 
 const verifyRequestSignature = async (
@@ -82,7 +83,7 @@ export const createVerifyTypedDataSignatureMiddleware = (
         return;
       }
 
-      const body = { ...req.query, ...req.body } as Record<string, unknown>;
+      const body = getSignedRequestFields(req);
       const parsed = parseSignatureRequest(body);
       if (parsed.ok === false) {
         res.status(400).json({ error: parsed.error });
@@ -95,6 +96,11 @@ export const createVerifyTypedDataSignatureMiddleware = (
       const session = await getEnclaveSession(sessionId);
       if (!session) {
         res.status(401).json({ error: 'Session not found. Create a session first via POST /create-session' });
+        return;
+      }
+
+      if (!isEnclaveSessionActive(session)) {
+        res.status(401).json({ error: 'Session expired' });
         return;
       }
 

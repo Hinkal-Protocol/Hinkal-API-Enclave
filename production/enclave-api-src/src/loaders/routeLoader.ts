@@ -4,10 +4,10 @@ import { signResponseMiddleware } from '../middleware';
 import handshake from '../routes/handshake';
 import createSession from '../routes/create-session';
 import ping from '../routes/ping';
-import palOrder from '../routes/pal/pal-order';
-import palQuote from '../routes/pal/pal-quote';
-import palStatus from '../routes/pal/pal-status';
-import palTokens from '../routes/pal/pal-tokens';
+// import palOrder from '../routes/pal/pal-order';
+// import palQuote from '../routes/pal/pal-quote';
+// import palStatus from '../routes/pal/pal-status';
+// import palTokens from '../routes/pal/pal-tokens';
 import recipientInfo from '../routes/recipient-info';
 import privateBalance from '../routes/balance';
 import deposit from '../routes/deposit';
@@ -24,6 +24,7 @@ import privateToPublic from '../routes/waas/waas-private-to-public';
 import publicToPrivate from '../routes/waas/waas-public-to-private';
 import publicToPublic from '../routes/waas/waas-public-to-public';
 import waasWithdrawStuckUtxos from '../routes/waas/withdraw-stuck-utxos';
+import waasScheduledTransaction from '../routes/waas/waas-scheduled-transaction';
 import walletActions from '../routes/waas/wallet-actions';
 import solanaWalletActions from '../routes/waas/waas-solana-wallet-actions';
 import tronWalletActions from '../routes/waas/waas-tron-wallet-actions';
@@ -55,10 +56,10 @@ export const loadRoutes = (app: Express) => {
   app.use(BASE_URL, hinkalAPIRouter);
 
   // PAL routes
-  app.use(BASE_URL, palOrder);
-  app.use(BASE_URL, palQuote);
-  app.use(BASE_URL, palStatus);
-  app.use(BASE_URL, palTokens);
+  // app.use(BASE_URL, palOrder);
+  // app.use(BASE_URL, palQuote);
+  // app.use(BASE_URL, palStatus);
+  // app.use(BASE_URL, palTokens);
 
   // WAAS routes
   app.use(BASE_URL, organization);
@@ -74,4 +75,5 @@ export const loadRoutes = (app: Express) => {
   app.use(BASE_URL, tronWalletActions);
   app.use(BASE_URL, waasBalances);
   app.use(BASE_URL, waasWithdrawStuckUtxos);
+  app.use(BASE_URL, waasScheduledTransaction);
 };

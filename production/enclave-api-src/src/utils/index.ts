@@ -5,3 +5,4 @@ export * from './routeError';
 export * from './authHelpers';
 export * from './generateProof';
 export * from './utxoServerHelper';
+export * from './queryGuards';

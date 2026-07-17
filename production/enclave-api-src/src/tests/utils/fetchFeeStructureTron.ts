@@ -19,7 +19,7 @@ export const fetchFeeStructure = async (
   });
   tokenAddresses.forEach((addr) => params.append('tokenAddresses', addr));
   const queryString = params.toString();
-  const headers = requestSignatureGetHeader(authFields, queryString);
+  const headers = requestSignatureGetHeader(authFields, '/get-fee-structure', queryString);
 
   const response = await httpClient.get<FeeStructureResponse>(`${ENCLAVE_API_URL}/get-fee-structure?${queryString}`, {
     headers,

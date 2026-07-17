@@ -51,7 +51,6 @@ export const dispatchEvmWithdrawForOrder = async (
     return { recipientAddress: order.recipients[i].address, utxo: match };
   });
 
-  const recipientAmounts = order.recipients.map((r) => BigInt(r.amount));
   const feeStructure: FeeStructure = {
     feeToken: order.feeToken,
     flatFee: BigInt(order.flatFee),
@@ -65,7 +64,6 @@ export const dispatchEvmWithdrawForOrder = async (
     order.chainId,
     token,
     userDepositedUtxos,
-    recipientAmounts,
     feeStructure,
     hashEthereumAddress(order.senderAddress),
     undefined,

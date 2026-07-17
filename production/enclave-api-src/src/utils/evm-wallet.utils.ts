@@ -26,14 +26,17 @@ export const sendEvmTransaction = async (
   provider: ethers.JsonRpcProvider,
   tx: ethers.TransactionRequest,
 ): Promise<string> => {
-  const [nonce, feeData, network] = await Promise.all([
-    provider.getTransactionCount(await signer.getAddress(), 'pending'),
+  const [from, feeData, network] = await Promise.all([
+    signer.getAddress(),
     provider.getFeeData(),
     provider.getNetwork(),
   ]);
 
+  const nonce = await provider.getTransactionCount(from, 'pending');
+
   const populated: ethers.TransactionRequest = {
     ...tx,
+    from,
     nonce,
     chainId: network.chainId,
     maxFeePerGas: feeData.maxFeePerGas ?? undefined,

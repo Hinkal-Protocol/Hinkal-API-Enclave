@@ -20,7 +20,7 @@ export const fetchSwapData = async (
     ...(slippagePercentage !== undefined ? { slippagePercentage: slippagePercentage.toString() } : {}),
   });
   const queryString = params.toString();
-  const headers = requestSignatureGetHeader(authFields, queryString);
+  const headers = requestSignatureGetHeader(authFields, '/get-swap-data', queryString);
 
   const response = await httpClient.get<GetSwapDataResponse>(`${ENCLAVE_API_URL}/get-swap-data?${queryString}`, {
     headers,

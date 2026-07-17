@@ -9,6 +9,8 @@ import { sendError } from '../../utils/routeError';
 import { ensureRecipientInfoPoolForApi } from '../../utils/ensureRecipientInfoPoolForApi';
 import { hinkalInitializerService } from '../../services/hinkalInitializerService';
 import { xStampMiddleware } from '../../middleware';
+import { requireActionPermission, resolveTargetUser } from '../../utils';
+import { WaasPolicyAction } from '../../constants/policyActions';
 
 const router = Router();
 
@@ -25,6 +27,9 @@ router.post('/waas/public-to-public', xStampMiddleware, async (req: Request, res
 
   try {
     const signerPublicKey = res.locals.signerPublicKey as string;
+    const signer = await resolveTargetUser(organizationId, userId, signerPublicKey);
+    requireActionPermission(signer, WaasPolicyAction.SIGN_TRANSACTION);
+
     const parsedChainId = parseChainId(chainId);
     const token = resolveToken(tokenAddress, parsedChainId);
     const recipientAmount = getAmountInWei(token, String(amount));
@@ -45,7 +50,7 @@ router.post('/waas/public-to-public', xStampMiddleware, async (req: Request, res
       solanaParams,
     );
 
-    const txHash = await hinkalInitializerService.withHinkalForOrganization(
+    const { depositTxHash, scheduleId } = await hinkalInitializerService.withHinkalForOrganization(
       organizationId,
       userId,
       signerPublicKey,
@@ -58,7 +63,7 @@ router.post('/waas/public-to-public', xStampMiddleware, async (req: Request, res
 
     ensureRecipientInfoPoolForApi(organizationId, userId, fromAddress, signerPublicKey, parsedChainId);
 
-    res.status(200).send({ status: 'success', data: { txHash } });
+    res.status(200).send({ status: 'success', data: { txHash: depositTxHash, scheduleId } });
   } catch (err) {
     sendError(res, err);
   }

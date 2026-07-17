@@ -79,27 +79,13 @@ router.post('/pal/order', palApiKeyMiddleware, async (req: Request, res: Respons
           };
         }
         if (isTronLike(parsed)) {
-          const result = await hinkalPalTronDepositPrepare(
-            hinkal,
-            parsed,
-            token,
-            [recipientAmount],
-            feeStructure,
-            orderId,
-          );
+          const result = await hinkalPalTronDepositPrepare(hinkal, token, [recipientAmount], feeStructure, orderId);
           return {
             serializedTx: Buffer.from(JSON.stringify(result.unsignedTx)).toString('base64'),
             utxoAmounts: result.utxoAmounts,
           };
         }
-        const result = await hinkalPalEvmDepositPrepare(
-          hinkal,
-          parsed,
-          token,
-          [recipientAmount],
-          feeStructure,
-          orderId,
-        );
+        const result = await hinkalPalEvmDepositPrepare(hinkal, token, [recipientAmount], feeStructure, orderId);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const txData = { ...(result.unsignedTx as any) };
         delete txData.from;
@@ -130,9 +116,7 @@ router.post('/pal/order', palApiKeyMiddleware, async (req: Request, res: Respons
     });
     await DepositAndWithdrawOrderModel.create(sealed);
 
-    const approvalAddress = isSolanaLike(parsed)
-      ? null
-      : (networkRegistry[parsed].contractData.depositOnChainUtxosExternalActionAddress ?? null);
+    const approvalAddress = isSolanaLike(parsed) ? null : (networkRegistry[parsed].contractData.hinkalAddress ?? null);
 
     res.status(200).send({
       status: 'success',

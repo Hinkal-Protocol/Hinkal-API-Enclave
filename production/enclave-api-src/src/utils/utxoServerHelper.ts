@@ -3,16 +3,20 @@ import net from 'net';
 const HOST = '127.0.0.1';
 const PORT = 7000;
 
-export const sendToUtxoServer = (chainId: number, decryptedInput: Buffer): Promise<Buffer> =>
+export enum UtxoOpcode {
+  DECRYPT_UTXO = 0,
+  GET_BALANCE = 1,
+  SET_UTXO_KEY = 2,
+}
+
+export const sendRawToUtxoServer = (opcode: UtxoOpcode, body: Buffer): Promise<Buffer> =>
   new Promise((resolve, reject) => {
     const socket = net.createConnection({ host: HOST, port: PORT });
     let buf = Buffer.alloc(0);
     let bodyLen = -1;
 
     socket.once('connect', () => {
-      const chainIdBuf = Buffer.allocUnsafe(4);
-      chainIdBuf.writeUInt32BE(chainId, 0);
-      const payload = Buffer.concat([chainIdBuf, decryptedInput]);
+      const payload = Buffer.concat([Buffer.from([opcode]), body]);
       const header = Buffer.allocUnsafe(4);
       header.writeUInt32BE(payload.length, 0);
       socket.write(Buffer.concat([header, payload]));
@@ -44,3 +48,9 @@ export const sendToUtxoServer = (chainId: number, decryptedInput: Buffer): Promi
         reject(new Error('utxo-server closed connection before full response'));
     });
   });
+
+export const sendToUtxoServer = (opcode: UtxoOpcode, chainId: number, ...bodyParts: Buffer[]): Promise<Buffer> => {
+  const chainIdBuf = Buffer.allocUnsafe(4);
+  chainIdBuf.writeUInt32BE(chainId, 0);
+  return sendRawToUtxoServer(opcode, Buffer.concat([chainIdBuf, ...bodyParts]));
+};

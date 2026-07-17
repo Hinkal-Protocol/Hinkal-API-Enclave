@@ -168,7 +168,17 @@ router.post(
           if (isSolanaLike(chainId)) {
             return hinkal.depositSolana(BigInt(amounts[0]), validated.tokens[0], true);
           }
-          return hinkal.prooflessDeposit(validated.tokens, amounts.map(BigInt), undefined, undefined, true);
+          return hinkal.prooflessDeposit(
+            validated.tokens,
+            amounts.map(BigInt),
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            true,
+          );
         },
       );
 

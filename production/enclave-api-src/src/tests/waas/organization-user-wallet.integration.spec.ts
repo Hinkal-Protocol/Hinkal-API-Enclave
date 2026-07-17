@@ -1,5 +1,6 @@
 import nacl from 'tweetnacl';
-import { bytesToHex } from '../utils/stamp';
+import { randomUUID } from 'crypto';
+import { buildXStamp, bytesToHex } from '../utils/stamp';
 import { ENCLAVE_API_URL } from '@hinkal/common';
 import { WaasHttpClient } from '../utils/waasHttpClient';
 import { WaasPolicyAction } from '../../constants/policyActions';
@@ -98,5 +99,37 @@ describe('WAAS organization, user, wallet (integration)', () => {
 
     expect(wallets.length).toBeGreaterThanOrEqual(1);
     expect(wallets.some((w) => w.evm?.toLowerCase() === wallet.addresses.evm.toLowerCase())).toBe(true);
+  });
+
+  it('NoSQL injection: userId[$ne]=null with extended query parser — Mongoose schema coercion test', async () => {
+    const rootKp = nacl.sign.keyPair();
+
+    const org = await client.postJson<{ organizationId: string; userId: string }>(
+      '/waas/create-organization',
+      { organizationName: `nosql-injection-test-${Date.now()}` },
+      rootKp,
+    );
+
+    // Baseline: valid UUID that doesn't exist → 404
+    const nonce404 = randomUUID();
+    const nonexistentUserId = randomUUID();
+    const normalParams = { organizationId: org.organizationId, userId: nonexistentUserId, nonce: nonce404 };
+    const normalQs = new URLSearchParams(normalParams).toString();
+    const normalRes = await fetch(`${ENCLAVE_API_URL}/waas/get-user?${normalQs}`, {
+      method: 'GET',
+      headers: { 'X-Stamp': buildXStamp('GET', '/waas/get-user', normalParams, rootKp) },
+    });
+    expect(normalRes.status).toBe(404);
+
+    const nonceInject = randomUUID();
+    const injectedParamsForStamp = { organizationId: org.organizationId, userId: { $ne: 'null' }, nonce: nonceInject };
+    const injectedQs = `organizationId=${encodeURIComponent(org.organizationId)}&userId%5B%24ne%5D=null&nonce=${nonceInject}`;
+    const injectedRes = await fetch(`${ENCLAVE_API_URL}/waas/get-user?${injectedQs}`, {
+      method: 'GET',
+      headers: {
+        'X-Stamp': buildXStamp('GET', '/waas/get-user', injectedParamsForStamp as Record<string, unknown>, rootKp),
+      },
+    });
+    expect(injectedRes.ok).toBe(false);
   });
 });
