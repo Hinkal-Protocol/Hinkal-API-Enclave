@@ -2,10 +2,11 @@ import { generateHashFromSeedPhrases, WalletManager } from '@hinkal/common';
 import { MONGO_DUPLICATE_KEY_ERROR } from '../constants';
 import { UserKeysModel } from '../models/UserKeysSchema';
 import { cryptoHelper } from '../crypto';
+import { assertString } from '../utils/queryGuards';
 
 class UserKeysService {
   public async findByEthereumAddress(ethereumAddress: string) {
-    const record = await UserKeysModel.findOne({ ethereumAddress });
+    const record = await UserKeysModel.findOne({ ethereumAddress: assertString(ethereumAddress, 'ethereumAddress') });
     if (!record) return null;
     const decrypted = await cryptoHelper.decrypt(Buffer.from(record.encryptedSignature, 'base64'));
     return decrypted.toString('utf8');

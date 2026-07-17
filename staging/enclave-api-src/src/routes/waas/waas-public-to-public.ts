@@ -45,7 +45,7 @@ router.post('/waas/public-to-public', xStampMiddleware, async (req: Request, res
       solanaParams,
     );
 
-    const txHash = await hinkalInitializerService.withHinkalForOrganization(
+    const { depositTxHash, scheduleId } = await hinkalInitializerService.withHinkalForOrganization(
       organizationId,
       userId,
       signerPublicKey,
@@ -58,7 +58,7 @@ router.post('/waas/public-to-public', xStampMiddleware, async (req: Request, res
 
     ensureRecipientInfoPoolForApi(organizationId, userId, fromAddress, signerPublicKey, parsedChainId);
 
-    res.status(200).send({ status: 'success', data: { txHash } });
+    res.status(200).send({ status: 'success', data: { txHash: depositTxHash, scheduleId } });
   } catch (err) {
     sendError(res, err);
   }

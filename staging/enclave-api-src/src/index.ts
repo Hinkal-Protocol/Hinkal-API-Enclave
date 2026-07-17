@@ -49,6 +49,7 @@ const startServer = async () => {
     await preProcessing();
     const dbUri = await resolveDbUri();
     mongoose.set('strictQuery', true);
+    mongoose.set('sanitizeFilter', true);
     await mongoose.connect(dbUri, MONGO_CONNECTION_OPTIONS);
     await liveChainStateService.warmup();
     await enclaveDepositListenerService.init();

@@ -5,7 +5,33 @@ import { BalanceRow, getBalanceForToken, toUnits, USDC_DECIMALS } from '../utils
 const TX_AMOUNT = '0.01';
 const SHIELD_AMOUNT = '1';
 const UNSHIELD_AMOUNT = '0.001';
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+
+type ScheduledTxResult = { status: string; txHash: string | null };
+
+async function pollScheduledTransactionOnce(
+  ctx: WaasArcTestnetContext,
+  scheduleId: string,
+  deadline: number,
+  intervalMs: number,
+): Promise<ScheduledTxResult[]> {
+  const { transactions } = await ctx.client.getJson<{
+    scheduleId: string;
+    transactions: ScheduledTxResult[];
+  }>(`/waas/scheduled-transaction/${scheduleId}`, {}, ctx.userKp);
+  const isTerminal = (tx: ScheduledTxResult) => tx.status === 'completed' || tx.status === 'failed';
+  if (transactions.length > 0 && transactions.every(isTerminal)) return transactions;
+  if (Date.now() >= deadline) throw new Error(`Timed out polling scheduleId ${scheduleId}`);
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, intervalMs);
+  });
+  return pollScheduledTransactionOnce(ctx, scheduleId, deadline, intervalMs);
+}
+
+const pollScheduledTransaction = (
+  ctx: WaasArcTestnetContext,
+  scheduleId: string,
+  { intervalMs = 3000, timeoutMs = 120_000 } = {},
+) => pollScheduledTransactionOnce(ctx, scheduleId, Date.now() + timeoutMs, intervalMs);
 
 async function getPublicBalanceRows(ctx: WaasArcTestnetContext) {
   return ctx.client.getJson<BalanceRow[]>(
@@ -43,7 +69,7 @@ describe('WAAS Arc testnet E2E (EVM)', () => {
   describe('transaction routes (EVM)', () => {
     it('public-to-public', async () => {
       const publicBefore = getBalanceForToken(await getPublicBalanceRows(ctx), ctx.usdcTokenAddress);
-      const { txHash } = await ctx.client.postJson<{ txHash: string }>(
+      const { txHash, scheduleId } = await ctx.client.postJson<{ txHash: string; scheduleId: string }>(
         '/waas/public-to-public',
         {
           organizationId: ctx.organizationId,
@@ -57,6 +83,8 @@ describe('WAAS Arc testnet E2E (EVM)', () => {
         ctx.userKp,
       );
       await waitForEthereumTransactionConfirmation(ctx.chainId, txHash);
+      const withdrawal = await pollScheduledTransaction(ctx, scheduleId);
+      expect(withdrawal.every((tx) => tx.status === 'completed')).toBe(true);
       const publicAfter = getBalanceForToken(await getPublicBalanceRows(ctx), ctx.usdcTokenAddress);
       expect(publicAfter < publicBefore).toBe(true);
     });
@@ -199,7 +227,7 @@ describe('WAAS Arc testnet E2E (EVM)', () => {
           userId: ctx.userId,
           fromAddress: ctx.evmAddress,
           to: ctx.evmAddress,
-          token: ZERO_ADDRESS,
+          token: ctx.usdcTokenAddress,
           amount: '0.001',
           chainId: ctx.chainId,
         },
