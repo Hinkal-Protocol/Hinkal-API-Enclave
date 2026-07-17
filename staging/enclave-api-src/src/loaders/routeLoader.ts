@@ -4,10 +4,10 @@ import { signResponseMiddleware } from '../middleware';
 import handshake from '../routes/handshake';
 import createSession from '../routes/create-session';
 import ping from '../routes/ping';
-import palOrder from '../routes/pal/pal-order';
-import palQuote from '../routes/pal/pal-quote';
-import palStatus from '../routes/pal/pal-status';
-import palTokens from '../routes/pal/pal-tokens';
+// import palOrder from '../routes/pal/pal-order';
+// import palQuote from '../routes/pal/pal-quote';
+// import palStatus from '../routes/pal/pal-status';
+// import palTokens from '../routes/pal/pal-tokens';
 import recipientInfo from '../routes/recipient-info';
 import privateBalance from '../routes/balance';
 import deposit from '../routes/deposit';
@@ -56,10 +56,10 @@ export const loadRoutes = (app: Express) => {
   app.use(BASE_URL, hinkalAPIRouter);
 
   // PAL routes
-  app.use(BASE_URL, palOrder);
-  app.use(BASE_URL, palQuote);
-  app.use(BASE_URL, palStatus);
-  app.use(BASE_URL, palTokens);
+  // app.use(BASE_URL, palOrder);
+  // app.use(BASE_URL, palQuote);
+  // app.use(BASE_URL, palStatus);
+  // app.use(BASE_URL, palTokens);
 
   // WAAS routes
   app.use(BASE_URL, organization);
