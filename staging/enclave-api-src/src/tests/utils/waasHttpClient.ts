@@ -95,7 +95,12 @@ export class WaasHttpClient {
     return { status: res.status, text, json };
   }
 
-  async getJson<T>(path: string, params: Record<string, string> = {}, signer?: SignKeyPair): Promise<T> {
+  async getJson<T>(
+    path: string,
+    params: Record<string, string> = {},
+    signer?: SignKeyPair,
+    signingRoutePath?: string,
+  ): Promise<T> {
     let headers: Record<string, string>;
     let qs: string;
 
@@ -105,7 +110,7 @@ export class WaasHttpClient {
     } else {
       if (!signer) throw new Error('signer required when no apiKey configured');
       const paramsObj = { ...params, nonce: randomUUID() };
-      headers = { 'X-Stamp': buildXStamp('GET', path, paramsObj, signer) };
+      headers = { 'X-Stamp': buildXStamp('GET', signingRoutePath ?? path, paramsObj, signer) };
       qs = new URLSearchParams(paramsObj as Record<string, string>).toString();
     }
 

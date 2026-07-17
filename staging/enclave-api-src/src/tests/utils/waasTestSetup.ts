@@ -4,7 +4,7 @@ import type { SignKeyPair } from './stamp';
 import nacl from 'tweetnacl';
 import { requireEnv } from '@hinkal/common/functions/utils/requireEnv';
 
-export type WaasTestChain = 'arc' | 'polygon';
+export type WaasTestChain = 'arc' | 'polygon' | 'base';
 
 type ChainConfig = {
   chainId: number;
@@ -21,15 +21,21 @@ const POLYGON_MAINNET: ChainConfig = {
   usdcTokenAddress: '0x3c499c542cef5e3811e1192ce70d8cc03d5c3359',
 };
 
+const BASE_MAINNET: ChainConfig = {
+  chainId: 8453,
+  usdcTokenAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+};
+
 const CHAIN_CONFIGS: Record<WaasTestChain, ChainConfig> = {
   arc: ARC_TESTNET,
   polygon: POLYGON_MAINNET,
+  base: BASE_MAINNET,
 };
 
 const resolveTestChain = (): WaasTestChain => {
   const raw = requireEnv('WAAS_TEST_CHAIN').trim().toLowerCase();
-  if (raw !== 'arc' && raw !== 'polygon') {
-    throw new Error(`Invalid WAAS_TEST_CHAIN "${raw}": expected "arc" or "polygon"`);
+  if (raw !== 'arc' && raw !== 'polygon' && raw !== 'base') {
+    throw new Error(`Invalid WAAS_TEST_CHAIN "${raw}": expected "arc", "polygon", or "base"`);
   }
   return raw;
 };

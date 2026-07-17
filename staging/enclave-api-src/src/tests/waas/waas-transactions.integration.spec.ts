@@ -2,8 +2,8 @@ import { waitForEthereumTransactionConfirmation } from '@hinkal/common';
 import { getWaasTestContext, type WaasTestContext } from '../utils/waasTestSetup';
 import { BalanceRow, getBalanceForToken, toUnits, USDC_DECIMALS } from '../utils/waasBalanceHelpers';
 
-const TX_AMOUNT = '0.01';
-const SHIELD_AMOUNT = '0.1';
+const TX_AMOUNT = '0.001';
+const SHIELD_AMOUNT = '0.05';
 const UNSHIELD_AMOUNT = '0.001';
 
 type ScheduledTxResult = { status: string; txHash: string | null };
@@ -25,6 +25,7 @@ async function pollScheduledTransactionOnce(
       walletAddress: ctx.evmAddress,
     },
     ctx.userKp,
+    '/waas/scheduled-transaction/:scheduleId',
   );
   const isTerminal = (tx: ScheduledTxResult) => tx.status === 'completed' || tx.status === 'failed';
   if (transactions.length > 0 && transactions.every(isTerminal)) return transactions;
