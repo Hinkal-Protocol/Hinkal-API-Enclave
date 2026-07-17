@@ -1,6 +1,6 @@
 import nacl from 'tweetnacl';
 import { bytesToHex } from '../utils/stamp';
-import { ENCLAVE_API_URL } from '@hinkal/common';
+import { chainIds, ENCLAVE_API_URL } from '@hinkal/common';
 import { WaasHttpClient } from '../utils/waasHttpClient';
 import { WaasPolicyAction } from '../../constants/policyActions';
 
@@ -21,7 +21,7 @@ describe('WAAS policy lifecycle (integration)', () => {
 
   const client = new WaasHttpClient(ENCLAVE_API_URL);
 
-  it('steps 1–15: policy lifecycle with success and expected 403s', async () => {
+  it('steps 1–23: policy lifecycle with success and expected 403s', async () => {
     const rootKp = nacl.sign.keyPair();
     const user1Kp = nacl.sign.keyPair();
     const orgName = `Policy lifecycle ${Date.now()}`;
@@ -159,5 +159,86 @@ describe('WAAS policy lifecycle (integration)', () => {
 
     // 15) create-wallet user4 (still on policy) -> success
     await client.postJson('/waas/create-wallet', { organizationId, userId: user4Id }, user4Kp);
+
+    // 16) create-user5 (root)
+    const user5Kp = nacl.sign.keyPair();
+    const user5Id = (
+      await client.postJson<{ userId: string }>(
+        '/waas/create-user',
+        { organizationId, publicKey: bytesToHex(user5Kp.publicKey) },
+        rootKp,
+      )
+    ).userId;
+
+    // 17) add-policy: CREATE_WALLET for user5 (root), so user5 can self-provision a wallet
+    await client.postJson(
+      '/waas/add-policy',
+      { organizationId, policy: { userIds: [user5Id], actionType: WaasPolicyAction.CREATE_WALLET } },
+      rootKp,
+    );
+
+    // 18) create-wallet user5 (self) -> success
+    const user5Wallet = await client.postJson<{ addresses: { evm: string } }>(
+      '/waas/create-wallet',
+      { organizationId, userId: user5Id },
+      user5Kp,
+    );
+    const user5EvmAddress = user5Wallet.addresses.evm;
+
+    // 19) sign-message user5 (self), no SIGN_TRANSACTION policy yet -> 403
+    const step19 = await client.postRaw(
+      '/waas/wallet/sign-message',
+      {
+        organizationId,
+        userId: user5Id,
+        fromAddress: user5EvmAddress,
+        chainId: chainIds.ethMainnet,
+        message: 'SIGN_TRANSACTION policy check',
+      },
+      user5Kp,
+    );
+    expect(step19.status).toBe(403);
+
+    // 20) add-policy: SIGN_TRANSACTION for user5 (root)
+    const addSignPolicy = await client.postJson<PolicyMutationData>(
+      '/waas/add-policy',
+      { organizationId, policy: { userIds: [user5Id], actionType: WaasPolicyAction.SIGN_TRANSACTION } },
+      rootKp,
+    );
+    const signPolicy = addSignPolicy.policies.find(
+      (p) => p.actionType === WaasPolicyAction.SIGN_TRANSACTION && p.userIds.includes(user5Id),
+    );
+    expect(signPolicy?.policyId).toBeDefined();
+
+    // 21) sign-message user5 (self) -> success
+    const step21 = await client.postJson<{ signature: string }>(
+      '/waas/wallet/sign-message',
+      {
+        organizationId,
+        userId: user5Id,
+        fromAddress: user5EvmAddress,
+        chainId: chainIds.ethMainnet,
+        message: 'SIGN_TRANSACTION policy check',
+      },
+      user5Kp,
+    );
+    expect(step21.signature.length).toBeGreaterThan(10);
+
+    // 22) remove-policy: SIGN_TRANSACTION (root)
+    await client.postJson('/waas/remove-policy', { organizationId, policyId: signPolicy!.policyId }, rootKp);
+
+    // 23) sign-message user5 (self) after removal -> 403
+    const step23 = await client.postRaw(
+      '/waas/wallet/sign-message',
+      {
+        organizationId,
+        userId: user5Id,
+        fromAddress: user5EvmAddress,
+        chainId: chainIds.ethMainnet,
+        message: 'SIGN_TRANSACTION policy check',
+      },
+      user5Kp,
+    );
+    expect(step23.status).toBe(403);
   });
 });

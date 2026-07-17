@@ -3,6 +3,8 @@ import { parseChainId, resolveToken } from '../../utils/transactionHelpers';
 import { sendError } from '../../utils/routeError';
 import { hinkalInitializerService } from '../../services/hinkalInitializerService';
 import { xStampMiddleware } from '../../middleware';
+import { requireActionPermission, resolveTargetUser } from '../../utils';
+import { WaasPolicyAction } from '../../constants/policyActions';
 
 const router = Router();
 
@@ -20,6 +22,9 @@ router.post('/waas/withdraw-stuck-utxos', xStampMiddleware, async (req: Request,
 
   try {
     const signerPublicKey = res.locals.signerPublicKey as string;
+    const signer = await resolveTargetUser(organizationId, userId, signerPublicKey);
+    requireActionPermission(signer, WaasPolicyAction.SIGN_TRANSACTION);
+
     const parsedChainId = parseChainId(chainId);
     const token = resolveToken(tokenAddress, parsedChainId);
     const txHashes = await hinkalInitializerService.withHinkalForOrganization(

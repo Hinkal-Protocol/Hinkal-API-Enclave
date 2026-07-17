@@ -6,6 +6,8 @@ import { sendError } from '../../utils/routeError';
 import { ensureRecipientInfoPoolForApi } from '../../utils/ensureRecipientInfoPoolForApi';
 import { hinkalInitializerService } from '../../services/hinkalInitializerService';
 import { xStampMiddleware } from '../../middleware';
+import { requireActionPermission, resolveTargetUser } from '../../utils';
+import { WaasPolicyAction } from '../../constants/policyActions';
 
 const router = Router();
 
@@ -22,6 +24,9 @@ router.post('/waas/public-to-private', xStampMiddleware, async (req: Request, re
 
   try {
     const signerPublicKey = res.locals.signerPublicKey as string;
+    const signer = await resolveTargetUser(organizationId, userId, signerPublicKey);
+    requireActionPermission(signer, WaasPolicyAction.SIGN_TRANSACTION);
+
     const parsedChainId = parseChainId(chainId);
     const token = resolveToken(tokenAddress, parsedChainId);
     const recipientInfo = await resolvePrivateRecipient(String(to));

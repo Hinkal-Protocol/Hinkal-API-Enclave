@@ -5,6 +5,8 @@ import { parseChainId } from '../../utils/transactionHelpers';
 import { buildSolanaSigner, signAndSendSerializedSolanaTransaction } from '../../utils/solana-wallet.utils';
 import { sendError } from '../../utils/routeError';
 import { xStampMiddleware } from '../../middleware';
+import { requireActionPermission, resolveTargetUser } from '../../utils';
+import { WaasPolicyAction } from '../../constants/policyActions';
 
 const router = Router();
 
@@ -22,6 +24,9 @@ router.post('/waas/wallet/solana/execute', xStampMiddleware, async (req: Request
 
   try {
     const signerPublicKey = res.locals.signerPublicKey as string;
+    const authorizedUser = await resolveTargetUser(organizationId, userId, signerPublicKey);
+    requireActionPermission(authorizedUser, WaasPolicyAction.SIGN_TRANSACTION);
+
     const parsedChainId = parseChainId(chainId);
     if (!isSolanaLike(parsedChainId)) throw new HttpError(400, 'chainId is not a Solana chain');
 
