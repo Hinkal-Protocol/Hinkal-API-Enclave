@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { generateHashFromSeedPhrases } from '@hinkal/common';
+import { generateHashFromSeedPhrases, preProcessing } from '@hinkal/common';
 import mongoose from 'mongoose';
 import { userKeysService } from '../../services/userKeysService';
 import { UserKeysModel } from '../../models/UserKeysSchema';
@@ -8,6 +8,7 @@ import { cryptoHelper } from '../../crypto';
 const randomAddress = () => ethers.Wallet.createRandom().address;
 
 beforeAll(async () => {
+  await preProcessing();
   await mongoose.connect(process.env.DB_URI!);
 });
 
