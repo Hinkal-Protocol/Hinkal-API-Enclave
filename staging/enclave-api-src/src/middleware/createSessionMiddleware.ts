@@ -1,5 +1,5 @@
+import { HEADER_REQUEST_SIGNATURE, resolveSessionAuthMode } from '@hinkal/common';
 import { NextFunction, Request, Response } from 'express';
-import { HEADER_REQUEST_SIGNATURE, resolveSessionAuthMode } from '../constants';
 import { EnclaveSessionValidationResult, openEnclaveSession } from '../models/EnclaveSessionSchema';
 import { isValidSecp256k1PublicKey, verifyRequestSignature } from '../utils/requestSignatureUtils';
 import { getSignedRequestFields } from '../utils/requestBinding';

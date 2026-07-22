@@ -1,15 +1,21 @@
-import { createHash, randomBytes, randomUUID } from 'crypto';
-import { secp256k1 } from '@noble/curves/secp256k1';
-import { ethers } from 'ethers';
-import { ENCLAVE_API_URL, httpClient } from '@hinkal/common';
 import {
+  buildActionBinding,
   buildEnclaveSignMessage,
+  buildRequestSignaturePayload,
+  CreateSessionResponse,
+  ENCLAVE_API_URL,
+  EnclaveSessionAuthFields,
   EnclaveSessionAuthMode,
+  getCompressedPublicKey,
   HEADER_REQUEST_SIGNATURE,
+  httpClient,
   resolveSessionAuthMode,
-} from '../../constants';
+  sessionBodyParams,
+  signPayload,
+} from '@hinkal/common';
+import { randomBytes, randomUUID } from 'crypto';
+import { ethers } from 'ethers';
 import type { SerializedFeeStructure } from '../../utils/enclaveAuthNormalization';
-import { CreateSessionResponse } from '../../types/route.types';
 import { EnclaveTypedDataPayload } from '../../types';
 import {
   buildDepositAndWithdrawTypedData,
@@ -21,15 +27,8 @@ import {
   buildWithdrawStuckUtxosTypedData,
   buildWithdrawTypedData,
 } from '../../utils/enclaveTypedData';
-import { buildActionBinding, buildRequestSignaturePayload } from '../../utils/requestBinding';
 
 // --- Types ---
-
-export type EnclaveSessionAuthFields = {
-  sessionId: string;
-  privateKey: Uint8Array;
-  useEIP712?: boolean;
-};
 
 export type EnclaveTxAuthFields = {
   signature: string;
@@ -39,13 +38,6 @@ export type EnclaveTxAuthFields = {
 };
 
 // --- Secp256k1 signing ---
-
-const toHex = (bytes: Uint8Array): string => Buffer.from(bytes).toString('hex');
-
-const signPayload = (privateKey: Uint8Array, payload: string): string => {
-  const msgHash = new Uint8Array(createHash('sha256').update(payload).digest());
-  return toHex(secp256k1.sign(msgHash, privateKey).toBytes('compact'));
-};
 
 export const requestSignatureGetHeader = (
   session: EnclaveSessionAuthFields,
@@ -67,25 +59,6 @@ export const requestSignaturePostHeader = (
     session.privateKey,
     buildRequestSignaturePayload(buildActionBinding('POST', routePath), JSON.stringify(body)),
   ),
-});
-
-// --- Session params helpers ---
-
-export const sessionQueryParams = (session: EnclaveSessionAuthFields, chainId: number): Record<string, string> => ({
-  sessionId: session.sessionId,
-  nonce: randomUUID(),
-  chainId: chainId.toString(),
-  timestamp: Date.now().toString(),
-});
-
-export const sessionBodyParams = (
-  session: EnclaveSessionAuthFields,
-  chainId: number,
-): { sessionId: string; nonce: string; chainId: number; timestamp: number } => ({
-  sessionId: session.sessionId,
-  nonce: randomUUID(),
-  chainId,
-  timestamp: Date.now(),
 });
 
 // --- Typed-data signing (EIP-712 mode) ---
@@ -243,7 +216,7 @@ export const createEnclaveSessionFromSignature = async (
   privateKey: Uint8Array,
   useEIP712: boolean,
 ): Promise<EnclaveSessionAuthFields> => {
-  const clientPublicKey = toHex(secp256k1.getPublicKey(privateKey, true));
+  const clientPublicKey = getCompressedPublicKey(privateKey);
   const body = {
     signature,
     address,
@@ -265,7 +238,7 @@ export const createEnclaveSession = async (
 ): Promise<EnclaveSessionAuthFields> => {
   const useEIP712 = resolveTestUseEIP712();
   const privateKey = new Uint8Array(randomBytes(32));
-  const clientPublicKey = toHex(secp256k1.getPublicKey(privateKey, true));
+  const clientPublicKey = getCompressedPublicKey(privateKey);
   const sessionId = randomUUID();
   const authMode = resolveSessionAuthMode(useEIP712);
   const signature = await wallet.signMessage(buildEnclaveSignMessage(sessionId, clientPublicKey, authMode));

@@ -1,5 +1,6 @@
 import nacl from 'tweetnacl';
-import { buildActionBinding, buildStampMessage } from '../../utils/requestBinding';
+import { buildActionBinding } from '@hinkal/common';
+import { buildStampMessage } from '../../utils/requestBinding';
 
 export type SignKeyPair = nacl.SignKeyPair;
 

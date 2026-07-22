@@ -1,6 +1,14 @@
+import {
+  chainIds,
+  getErrorMessage,
+  HINKAL_SUPPORTED_CHAINS,
+  isSolanaLike,
+  networkRegistry,
+  SupportedChainsResponse,
+  SupportedTokensResponse,
+} from '@hinkal/common';
 import { Request, Response, Router } from 'express';
-import { chainIds, getErrorMessage, HINKAL_SUPPORTED_CHAINS, isSolanaLike, networkRegistry } from '@hinkal/common';
-import { SupportedChainsResponse, SupportedTokensRequest, SupportedTokensResponse } from '../types/route.types';
+import { SupportedTokensRequest } from '../types/route.types';
 import { getPopularTokensForChain } from '../utils/supported.utils';
 import { POPULAR_TOKEN_CHAIN_IDS } from '@hinkal/erc20-registry';
 

@@ -1,9 +1,6 @@
-import { Request, Response, Router } from 'express';
-import { verifyDepositAndWithdrawSignatureMiddleware, verifySignatureMiddleware } from '../middleware';
-import { DepositAndWithdrawRequest, DepositAndWithdrawResponse } from '../types';
-import { WHITELISTED_REFERRALS } from '@hinkal/backend-common';
 import {
   caseInsensitiveEqual,
+  DepositAndWithdrawResponse,
   ExternalActionId,
   getErrorMessage,
   getFeeStructure,
@@ -16,6 +13,10 @@ import {
   networkRegistry,
   PAY_SEND_VARIABLE_RATE,
 } from '@hinkal/common';
+import { Request, Response, Router } from 'express';
+import { verifyDepositAndWithdrawSignatureMiddleware, verifySignatureMiddleware } from '../middleware';
+import { DepositAndWithdrawRequest } from '../types';
+import { WHITELISTED_REFERRALS } from '@hinkal/backend-common';
 import { ethers } from 'ethers';
 import { DepositAndWithdrawOrderModel, DepositAndWithdrawOrderStatus } from '../models';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';

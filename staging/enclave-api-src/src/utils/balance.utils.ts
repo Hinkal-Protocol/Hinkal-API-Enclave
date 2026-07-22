@@ -7,35 +7,15 @@ import {
   getPublicBalancesOfTokens,
   getSolanaPublicBalances,
   isSolanaLike,
-  isTronLike,
   isValidSolanaPublicKey,
   isValidTronAddress,
   Logger,
-  networkRegistry,
   resetCache,
   TokenBalance,
+  validateWalletAddressForChainId,
 } from '@hinkal/common';
 import { getErc20TokensForChain } from '@hinkal/erc20-registry';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
-
-const validateWalletAddressForChainId = (walletAddress: string, chainId: number): void => {
-  if (!networkRegistry[chainId]) {
-    throw new Error(`Unsupported chainId: ${chainId}`);
-  }
-
-  const isSolanaAddress = isValidSolanaPublicKey(walletAddress);
-  const isTronAddress = isValidTronAddress(walletAddress);
-
-  if (isSolanaAddress && !isSolanaLike(chainId)) {
-    throw new Error('walletAddress is Solana but chainId is not Solana-like');
-  }
-  if (isTronAddress && !isTronLike(chainId)) {
-    throw new Error('walletAddress is Tron but chainId is not Tron-like');
-  }
-  if (!isSolanaAddress && !isTronAddress && (isSolanaLike(chainId) || isTronLike(chainId))) {
-    throw new Error('walletAddress is EVM-like but chainId is not EVM-like');
-  }
-};
 
 export const refreshAddressCache = async (address: string, chainId: number) => {
   await hinkalInitializerService.withHinkalForAddress(address, chainId, async (hinkal) => {

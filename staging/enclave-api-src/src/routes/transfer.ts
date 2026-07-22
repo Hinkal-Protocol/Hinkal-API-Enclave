@@ -1,7 +1,7 @@
+import { getErrorMessage, isSolanaLike, TxHashResponse } from '@hinkal/common';
 import { Request, Response, Router } from 'express';
-import { getErrorMessage, isSolanaLike } from '@hinkal/common';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
-import { TransferRequest, TxHashResponse } from '../types/route.types';
+import { TransferRequest } from '../types/route.types';
 import { parseFeeStructure } from '../utils/parseFeeStructure';
 import { resolveRecipientInfo } from '../utils/transactionHelpers';
 import { verifyTransferSignatureMiddleware } from '../middleware';

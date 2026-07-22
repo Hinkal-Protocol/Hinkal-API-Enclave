@@ -1,6 +1,13 @@
-import { ENCLAVE_API_URL, ExternalActionId, FeeStructure, httpClient } from '@hinkal/common';
-import { FeeStructureResponse } from '../../types';
-import { type EnclaveSessionAuthFields, requestSignatureGetHeader, sessionQueryParams } from './enclaveAuthHelper';
+import {
+  ENCLAVE_API_URL,
+  EnclaveSessionAuthFields,
+  ExternalActionId,
+  FeeStructure,
+  FeeStructureResponse,
+  httpClient,
+  sessionQueryParams,
+} from '@hinkal/common';
+import { requestSignatureGetHeader } from './enclaveAuthHelper';
 import type { SolanaTestWallet } from './solanaTestWallet';
 
 export const fetchFeeStructure = async (

@@ -1,7 +1,12 @@
+import {
+  ENCLAVE_API_URL,
+  EnclaveSessionAuthFields,
+  GetSwapDataResponse,
+  httpClient,
+  sessionQueryParams,
+} from '@hinkal/common';
 import { ethers } from 'ethers';
-import { ENCLAVE_API_URL, httpClient } from '@hinkal/common';
-import { type EnclaveSessionAuthFields, requestSignatureGetHeader, sessionQueryParams } from './enclaveAuthHelper';
-import { GetSwapDataResponse } from '../../types';
+import { requestSignatureGetHeader } from './enclaveAuthHelper';
 
 export const fetchSwapData = async (
   wallet: ethers.Wallet,

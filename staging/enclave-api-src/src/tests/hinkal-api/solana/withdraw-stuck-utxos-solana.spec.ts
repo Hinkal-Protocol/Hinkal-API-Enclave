@@ -1,14 +1,19 @@
-import { ENCLAVE_API_URL, httpClient, waitForTransactionConfirmation } from '@hinkal/common';
+import {
+  BalanceResponse,
+  ENCLAVE_API_URL,
+  httpClient,
+  sessionQueryParams,
+  waitForTransactionConfirmation,
+} from '@hinkal/common';
 import {
   buildAuthPostSolana,
   buildSolanaWithdrawStuckUtxosAuthFields,
   createEnclaveSolanaSession,
 } from '../../utils/enclaveSolanaAuthHelper';
 import { getSolanaTokenBalance } from '../../utils/solanaIntegrationHelpers';
-import { requestSignatureGetHeader, sessionQueryParams } from '../../utils/enclaveAuthHelper';
+import { requestSignatureGetHeader } from '../../utils/enclaveAuthHelper';
 import { SOLANA_MAINNET_USDC_ADDRESS } from '../../utils/solanaTestConstants';
 import { getEnclaveSolanaTestWallet, type SolanaTestWallet } from '../../utils/solanaTestWallet';
-import { BalanceResponse } from '../../../types';
 
 let wallet: SolanaTestWallet;
 

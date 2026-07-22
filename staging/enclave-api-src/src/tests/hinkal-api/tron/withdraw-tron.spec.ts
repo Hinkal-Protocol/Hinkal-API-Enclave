@@ -3,6 +3,7 @@ import {
   ExternalActionId,
   HINKAL_PRIVATE_SEND_VARIABLE_RATE,
   httpClient,
+  TxHashResponse,
   waitForTransactionConfirmation,
 } from '@hinkal/common';
 import { depositUsdtToPrivate, getTronUsdtBalance } from '../../utils/tronIntegrationHelpers';
@@ -16,7 +17,6 @@ import { getPrivateBalanceForToken } from '../../utils/getPrivateBalanceTron';
 import { TRON_NILE_USDT_ADDRESS } from '../../utils/tronTestConstants';
 import { getEnclaveTronTestWallet, type TronTestWallet } from '../../utils/tronTestWallet';
 import { tronRelayFee } from '../../utils/tronFeeHelpers';
-import { TxHashResponse } from '../../../types';
 
 const WITHDRAW_AMOUNT = BigInt('10000'); // 0.01 USDT
 

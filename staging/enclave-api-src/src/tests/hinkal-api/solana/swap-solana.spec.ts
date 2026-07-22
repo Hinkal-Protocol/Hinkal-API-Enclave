@@ -1,10 +1,15 @@
 import {
+  BalanceResponse,
   caseInsensitiveEqual,
   ENCLAVE_API_URL,
+  EnclaveSessionAuthFields,
   ExternalActionId,
   getAmountInWei,
+  GetSwapDataResponse,
   HINKAL_SWAP_VARIABLE_RATE,
   httpClient,
+  sessionQueryParams,
+  TxHashResponse,
   waitForTransactionConfirmation,
 } from '@hinkal/common';
 import { getERC20Token } from '@hinkal/erc20-registry';
@@ -13,15 +18,10 @@ import {
   buildSolanaSwapAuthFields,
   createEnclaveSolanaSession,
 } from '../../utils/enclaveSolanaAuthHelper';
-import {
-  type EnclaveSessionAuthFields,
-  requestSignatureGetHeader,
-  sessionQueryParams,
-} from '../../utils/enclaveAuthHelper';
+import { requestSignatureGetHeader } from '../../utils/enclaveAuthHelper';
 import { fetchFeeStructure } from '../../utils/fetchFeeStructureSolana';
 import { SOLANA_MAINNET_CHAIN_ID, SOLANA_MAINNET_USDC_ADDRESS } from '../../utils/solanaTestConstants';
 import { getEnclaveSolanaTestWallet, type SolanaTestWallet } from '../../utils/solanaTestWallet';
-import { BalanceResponse, GetSwapDataResponse, TxHashResponse } from '../../../types';
 
 const SOLANA_MAINNET_USDT_ADDRESS = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB';
 const CHAIN_ID = SOLANA_MAINNET_CHAIN_ID;

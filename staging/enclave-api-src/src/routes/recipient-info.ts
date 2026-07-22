@@ -1,7 +1,6 @@
 import { Request, Response, Router } from 'express';
-import { getErrorMessage } from '@hinkal/common';
+import { getErrorMessage, RecipientInfoResponse } from '@hinkal/common';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
-import { RecipientInfoResponse } from '../types/route.types';
 import { verifySignatureMiddleware } from '../middleware';
 
 const router = Router();

@@ -1,7 +1,14 @@
+import {
+  ENCLAVE_API_URL,
+  EnclaveSessionAuthFields,
+  ExternalActionId,
+  FeeStructure,
+  FeeStructureResponse,
+  httpClient,
+  sessionQueryParams,
+} from '@hinkal/common';
 import { ethers } from 'ethers';
-import { ENCLAVE_API_URL, ExternalActionId, FeeStructure, httpClient } from '@hinkal/common';
-import { type EnclaveSessionAuthFields, requestSignatureGetHeader, sessionQueryParams } from './enclaveAuthHelper';
-import { FeeStructureResponse } from '../../types';
+import { requestSignatureGetHeader } from './enclaveAuthHelper';
 
 export const fetchFeeStructure = async (
   wallet: ethers.Wallet | ethers.HDNodeWallet,

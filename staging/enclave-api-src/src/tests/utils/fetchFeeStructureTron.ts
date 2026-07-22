@@ -1,6 +1,13 @@
-import { ENCLAVE_API_URL, ExternalActionId, FeeStructure, httpClient } from '@hinkal/common';
-import { type EnclaveSessionAuthFields, requestSignatureGetHeader, sessionQueryParams } from './enclaveAuthHelper';
-import { FeeStructureResponse } from '../../types';
+import {
+  ENCLAVE_API_URL,
+  EnclaveSessionAuthFields,
+  ExternalActionId,
+  FeeStructure,
+  FeeStructureResponse,
+  httpClient,
+  sessionQueryParams,
+} from '@hinkal/common';
+import { requestSignatureGetHeader } from './enclaveAuthHelper';
 import type { TronTestWallet } from './tronTestWallet';
 
 export const fetchFeeStructure = async (

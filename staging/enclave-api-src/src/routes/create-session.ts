@@ -1,8 +1,8 @@
+import { CreateSessionResponse, getErrorMessage } from '@hinkal/common';
 import { Request, Response, Router } from 'express';
-import { getErrorMessage } from '@hinkal/common';
 import { createSessionMiddleware } from '../middleware/createSessionMiddleware';
 import { getEnclaveSession } from '../models/EnclaveSessionSchema';
-import { CreateSessionRequest, CreateSessionResponse } from '../types/route.types';
+import { CreateSessionRequest } from '../types/route.types';
 
 const router = Router();
 
