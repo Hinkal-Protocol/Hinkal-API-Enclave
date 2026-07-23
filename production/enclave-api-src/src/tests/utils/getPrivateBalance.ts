@@ -1,7 +1,14 @@
+import {
+  BalanceResponse,
+  caseInsensitiveEqual,
+  ENCLAVE_API_URL,
+  EnclaveSessionAuthFields,
+  httpClient,
+  SerializedTokenBalance,
+  sessionQueryParams,
+} from '@hinkal/common';
 import { ethers } from 'ethers';
-import { caseInsensitiveEqual, ENCLAVE_API_URL, httpClient } from '@hinkal/common';
-import { BalanceResponse, SerializedTokenBalance } from '../../types';
-import { type EnclaveSessionAuthFields, requestSignatureGetHeader, sessionQueryParams } from './enclaveAuthHelper';
+import { requestSignatureGetHeader } from './enclaveAuthHelper';
 
 export const getPrivateBalance = async (
   wallet: ethers.Wallet | ethers.HDNodeWallet,

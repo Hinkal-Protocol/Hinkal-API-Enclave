@@ -1,11 +1,6 @@
-import { ERC20Token, ExternalActionId, FeeStructure } from '@hinkal/common';
+import { ExternalActionId, FailedResponse, FeeStructure } from '@hinkal/common';
 import { ethers } from 'ethers';
 import type { Types as TronWebTypes } from 'tronweb';
-
-export type FailedResponse = {
-  success: false;
-  error: string;
-};
 
 export type DepositResponse =
   | {
@@ -51,13 +46,6 @@ export type SolanaDepositResponse =
     }
   | FailedResponse;
 
-export type TxHashResponse =
-  | {
-      success: true;
-      txHash: string;
-    }
-  | FailedResponse;
-
 export type WithdrawRequest = {
   address: string;
   chainId: number;
@@ -98,15 +86,6 @@ export type GetSwapDataRequest = {
   slippagePercentage?: number;
 };
 
-export type GetSwapDataResponse =
-  | {
-      success: true;
-      swapData: string;
-      externalActionId: ExternalActionId;
-      outSwapAmount: string;
-    }
-  | FailedResponse;
-
 export type GetFeeStructureRequest = {
   address: string;
   chainId: number;
@@ -117,29 +96,9 @@ export type GetFeeStructureRequest = {
   mintFrom?: string;
 };
 
-export type FeeStructureResponse =
-  | {
-      success: true;
-      feeStructure: FeeStructure<string>;
-    }
-  | FailedResponse;
-
 export type RecipientInfoRequest = {
   address: string;
   chainId: number;
-};
-
-export type RecipientInfoResponse =
-  | {
-      success: true;
-      recipientInfo: string;
-    }
-  | FailedResponse;
-
-export type SerializedTokenBalance = {
-  chainId: number;
-  tokenAddress: string;
-  balance: string;
 };
 
 export type CreateSessionRequest = {
@@ -151,49 +110,14 @@ export type CreateSessionRequest = {
   useEIP712?: boolean;
 };
 
-export type CreateSessionResponse =
-  | {
-      success: true;
-      expiresAt: string;
-    }
-  | FailedResponse;
-
 export type BalanceRequest = {
   address: string;
   chainId: string;
 };
 
-export type BalanceResponse =
-  | {
-      success: true;
-      balances: SerializedTokenBalance[];
-    }
-  | FailedResponse;
-
-export type RefreshCacheResponse = { success: true } | FailedResponse;
-
 export type SupportedTokensRequest = {
   chainId?: string;
 };
-
-export type SupportedTokensResponse =
-  | {
-      success: true;
-      tokens: Record<number, ERC20Token[]>;
-    }
-  | FailedResponse;
-
-export type SupportedChain = {
-  chainId: number;
-  name: string;
-};
-
-export type SupportedChainsResponse =
-  | {
-      success: true;
-      chains: SupportedChain[];
-    }
-  | FailedResponse;
 
 export type ProoflessDepositRequest = {
   address: string;
@@ -222,15 +146,3 @@ export type DepositAndWithdrawRequest = {
   txCompletionTime?: number;
   ref?: string;
 };
-
-export type DepositAndWithdrawResponse =
-  | {
-      success: true;
-      orderId: string;
-      approvalAddress: string | null;
-      serializedTx: string;
-      amountIn: string;
-      amountOut: string;
-      fee: string;
-    }
-  | FailedResponse;

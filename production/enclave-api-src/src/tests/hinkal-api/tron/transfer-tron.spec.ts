@@ -3,6 +3,9 @@ import {
   ExternalActionId,
   HINKAL_PRIVATE_SEND_VARIABLE_RATE,
   httpClient,
+  RecipientInfoResponse,
+  sessionQueryParams,
+  TxHashResponse,
   waitForTransactionConfirmation,
 } from '@hinkal/common';
 import { depositUsdtToPrivate } from '../../utils/tronIntegrationHelpers';
@@ -11,13 +14,12 @@ import {
   buildTransferAuthFieldsTron,
   createEnclaveSessionTron,
 } from '../../utils/enclaveAuthHelperTron';
-import { requestSignatureGetHeader, sessionQueryParams } from '../../utils/enclaveAuthHelper';
+import { requestSignatureGetHeader } from '../../utils/enclaveAuthHelper';
 import { fetchFeeStructure } from '../../utils/fetchFeeStructureTron';
 import { getPrivateBalanceForToken } from '../../utils/getPrivateBalanceTron';
 import { TRON_NILE_USDT_ADDRESS } from '../../utils/tronTestConstants';
 import { getEnclaveTronTestWallet, type TronTestWallet } from '../../utils/tronTestWallet';
 import { tronRelayFee } from '../../utils/tronFeeHelpers';
-import { RecipientInfoResponse, TxHashResponse } from '../../../types';
 
 const TRANSFER_AMOUNT = BigInt('50000'); // 0.05 USDT
 

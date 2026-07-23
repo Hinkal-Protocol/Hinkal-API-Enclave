@@ -1,7 +1,6 @@
+import { BalanceResponse, getErrorMessage, RefreshCacheResponse } from '@hinkal/common';
 import { Request, Response, Router } from 'express';
-import { getErrorMessage } from '@hinkal/common';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
-import { BalanceResponse, RefreshCacheResponse } from '../types/route.types';
 import { verifySignatureMiddleware } from '../middleware';
 import { refreshAddressCache } from '../utils/balance.utils';
 

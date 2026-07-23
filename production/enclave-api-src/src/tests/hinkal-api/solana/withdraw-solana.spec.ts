@@ -3,6 +3,7 @@ import {
   ExternalActionId,
   HINKAL_PRIVATE_SEND_VARIABLE_RATE,
   httpClient,
+  TxHashResponse,
   waitForTransactionConfirmation,
 } from '@hinkal/common';
 import {
@@ -16,7 +17,6 @@ import { getPrivateBalanceForToken } from '../../utils/getPrivateBalanceSolana';
 import { SOLANA_MAINNET_USDC_ADDRESS } from '../../utils/solanaTestConstants';
 import { getEnclaveSolanaTestWallet, type SolanaTestWallet } from '../../utils/solanaTestWallet';
 import { solanaRelayFee } from '../../utils/solanaFeeHelpers';
-import { TxHashResponse } from '../../../types';
 
 const WITHDRAW_AMOUNT = BigInt('1000'); // 0.001 USDC
 

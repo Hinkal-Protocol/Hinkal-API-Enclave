@@ -1,4 +1,4 @@
-import { isSolanaLike } from '@hinkal/common';
+import { EnclaveSessionAuthMode, HEADER_REQUEST_SIGNATURE, isSolanaLike } from '@hinkal/common';
 import { NextFunction, Request, Response } from 'express';
 import { verifySignature, verifyTypedDataSignature } from '../utils';
 import {
@@ -33,7 +33,6 @@ import {
 import { consumeRequestNonceOrRespond, parseSignatureRequest } from './signatureMiddlewareUtils';
 import { verifyRequestSignatureSession } from '../utils/requestSignatureUtils';
 import { getSignedRequestFields } from '../utils/requestBinding';
-import { EnclaveSessionAuthMode, HEADER_REQUEST_SIGNATURE } from '../constants';
 import { getEnclaveSession, isEnclaveSessionActive } from '../models/EnclaveSessionSchema';
 import { EnclaveTypedDataPayload, ParsedSignatureRequest, ParseResult } from '../types';
 

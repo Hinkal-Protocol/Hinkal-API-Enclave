@@ -1,4 +1,3 @@
-import { ethers } from 'ethers';
 import {
   ARC_TESTNET_USDC_ADDRESS,
   chainIds,
@@ -6,12 +5,13 @@ import {
   ERC20ABI,
   ExternalActionId,
   httpClient,
+  TxHashResponse,
   waitForEthereumTransactionConfirmation,
 } from '@hinkal/common';
+import { ethers } from 'ethers';
 import { createJsonRpcProvider } from '@hinkal/common/functions/utils/create-provider';
 import { requireEnv } from '@hinkal/common/functions/utils/requireEnv';
 import { depositUsdcToPrivate } from '../utils/enclaveIntegrationHelpers';
-import { TxHashResponse } from '../../types';
 import { buildAuthPost, buildWithdrawAuthFields, createEnclaveSession } from '../utils/enclaveAuthHelper';
 import { fetchFeeStructure } from '../utils/fetchFeeStructure';
 import { getPrivateBalanceForToken } from '../utils/getPrivateBalance';

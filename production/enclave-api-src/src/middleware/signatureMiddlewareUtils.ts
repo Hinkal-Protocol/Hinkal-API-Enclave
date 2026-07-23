@@ -1,7 +1,6 @@
+import { buildEnclaveSignMessage, EnclaveSessionAuthMode, HINKAL_SUPPORTED_CHAINS } from '@hinkal/common';
 import { Request, Response } from 'express';
 import { consumeRequestNonce } from '../models/RequestNonceSchema';
-import { HINKAL_SUPPORTED_CHAINS } from '@hinkal/common';
-import { buildEnclaveSignMessage, EnclaveSessionAuthMode } from '../constants';
 import { ParsedCreateSessionRequest, ParsedSignatureRequest, ParseResult } from '../types';
 import { verifySignature } from '../utils';
 import { getSignedRequestFields } from '../utils/requestBinding';

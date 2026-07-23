@@ -1,19 +1,19 @@
-import axios from 'axios';
-import { ethers } from 'ethers';
 import {
   ARC_TESTNET_USDC_ADDRESS,
   chainIds,
+  DepositAndWithdrawResponse,
   ENCLAVE_API_URL,
   ERC20ABI,
   httpClient,
   ScheduledTransactionStatus,
 } from '@hinkal/common';
+import axios from 'axios';
+import { ethers } from 'ethers';
 import { createJsonRpcProvider } from '@hinkal/common/functions/utils/create-provider';
 import { requireEnv } from '@hinkal/common/functions/utils/requireEnv';
 import { prepareDepositAndWithdraw } from '../utils/enclaveIntegrationHelpers';
 import { createEnclaveSession } from '../utils/enclaveAuthHelper';
 import { DepositAndWithdrawPublicStatus } from '../../utils/resolveDepositAndWithdrawPublicStatus';
-import { DepositAndWithdrawResponse } from '../../types';
 import { fundWalletsWithUsdc } from '../utils/loadTestHelpers';
 import {
   DEFAULT_POLL_INTERVAL_MS,

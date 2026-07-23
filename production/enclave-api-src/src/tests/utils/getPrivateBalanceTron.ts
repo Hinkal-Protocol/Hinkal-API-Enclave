@@ -1,6 +1,13 @@
-import { caseInsensitiveEqual, ENCLAVE_API_URL, httpClient } from '@hinkal/common';
-import { BalanceResponse, SerializedTokenBalance } from '../../types';
-import { type EnclaveSessionAuthFields, requestSignatureGetHeader, sessionQueryParams } from './enclaveAuthHelper';
+import {
+  BalanceResponse,
+  caseInsensitiveEqual,
+  ENCLAVE_API_URL,
+  EnclaveSessionAuthFields,
+  httpClient,
+  SerializedTokenBalance,
+  sessionQueryParams,
+} from '@hinkal/common';
+import { requestSignatureGetHeader } from './enclaveAuthHelper';
 import type { TronTestWallet } from './tronTestWallet';
 
 export const getPrivateBalance = async (

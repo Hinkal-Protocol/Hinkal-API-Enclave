@@ -1,14 +1,22 @@
-import { ethers } from 'ethers';
 import {
   ARC_TESTNET_USDC_ADDRESS,
+  BalanceResponse,
+  DepositAndWithdrawResponse,
   ENCLAVE_API_URL,
+  EnclaveSessionAuthFields,
   ERC20ABI,
   ExternalActionId,
   HINKAL_PRIVATE_SEND_VARIABLE_RATE,
   httpClient,
+  RecipientInfoResponse,
+  RefreshCacheResponse,
+  sessionBodyParams,
+  sessionQueryParams,
+  TxHashResponse,
   waitForEthereumTransactionConfirmation,
   waitLittle,
 } from '@hinkal/common';
+import { ethers } from 'ethers';
 import {
   buildAuthPost,
   buildDepositAndWithdrawAuthFields,
@@ -18,20 +26,10 @@ import {
   buildTransferAuthFields,
   buildWithdrawAuthFields,
   buildWithdrawStuckUtxosAuthFields,
-  type EnclaveSessionAuthFields,
   requestSignatureGetHeader,
   requestSignaturePostHeader,
-  sessionBodyParams,
-  sessionQueryParams,
 } from './enclaveAuthHelper';
-import {
-  BalanceResponse,
-  DepositAndWithdrawResponse,
-  DepositResponse,
-  RecipientInfoResponse,
-  RefreshCacheResponse,
-  TxHashResponse,
-} from '../../types';
+import { DepositResponse } from '../../types';
 import { fetchFeeStructure } from './fetchFeeStructure';
 
 export const getRecipientInfo = async (

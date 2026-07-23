@@ -1,10 +1,10 @@
+import { FeeStructureResponse, getErrorMessage, isSolanaLike } from '@hinkal/common';
 import { Request, Response, Router } from 'express';
-import { getErrorMessage, isSolanaLike } from '@hinkal/common';
 import { getFeeStructure } from '@hinkal/common/functions/pre-transaction/getFeeStructure';
 import { calculateSolanaNullifierCount } from '@hinkal/common/functions/pre-transaction/calculateSolanaNullifierCount';
 import { HINKAL_PRIVATE_SEND_VARIABLE_RATE } from '@hinkal/common/constants/protocol.constants';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
-import { FeeStructureResponse, GetFeeStructureRequest } from '../types/route.types';
+import { GetFeeStructureRequest } from '../types/route.types';
 import { isValidExternalActionId } from '../utils/isValidExternalActionId';
 import { verifySignatureMiddleware } from '../middleware';
 import { getERC20Token } from '@hinkal/erc20-registry';

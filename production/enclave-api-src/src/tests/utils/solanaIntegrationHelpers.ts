@@ -1,10 +1,19 @@
+import {
+  DepositAndWithdrawResponse,
+  ENCLAVE_API_URL,
+  EnclaveSessionAuthFields,
+  httpClient,
+  networkRegistry,
+  RecipientInfoResponse,
+  sessionQueryParams,
+  waitForTransactionConfirmation,
+} from '@hinkal/common';
 import { VersionedTransaction } from '@solana/web3.js';
-import { ENCLAVE_API_URL, httpClient, networkRegistry, waitForTransactionConfirmation } from '@hinkal/common';
 import { createCustomSolanaConnection } from '@hinkal/common/functions/utils/create-provider';
 import { getSolanaPublicBalances } from '@hinkal/common/functions/utils/publicBalance.utils';
-import { DepositAndWithdrawResponse, RecipientInfoResponse, SolanaDepositResponse } from '../../types';
+import { SolanaDepositResponse } from '../../types';
 import { SOLANA_MAINNET_USDC_ADDRESS } from './solanaTestConstants';
-import { type EnclaveSessionAuthFields, requestSignatureGetHeader, sessionQueryParams } from './enclaveAuthHelper';
+import { requestSignatureGetHeader } from './enclaveAuthHelper';
 import {
   buildAuthPostSolana,
   buildSolanaDepositAuthFields,

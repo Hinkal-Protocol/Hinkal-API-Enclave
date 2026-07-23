@@ -1,11 +1,17 @@
+import {
+  ARC_TESTNET_USDC_ADDRESS,
+  chainIds,
+  ENCLAVE_API_URL,
+  httpClient,
+  RecipientInfoResponse,
+  sessionQueryParams,
+} from '@hinkal/common';
 import { ethers } from 'ethers';
-import { ARC_TESTNET_USDC_ADDRESS, chainIds, ENCLAVE_API_URL, httpClient } from '@hinkal/common';
 import { createJsonRpcProvider } from '@hinkal/common/functions/utils/create-provider';
 import { requireEnv } from '@hinkal/common/functions/utils/requireEnv';
-import { createEnclaveSession, requestSignatureGetHeader, sessionQueryParams } from '../utils/enclaveAuthHelper';
+import { createEnclaveSession, requestSignatureGetHeader } from '../utils/enclaveAuthHelper';
 import { depositUsdcToPrivate, transferUsdc } from '../utils/enclaveIntegrationHelpers';
 import { getPrivateBalanceForToken } from '../utils/getPrivateBalance';
-import { RecipientInfoResponse } from '../../types';
 import { fundWalletsWithUsdc } from '../utils/loadTestHelpers';
 
 const CHAIN_ID = chainIds.arcTestnet;

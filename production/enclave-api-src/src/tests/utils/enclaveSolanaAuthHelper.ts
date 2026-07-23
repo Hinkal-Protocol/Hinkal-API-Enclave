@@ -1,6 +1,11 @@
+import {
+  buildEnclaveSignMessage,
+  EnclaveSessionAuthFields,
+  resolveSessionAuthMode,
+  sessionBodyParams,
+} from '@hinkal/common';
 import { randomBytes, randomUUID } from 'crypto';
 import nacl from 'tweetnacl';
-import { buildEnclaveSignMessage, resolveSessionAuthMode } from '../../constants';
 import {
   buildSolanaDepositForOtherMessage,
   buildSolanaDepositMessage,
@@ -21,11 +26,9 @@ import type {
 } from '../../utils/enclaveAuthNormalization';
 import {
   createEnclaveSessionFromSignature,
-  type EnclaveSessionAuthFields,
   type EnclaveTxAuthFields,
   requestSignaturePostHeader,
   resolveTestUseEIP712,
-  sessionBodyParams,
 } from './enclaveAuthHelper';
 import type { SolanaTestWallet } from './solanaTestWallet';
 import { secp256k1 } from '@noble/curves/secp256k1';

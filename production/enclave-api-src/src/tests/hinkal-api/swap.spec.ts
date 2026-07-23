@@ -1,12 +1,13 @@
-import { ethers } from 'ethers';
 import {
   chainIds,
   ENCLAVE_API_URL,
   getAmountInWei,
   HINKAL_SWAP_VARIABLE_RATE,
   httpClient,
+  TxHashResponse,
   waitForEthereumTransactionConfirmation,
 } from '@hinkal/common';
+import { ethers } from 'ethers';
 import { createJsonRpcProvider } from '@hinkal/common/functions/utils/create-provider';
 import { requireEnv } from '@hinkal/common/functions/utils/requireEnv';
 import { depositUsdcToPrivate } from '../utils/enclaveIntegrationHelpers';
@@ -14,7 +15,6 @@ import { buildAuthPost, buildSwapAuthFields, createEnclaveSession } from '../uti
 import { fetchFeeStructure } from '../utils/fetchFeeStructure';
 import { fetchSwapData } from '../utils/fetchSwapData';
 import { getPrivateBalanceForToken } from '../utils/getPrivateBalance';
-import { TxHashResponse } from '../../types';
 import { getERC20Token } from '@hinkal/erc20-registry';
 
 const CHAIN_ID = chainIds.optimism; // arc testnet does not support swaps, that is why we use optimism

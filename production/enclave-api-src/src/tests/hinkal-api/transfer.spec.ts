@@ -1,4 +1,3 @@
-import { ethers } from 'ethers';
 import {
   ARC_TESTNET_USDC_ADDRESS,
   calculateTotalFee,
@@ -7,8 +6,12 @@ import {
   ExternalActionId,
   HINKAL_PRIVATE_SEND_VARIABLE_RATE,
   httpClient,
+  RecipientInfoResponse,
+  sessionQueryParams,
+  TxHashResponse,
   waitForEthereumTransactionConfirmation,
 } from '@hinkal/common';
+import { ethers } from 'ethers';
 import { createJsonRpcProvider } from '@hinkal/common/functions/utils/create-provider';
 import { requireEnv } from '@hinkal/common/functions/utils/requireEnv';
 import { depositUsdcToPrivate } from '../utils/enclaveIntegrationHelpers';
@@ -17,10 +20,8 @@ import {
   buildTransferAuthFields,
   createEnclaveSession,
   requestSignatureGetHeader,
-  sessionQueryParams,
 } from '../utils/enclaveAuthHelper';
 import { fetchFeeStructure } from '../utils/fetchFeeStructure';
-import { RecipientInfoResponse, TxHashResponse } from '../../types';
 import { getPrivateBalanceForToken } from '../utils/getPrivateBalance';
 
 const CHAIN_ID = chainIds.arcTestnet;

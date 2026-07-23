@@ -1,14 +1,18 @@
 import {
   addressToHexFormat,
+  DepositAndWithdrawResponse,
   ENCLAVE_API_URL,
+  EnclaveSessionAuthFields,
   ERC20ABI,
   evmHexToTronBase58Address,
   httpClient,
   networkRegistry,
+  RecipientInfoResponse,
+  sessionQueryParams,
+  TRON_DEFAULT_FEE_LIMIT_SUN,
   waitForTransactionConfirmation,
 } from '@hinkal/common';
-import { TRON_DEFAULT_FEE_LIMIT_SUN } from '@hinkal/common/constants/protocol.constants';
-import { type EnclaveSessionAuthFields, requestSignatureGetHeader, sessionQueryParams } from './enclaveAuthHelper';
+import { requestSignatureGetHeader } from './enclaveAuthHelper';
 import {
   buildAuthPostTron,
   buildDepositAndWithdrawAuthFieldsTron,
@@ -16,7 +20,7 @@ import {
   buildDepositForOtherAuthFieldsTron,
   buildProoflessDepositAuthFieldsTron,
 } from './enclaveAuthHelperTron';
-import { DepositAndWithdrawResponse, DepositResponse, RecipientInfoResponse } from '../../types';
+import { DepositResponse } from '../../types';
 import { TRON_NILE_USDT_ADDRESS } from './tronTestConstants';
 import type { TronTestWallet } from './tronTestWallet';
 import { Types as TronWebTypes } from 'tronweb';

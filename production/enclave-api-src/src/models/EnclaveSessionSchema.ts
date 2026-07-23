@@ -1,5 +1,6 @@
+import { EnclaveSessionAuthMode } from '@hinkal/common';
 import mongoose, { Schema } from 'mongoose';
-import { EnclaveSessionAuthMode, MONGO_DUPLICATE_KEY_ERROR } from '../constants';
+import { MONGO_DUPLICATE_KEY_ERROR } from '../constants';
 import { sealDocument, toRecord, verifyRawDoc } from '../utils/documentSigning';
 import { EnclaveHmacSchema } from './EnclaveHmacSchema';
 

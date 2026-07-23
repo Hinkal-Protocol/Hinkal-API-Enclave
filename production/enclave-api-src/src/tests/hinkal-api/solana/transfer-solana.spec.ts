@@ -3,6 +3,9 @@ import {
   ExternalActionId,
   HINKAL_PRIVATE_SEND_VARIABLE_RATE,
   httpClient,
+  RecipientInfoResponse,
+  sessionQueryParams,
+  TxHashResponse,
   waitForTransactionConfirmation,
 } from '@hinkal/common';
 import {
@@ -11,13 +14,12 @@ import {
   createEnclaveSolanaSession,
 } from '../../utils/enclaveSolanaAuthHelper';
 import { depositUsdcToPrivate } from '../../utils/solanaIntegrationHelpers';
-import { requestSignatureGetHeader, sessionQueryParams } from '../../utils/enclaveAuthHelper';
+import { requestSignatureGetHeader } from '../../utils/enclaveAuthHelper';
 import { fetchFeeStructure } from '../../utils/fetchFeeStructureSolana';
 import { getPrivateBalanceForToken } from '../../utils/getPrivateBalanceSolana';
 import { SOLANA_MAINNET_USDC_ADDRESS } from '../../utils/solanaTestConstants';
 import { getEnclaveSolanaTestWallet, type SolanaTestWallet } from '../../utils/solanaTestWallet';
 import { solanaRelayFee } from '../../utils/solanaFeeHelpers';
-import { RecipientInfoResponse, TxHashResponse } from '../../../types';
 
 const TRANSFER_AMOUNT = BigInt('10000'); // 0.01 USDC
 

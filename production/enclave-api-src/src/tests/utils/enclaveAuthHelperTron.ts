@@ -1,7 +1,12 @@
+import {
+  buildEnclaveSignMessage,
+  EnclaveSessionAuthFields,
+  resolveSessionAuthMode,
+  sessionBodyParams,
+} from '@hinkal/common';
 import { randomBytes, randomUUID } from 'crypto';
 import { TronWeb } from 'tronweb';
 import { secp256k1 } from '@noble/curves/secp256k1';
-import { buildEnclaveSignMessage, resolveSessionAuthMode } from '../../constants';
 import { EnclaveTypedDataPayload } from '../../types';
 import {
   buildDepositAndWithdrawTypedData,
@@ -15,11 +20,9 @@ import {
 import type { SerializedFeeStructure } from '../../utils/enclaveAuthNormalization';
 import {
   createEnclaveSessionFromSignature,
-  type EnclaveSessionAuthFields,
   type EnclaveTxAuthFields,
   requestSignaturePostHeader,
   resolveTestUseEIP712,
-  sessionBodyParams,
 } from './enclaveAuthHelper';
 
 const toHex = (bytes: Uint8Array): string => Buffer.from(bytes).toString('hex');

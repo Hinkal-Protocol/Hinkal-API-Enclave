@@ -1,9 +1,8 @@
-import { caseInsensitiveEqual, ENCLAVE_API_URL, httpClient } from '@hinkal/common';
+import { BalanceResponse, caseInsensitiveEqual, ENCLAVE_API_URL, httpClient, sessionQueryParams } from '@hinkal/common';
 import { createEnclaveSolanaSession } from '../../utils/enclaveSolanaAuthHelper';
 import { SOLANA_MAINNET_CHAIN_ID, SOLANA_MAINNET_USDC_ADDRESS } from '../../utils/solanaTestConstants';
 import { getEnclaveSolanaTestWallet, type SolanaTestWallet } from '../../utils/solanaTestWallet';
-import { requestSignatureGetHeader, sessionQueryParams } from '../../utils/enclaveAuthHelper';
-import { BalanceResponse } from '../../../types';
+import { requestSignatureGetHeader } from '../../utils/enclaveAuthHelper';
 
 let wallet: SolanaTestWallet;
 
