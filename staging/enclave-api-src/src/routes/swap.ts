@@ -87,25 +87,13 @@ router.get('/get-swap-data', verifySignatureMiddleware, async (req: Request, res
       return;
     }
 
-    const { swapData, externalActionId, outSwapAmount } = isSolanaLike(chainId)
-      ? await getBestSwapQuote({
-          hinkal: null,
-          chainId,
-          inSwapToken,
-          outSwapToken,
-          inSwapAmount: amount,
-          slippagePercentage,
-        })
-      : await hinkalInitializerService.withHinkalForAddress(res.locals.address, chainId, async (hinkal) => {
-          return getBestSwapQuote({
-            hinkal,
-            chainId,
-            inSwapToken,
-            outSwapToken,
-            inSwapAmount: amount,
-            slippagePercentage,
-          });
-        });
+    const { swapData, externalActionId, outSwapAmount } = await getBestSwapQuote({
+      chainId,
+      inSwapToken,
+      outSwapToken,
+      inSwapAmount: amount,
+      slippagePercentage,
+    });
 
     res.status(200).json({
       success: true,
