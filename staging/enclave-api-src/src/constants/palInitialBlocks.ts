@@ -9,6 +9,6 @@ export const PAL_EVENTS_INITIAL_BLOCK_BY_CHAIN: Partial<Record<number, number>> 
   [chainIds.arcTestnet]: 54555576,
   [chainIds.optimism]: 151503000,
   [chainIds.base]: 45908000,
-  [chainIds.tronNile]: 67373000,
+  [chainIds.tronNile]: 69670283,
   [chainIds.tronMainnet]: 82640000,
 };

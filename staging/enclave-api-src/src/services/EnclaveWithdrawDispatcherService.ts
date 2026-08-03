@@ -1,5 +1,9 @@
-import { dispatchEvmWithdrawForOrder, dispatchSolanaWithdrawForOrder } from './dispatchWithdrawForOrder';
-import { extractMessage, isSolanaLike, Logger } from '@hinkal/common';
+import {
+  dispatchEvmWithdrawForOrder,
+  dispatchSolanaWithdrawForOrder,
+  dispatchTronWithdrawForOrder,
+} from './dispatchWithdrawForOrder';
+import { extractMessage, isSolanaLike, isTronLike, Logger } from '@hinkal/common';
 import mongoose from 'mongoose';
 import {
   DepositAndWithdrawOrder,
@@ -27,9 +31,13 @@ class EnclaveWithdrawDispatcherService {
       order.senderAddress,
       order.chainId,
       async (hinkal) => {
-        return isSolanaLike(order.chainId)
-          ? dispatchSolanaWithdrawForOrder(hinkal, { ...order, txHash })
-          : dispatchEvmWithdrawForOrder(hinkal, { ...order, txHash });
+        if (isSolanaLike(order.chainId)) {
+          return dispatchSolanaWithdrawForOrder(hinkal, { ...order, txHash });
+        }
+        if (isTronLike(order.chainId)) {
+          return dispatchTronWithdrawForOrder(hinkal, { ...order, txHash });
+        }
+        return dispatchEvmWithdrawForOrder(hinkal, { ...order, txHash });
       },
     );
 

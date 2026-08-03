@@ -1,5 +1,5 @@
 import { Request, Response, Router } from 'express';
-import { getErrorMessage, isSolanaLike, Logger, toJsonSafe } from '@hinkal/common';
+import { getErrorMessage, isSolanaLike, isTronLike, Logger, toJsonSafe } from '@hinkal/common';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import {
   DepositForOtherRequest,
@@ -145,6 +145,11 @@ router.post(
   ) => {
     try {
       const { chainId, tokenAddresses, amounts } = req.body;
+
+      if (isTronLike(chainId)) {
+        res.status(400).json({ success: false, error: 'Proofless deposit is not supported on Tron' });
+        return;
+      }
 
       if (tokenAddresses.length !== amounts.length) {
         res.status(400).json({ success: false, error: 'tokenAddresses and amounts must have the same length' });
