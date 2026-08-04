@@ -1,16 +1,19 @@
 import { Connection } from '@solana/web3.js';
 import {
+  ERC20Token,
   FeeStructure,
   fetchSolanaTransaction,
   formatMintAddress,
   getOnChainUtxosFromReceipt,
   getOnChainUtxosFromReceiptSolana,
+  getUtxosFromReceipt,
   hashEthereumAddress,
   hinkalSolanaWithdrawBatch,
   hinkalWithdrawBatch,
   IHinkal,
   networkRegistry,
   RecipientUtxo,
+  Utxo,
   waitForDepositedUtxosInMerkleTree,
   waitForEthereumTransactionConfirmation,
 } from '@hinkal/common';
@@ -31,31 +34,39 @@ export interface DepositAndWithdrawOrderBase {
   txHash: string;
 }
 
-export const dispatchEvmWithdrawForOrder = async (
-  hinkal: IHinkal,
-  order: DepositAndWithdrawOrderBase,
-): Promise<string> => {
+const resolveOrderToken = (order: DepositAndWithdrawOrderBase): ERC20Token => {
   const token = getERC20Token(order.tokenAddress, order.chainId);
   if (!token) throw new Error(`Token ${order.tokenAddress} not found for chain ${order.chainId}`);
+  return token;
+};
 
-  const receipt = await waitForEthereumTransactionConfirmation(order.chainId, order.txHash);
-  const depositedUtxos = getOnChainUtxosFromReceipt(receipt, hinkal, order.chainId, token.erc20TokenAddress);
-  if (depositedUtxos.length === 0) throw new Error(`No on-chain UTXOs found in tx ${order.txHash}`);
+const buildOrderFeeStructure = (order: DepositAndWithdrawOrderBase): FeeStructure => ({
+  feeToken: order.feeToken,
+  flatFee: BigInt(order.flatFee),
+  variableRate: BigInt(order.variableRate),
+});
+
+const matchDepositedUtxos = (order: DepositAndWithdrawOrderBase, depositedUtxos: Utxo[]): RecipientUtxo[] => {
+  if (depositedUtxos.length === 0) throw new Error(`No deposited UTXOs found in tx ${order.txHash}`);
 
   const utxoAmounts = order.utxoAmounts.map((s) => BigInt(s));
   const availableUtxos = [...depositedUtxos];
-  const userDepositedUtxos: RecipientUtxo[] = utxoAmounts.map((amount, i) => {
+  return utxoAmounts.map((amount, i) => {
     const matchIndex = availableUtxos.findIndex((u) => u.amount === amount);
     if (matchIndex === -1) throw new Error(`No UTXO found matching amount ${amount} for recipient ${i}`);
     const [match] = availableUtxos.splice(matchIndex, 1);
     return { recipientAddress: order.recipients[i].address, utxo: match };
   });
+};
 
-  const feeStructure: FeeStructure = {
-    feeToken: order.feeToken,
-    flatFee: BigInt(order.flatFee),
-    variableRate: BigInt(order.variableRate),
-  };
+const dispatchEvmLikeWithdrawForOrder = async (
+  hinkal: IHinkal,
+  order: DepositAndWithdrawOrderBase,
+  token: ERC20Token,
+  depositedUtxos: Utxo[],
+): Promise<string> => {
+  const userDepositedUtxos = matchDepositedUtxos(order, depositedUtxos);
+  const feeStructure = buildOrderFeeStructure(order);
 
   await waitForDepositedUtxosInMerkleTree(hinkal, order.chainId, userDepositedUtxos);
 
@@ -72,12 +83,38 @@ export const dispatchEvmWithdrawForOrder = async (
   );
 };
 
+export const dispatchEvmWithdrawForOrder = async (
+  hinkal: IHinkal,
+  order: DepositAndWithdrawOrderBase,
+): Promise<string> => {
+  const token = resolveOrderToken(order);
+  const receipt = await waitForEthereumTransactionConfirmation(order.chainId, order.txHash);
+  const depositedUtxos = getOnChainUtxosFromReceipt(receipt, hinkal, order.chainId, token.erc20TokenAddress);
+  return dispatchEvmLikeWithdrawForOrder(hinkal, order, token, depositedUtxos);
+};
+
+export const dispatchTronWithdrawForOrder = async (
+  hinkal: IHinkal,
+  order: DepositAndWithdrawOrderBase,
+): Promise<string> => {
+  const token = resolveOrderToken(order);
+  const receipt = await waitForEthereumTransactionConfirmation(order.chainId, order.txHash);
+
+  const depositedUtxos = getUtxosFromReceipt(
+    receipt,
+    hinkal,
+    order.chainId,
+    token.erc20TokenAddress,
+    hinkal.userKeys.getShieldedPrivateKey(),
+  );
+  return dispatchEvmLikeWithdrawForOrder(hinkal, order, token, depositedUtxos);
+};
+
 export const dispatchSolanaWithdrawForOrder = async (
   hinkal: IHinkal,
   order: DepositAndWithdrawOrderBase,
 ): Promise<string> => {
-  const token = getERC20Token(order.tokenAddress, order.chainId);
-  if (!token) throw new Error(`Token ${order.tokenAddress} not found for chain ${order.chainId}`);
+  const token = resolveOrderToken(order);
 
   const { fetchRpcUrl } = networkRegistry[order.chainId];
   const { hinkalIdl } = networkRegistry[order.chainId].contractData;
@@ -91,23 +128,9 @@ export const dispatchSolanaWithdrawForOrder = async (
   const program = hinkal.getSolanaProgram(hinkalIdl);
   const { compressedAddress } = formatMintAddress(token.erc20TokenAddress);
   const depositedUtxos = getOnChainUtxosFromReceiptSolana(tx, program, hinkal.userKeys, compressedAddress);
-  if (depositedUtxos.length === 0) throw new Error(`No on-chain UTXOs found in tx ${order.txHash}`);
 
-  const utxoAmounts = order.utxoAmounts.map((s) => BigInt(s));
-  const availableUtxos = [...depositedUtxos];
-  const userDepositedUtxos: RecipientUtxo[] = utxoAmounts.map((amount, i) => {
-    const matchIndex = availableUtxos.findIndex((u) => u.amount === amount);
-    if (matchIndex === -1) throw new Error(`No UTXO found matching amount ${amount} for recipient ${i}`);
-    const [match] = availableUtxos.splice(matchIndex, 1);
-    return { recipientAddress: order.recipients[i].address, utxo: match };
-  });
-
+  const userDepositedUtxos = matchDepositedUtxos(order, depositedUtxos);
   const recipientAmounts = order.recipients.map((r) => BigInt(r.amount));
-  const feeStructure: FeeStructure = {
-    feeToken: order.feeToken,
-    flatFee: BigInt(order.flatFee),
-    variableRate: BigInt(order.variableRate),
-  };
 
   await waitForDepositedUtxosInMerkleTree(hinkal, order.chainId, userDepositedUtxos);
 
@@ -116,7 +139,7 @@ export const dispatchSolanaWithdrawForOrder = async (
     order.chainId,
     token,
     userDepositedUtxos,
-    feeStructure,
+    buildOrderFeeStructure(order),
     hashEthereumAddress(order.senderAddress),
     recipientAmounts,
     undefined,

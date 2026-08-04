@@ -184,9 +184,25 @@ class EnclaveDepositListenerService {
   private decodeOrderId(hinkalContract: ethers.Contract, data: string): string | null {
     try {
       const decoded = hinkalContract.interface.parseTransaction({ data });
-      if (decoded?.name !== 'prooflessDeposit') return null;
-      const orderId: string | undefined = decoded.args.orderId;
-      return orderId || null;
+      if (!decoded) return null;
+
+      if (decoded.name === 'prooflessDeposit') {
+        const orderId: string | undefined = decoded.args.orderId;
+        return orderId || null;
+      }
+
+      if (decoded.name === 'transact') {
+        const extraData: string | undefined = decoded.args.circomData?.extraData;
+        if (!extraData || extraData === '0x') return null;
+        try {
+          const orderId = ethers.toUtf8String(extraData);
+          return orderId || null;
+        } catch {
+          return null;
+        }
+      }
+
+      return null;
     } catch {
       return null;
     }

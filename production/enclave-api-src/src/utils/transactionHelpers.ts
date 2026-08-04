@@ -1,6 +1,10 @@
 import { isAddress } from 'ethers';
 import { getAnyRecipientInfo } from '@hinkal/common/API/getAnyRecipientInfo';
-import { isValidPrivateAddress, isValidSolanaPublicKey } from '@hinkal/common/functions/utils/addresses';
+import {
+  isValidPrivateAddress,
+  isValidSolanaPublicKey,
+  isValidTronAddress,
+} from '@hinkal/common/functions/utils/addresses';
 import { getRecipientInfoFromUserKeys } from '@hinkal/common/functions/utils/getRecipientInfoFromUserKeys';
 import { UserKeys } from '@hinkal/common/data-structures/crypto-keys/keys';
 import { getERC20Token } from '@hinkal/erc20-registry';
@@ -30,14 +34,14 @@ export const resolvePrivateRecipient = async (to: string): Promise<string> => {
 export const resolveRecipientInfo = async (recipientInfo: string): Promise<string> => {
   if (isValidPrivateAddress(recipientInfo)) return recipientInfo;
 
-  if (!isAddress(recipientInfo) && !isValidSolanaPublicKey(recipientInfo)) {
+  if (!isAddress(recipientInfo) && !isValidSolanaPublicKey(recipientInfo) && !isValidTronAddress(recipientInfo)) {
     throw new HttpError(
       400,
-      'recipientInfo must be a valid private recipient info, Ethereum address, or Solana address',
+      'recipientInfo must be a valid private recipient info, Ethereum address, Solana address, or Tron address',
     );
   }
 
-  // get private recipientInfo from ethereumAddress/solanaAddress
+  // get private recipientInfo from ethereumAddress/solanaAddress/tronAddress
   const signature = await userKeysService.findOrCreatePrivateKey(recipientInfo);
   const userKeys = new UserKeys(signature);
   return getRecipientInfoFromUserKeys(userKeys);
