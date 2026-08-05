@@ -3,7 +3,7 @@ import {
   dispatchSolanaWithdrawForOrder,
   dispatchTronWithdrawForOrder,
 } from './dispatchWithdrawForOrder';
-import { extractMessage, isSolanaLike, isTronLike, Logger } from '@hinkal/common';
+import { extractMessage, isSolanaLike, isTronLike } from '@hinkal/common';
 import mongoose from 'mongoose';
 import {
   DepositAndWithdrawOrder,
@@ -79,7 +79,7 @@ class EnclaveWithdrawDispatcherService {
       await this.dispatchWithdraw(confirmedOrder);
     } catch (err) {
       const failureReason = extractMessage(err) ?? String(err);
-      Logger.error(
+      console.error(
         `[EnclaveWithdrawDispatcherService] dispatchWithdraw failed for ${event.orderId}: ${failureReason}`,
         err,
       );
