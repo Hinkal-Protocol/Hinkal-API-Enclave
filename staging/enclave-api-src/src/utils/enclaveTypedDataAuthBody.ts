@@ -7,16 +7,20 @@ const parseChainId = (chainId: unknown): number | undefined => {
   return Number.isFinite(parsed) ? parsed : undefined;
 };
 
+// \p{Cc} matches the Unicode "Control" category (newlines, tabs, NUL, DEL, ...).
+const CONTROL_CHAR_REGEX = /\p{Cc}/u;
+export const containsControlChars = (value: string): boolean => CONTROL_CHAR_REGEX.test(value);
+
 const parseBaseAuthBody = (
   body: Record<string, unknown>,
 ): ParseResult<{ nonce: string; sessionId: string; chainId: number }> => {
   const { nonce, sessionId, chainId } = body;
 
-  if (typeof nonce !== 'string' || !nonce) {
+  if (typeof nonce !== 'string' || !nonce || containsControlChars(nonce)) {
     return { ok: false, error: 'Missing required field: nonce' };
   }
 
-  if (typeof sessionId !== 'string' || !sessionId) {
+  if (typeof sessionId !== 'string' || !sessionId || containsControlChars(sessionId)) {
     return { ok: false, error: 'Missing required field: sessionId' };
   }
 
@@ -32,14 +36,14 @@ const parseStringArray = (value: unknown, fieldName: string): ParseResult<string
   if (!Array.isArray(value) || value.length === 0) {
     return { ok: false, error: `Missing or empty ${fieldName}` };
   }
-  if (!value.every((item) => typeof item === 'string' && item)) {
+  if (!value.every((item) => typeof item === 'string' && item && !containsControlChars(item))) {
     return { ok: false, error: `Invalid ${fieldName}` };
   }
   return { ok: true, value };
 };
 
 const parseRecipientAddress = (value: unknown, errorMessage = 'Missing recipient address'): ParseResult<string> => {
-  if (typeof value !== 'string' || !value) {
+  if (typeof value !== 'string' || !value || containsControlChars(value)) {
     return { ok: false, error: errorMessage };
   }
   try {
@@ -84,7 +88,11 @@ export const parseTokenDepositForOtherAuthBody = (
 };
 
 const parseFeeFields = (body: Record<string, unknown>): ParseResult<FeeAuthFields> => {
-  const feeToken = typeof body.feeToken === 'string' && body.feeToken ? body.feeToken : undefined;
+  const rawFeeToken = body.feeToken;
+  if (typeof rawFeeToken === 'string' && containsControlChars(rawFeeToken)) {
+    return { ok: false, error: 'Invalid feeToken' };
+  }
+  const feeToken = typeof rawFeeToken === 'string' && rawFeeToken ? rawFeeToken : undefined;
   const raw = body.feeStructure;
   if (!raw) return { ok: true, value: { feeToken } };
   if (typeof raw !== 'object' || Array.isArray(raw)) {
@@ -92,6 +100,9 @@ const parseFeeFields = (body: Record<string, unknown>): ParseResult<FeeAuthField
   }
   const { feeToken: ft, flatFee, variableRate } = raw as Record<string, unknown>;
   if (typeof ft !== 'string' || typeof flatFee !== 'string' || typeof variableRate !== 'string') {
+    return { ok: false, error: 'Invalid feeStructure' };
+  }
+  if (containsControlChars(ft) || containsControlChars(flatFee) || containsControlChars(variableRate)) {
     return { ok: false, error: 'Invalid feeStructure' };
   }
   return { ok: true, value: { feeToken, feeStructure: { feeToken: ft, flatFee, variableRate } } };
@@ -173,10 +184,10 @@ export const parseTokenSwapAuthBody = (
   if (deposit.ok === false) return deposit;
 
   const { externalActionId, swapData } = body;
-  if (typeof externalActionId !== 'string' || !externalActionId) {
+  if (typeof externalActionId !== 'string' || !externalActionId || containsControlChars(externalActionId)) {
     return { ok: false, error: 'Missing or invalid externalActionId' };
   }
-  if (typeof swapData !== 'string' || !swapData) {
+  if (typeof swapData !== 'string' || !swapData || containsControlChars(swapData)) {
     return { ok: false, error: 'Missing or invalid swapData' };
   }
 
@@ -208,7 +219,13 @@ const parseRecipients = (value: unknown): ParseResult<DepositAndWithdrawRecipien
       }
 
       const { address, amount } = item as Record<string, unknown>;
-      if (typeof address !== 'string' || !address || typeof amount !== 'string' || !amount) {
+      if (
+        typeof address !== 'string' ||
+        !address ||
+        typeof amount !== 'string' ||
+        !amount ||
+        containsControlChars(amount)
+      ) {
         return { ok: false, error: 'Invalid recipients' };
       }
 
@@ -238,12 +255,16 @@ export const parseDepositAndWithdrawAuthBody = (
   const { tokenAddress } = body;
   const recipients = parseRecipients(body.recipients);
 
-  if (typeof tokenAddress !== 'string' || !tokenAddress) {
+  if (typeof tokenAddress !== 'string' || !tokenAddress || containsControlChars(tokenAddress)) {
     return { ok: false, error: 'Missing tokenAddress' };
   }
   if (recipients.ok === false) return recipients;
 
-  const feeToken = typeof body.feeToken === 'string' && body.feeToken ? body.feeToken : undefined;
+  const rawFeeToken = body.feeToken;
+  if (typeof rawFeeToken === 'string' && containsControlChars(rawFeeToken)) {
+    return { ok: false, error: 'Invalid feeToken' };
+  }
+  const feeToken = typeof rawFeeToken === 'string' && rawFeeToken ? rawFeeToken : undefined;
 
   const rawTxCompletionTime = body.txCompletionTime;
   if (rawTxCompletionTime !== undefined && rawTxCompletionTime !== null && typeof rawTxCompletionTime !== 'number') {
@@ -251,7 +272,11 @@ export const parseDepositAndWithdrawAuthBody = (
   }
   const txCompletionTime = typeof rawTxCompletionTime === 'number' ? rawTxCompletionTime : undefined;
 
-  const ref = typeof body.ref === 'string' && body.ref ? body.ref : undefined;
+  const rawRef = body.ref;
+  if (typeof rawRef === 'string' && containsControlChars(rawRef)) {
+    return { ok: false, error: 'Invalid ref' };
+  }
+  const ref = typeof rawRef === 'string' && rawRef ? rawRef : undefined;
 
   return {
     ok: true,
@@ -275,7 +300,7 @@ export const parseWithdrawStuckUtxosAuthBody = (
   const { tokenAddress } = body;
   const recipient = parseRecipientAddress(body.recipientAddress);
 
-  if (typeof tokenAddress !== 'string' || !tokenAddress) {
+  if (typeof tokenAddress !== 'string' || !tokenAddress || containsControlChars(tokenAddress)) {
     return { ok: false, error: 'Missing tokenAddress' };
   }
   if (recipient.ok === false) return recipient;
