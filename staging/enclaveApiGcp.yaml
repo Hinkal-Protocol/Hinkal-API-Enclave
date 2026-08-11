@@ -16,6 +16,7 @@ env:
   GCP_REGION: us-central1
   GCP_ZONE: us-central1-a
   ARTIFACT_REGISTRY_REGION: us-central1
+  UTXO_BASE_IMAGE: us-central1-docker.pkg.dev/henclave-project/enclave/utxo-base:${{ github.ref_name == 'production-api-v1' && 'production' || 'staging' }}
   GCP_WORKLOAD_IDENTITY_PROVIDER: projects/737134066291/locations/global/workloadIdentityPools/github-pool/providers/github-provider
   GCP_SERVICE_ACCOUNT: henclave-github-sa@henclave-project.iam.gserviceaccount.com
 concurrency: ci-${{ github.repository }}-enclave-api
@@ -53,6 +54,7 @@ jobs:
         with:
           service: enclave-api
           tag-prefix: ${{ env.DEPLOYMENT_MODE }}
+          build-args: UTXO_BASE_IMAGE=${{ env.UTXO_BASE_IMAGE }}
           gcp-project: ${{ env.GCP_PROJECT }}
           gcp-region: ${{ env.ARTIFACT_REGISTRY_REGION }}
           gcp-workload-identity-provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
