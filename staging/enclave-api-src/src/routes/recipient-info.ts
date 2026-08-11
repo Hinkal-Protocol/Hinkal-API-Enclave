@@ -1,13 +1,13 @@
 import { Request, Response, Router } from 'express';
 import { getErrorMessage, RecipientInfoResponse } from '@hinkal/common';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
-import { verifySignatureMiddleware } from '../middleware';
+import { verifyReadOnlySignatureMiddleware } from '../middleware';
 
 const router = Router();
 
 router.get(
   '/recipient-info',
-  verifySignatureMiddleware,
+  verifyReadOnlySignatureMiddleware,
   async (req: Request<object, RecipientInfoResponse>, res: Response<RecipientInfoResponse>) => {
     try {
       const chainIdNum = Number(req.query.chainId);

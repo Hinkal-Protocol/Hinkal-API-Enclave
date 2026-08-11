@@ -14,7 +14,7 @@ import {
   PAY_SEND_VARIABLE_RATE,
 } from '@hinkal/common';
 import { Request, Response, Router } from 'express';
-import { verifyDepositAndWithdrawSignatureMiddleware, verifySignatureMiddleware } from '../middleware';
+import { verifyDepositAndWithdrawSignatureMiddleware, verifyReadOnlySignatureMiddleware } from '../middleware';
 import { DepositAndWithdrawRequest } from '../types';
 import { WHITELISTED_REFERRALS } from '@hinkal/backend-common';
 import { ethers } from 'ethers';
@@ -153,7 +153,7 @@ router.post(
   },
 );
 
-router.get('/private-send/:orderId', verifySignatureMiddleware, async (req: Request, res: Response) => {
+router.get('/private-send/:orderId', verifyReadOnlySignatureMiddleware, async (req: Request, res: Response) => {
   try {
     const { orderId } = req.params as { orderId: string };
     const order = await enclaveDepositDispatcherService.getOrder(orderId);

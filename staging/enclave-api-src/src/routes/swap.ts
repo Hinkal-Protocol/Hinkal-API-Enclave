@@ -4,7 +4,7 @@ import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { getBestSwapQuote } from '../services/getBestSwapQuote';
 import { GetSwapDataRequest, SwapRequest } from '../types/route.types';
 import { parseFeeStructure } from '../utils/parseFeeStructure';
-import { verifySignatureMiddleware, verifySwapSignatureMiddleware } from '../middleware';
+import { verifyReadOnlySignatureMiddleware, verifySwapSignatureMiddleware } from '../middleware';
 import { getERC20Token } from '@hinkal/erc20-registry';
 
 const router = Router();
@@ -63,47 +63,51 @@ router.post(
   },
 );
 
-router.get('/get-swap-data', verifySignatureMiddleware, async (req: Request, res: Response<GetSwapDataResponse>) => {
-  try {
-    const { inputTokenAddress, outputTokenAddress, amount, slippagePercentage } =
-      req.query as unknown as GetSwapDataRequest;
-    const chainId = Number(req.query.chainId);
+router.get(
+  '/get-swap-data',
+  verifyReadOnlySignatureMiddleware,
+  async (req: Request, res: Response<GetSwapDataResponse>) => {
+    try {
+      const { inputTokenAddress, outputTokenAddress, amount, slippagePercentage } =
+        req.query as unknown as GetSwapDataRequest;
+      const chainId = Number(req.query.chainId);
 
-    if (!chainId || !inputTokenAddress || !outputTokenAddress || !amount) {
-      res.status(400).json({ success: false, error: 'Missing required swap parameters' });
-      return;
+      if (!chainId || !inputTokenAddress || !outputTokenAddress || !amount) {
+        res.status(400).json({ success: false, error: 'Missing required swap parameters' });
+        return;
+      }
+
+      if (amount.length === 0 || Number(amount) <= 0) {
+        res.status(400).json({ success: false, error: 'Swap amount must be greater than zero' });
+        return;
+      }
+
+      const inSwapToken = getERC20Token(inputTokenAddress, chainId);
+      const outSwapToken = getERC20Token(outputTokenAddress, chainId);
+
+      if (!inSwapToken || !outSwapToken) {
+        res.status(400).json({ success: false, error: `Token not found on chain ${chainId}` });
+        return;
+      }
+
+      const { swapData, externalActionId, outSwapAmount } = await getBestSwapQuote({
+        chainId,
+        inSwapToken,
+        outSwapToken,
+        inSwapAmount: amount,
+        slippagePercentage,
+      });
+
+      res.status(200).json({
+        success: true,
+        swapData,
+        externalActionId,
+        outSwapAmount: outSwapAmount.toString(),
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, error: getErrorMessage(error) });
     }
-
-    if (amount.length === 0 || Number(amount) <= 0) {
-      res.status(400).json({ success: false, error: 'Swap amount must be greater than zero' });
-      return;
-    }
-
-    const inSwapToken = getERC20Token(inputTokenAddress, chainId);
-    const outSwapToken = getERC20Token(outputTokenAddress, chainId);
-
-    if (!inSwapToken || !outSwapToken) {
-      res.status(400).json({ success: false, error: `Token not found on chain ${chainId}` });
-      return;
-    }
-
-    const { swapData, externalActionId, outSwapAmount } = await getBestSwapQuote({
-      chainId,
-      inSwapToken,
-      outSwapToken,
-      inSwapAmount: amount,
-      slippagePercentage,
-    });
-
-    res.status(200).json({
-      success: true,
-      swapData,
-      externalActionId,
-      outSwapAmount: outSwapAmount.toString(),
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, error: getErrorMessage(error) });
-  }
-});
+  },
+);
 
 export default router;

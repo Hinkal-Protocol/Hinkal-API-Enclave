@@ -6,14 +6,14 @@ import { HINKAL_PRIVATE_SEND_VARIABLE_RATE } from '@hinkal/common/constants/prot
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { GetFeeStructureRequest } from '../types/route.types';
 import { isValidExternalActionId } from '../utils/isValidExternalActionId';
-import { verifySignatureMiddleware } from '../middleware';
+import { verifyReadOnlySignatureMiddleware } from '../middleware';
 import { getERC20Token } from '@hinkal/erc20-registry';
 
 const router = Router();
 
 router.get(
   '/get-fee-structure',
-  verifySignatureMiddleware,
+  verifyReadOnlySignatureMiddleware,
   async (req: Request, res: Response<FeeStructureResponse>) => {
     try {
       const { feeToken, variableRate, externalActionId, mintFrom } = req.query as unknown as GetFeeStructureRequest;
