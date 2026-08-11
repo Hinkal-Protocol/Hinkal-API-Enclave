@@ -1,5 +1,6 @@
 import {
   convertIntegrationProviderToExternalActionId,
+  DEFAULT_BRIDGING_SLIPPAGE,
   ERC20Token,
   ExternalActionId,
   getExternalSwapAddress,
@@ -8,9 +9,7 @@ import {
   IntegrationProvider,
   isSolanaLike,
 } from '@hinkal/common';
-
-const DEFAULT_SLIPPAGE_PERCENTAGE = 0.7;
-const PERCENTAGE_TO_DECIMAL = 0.01;
+import { PERCENT_TO_DECIMAL } from '../constants/swap.constants';
 
 type SwapQuoteCandidate = {
   integrationProvider: IntegrationProvider;
@@ -44,7 +43,7 @@ const fetchLifiQuote = async (
     inSwapToken,
     outSwapToken,
     inSwapAmount,
-    slippagePercentage * PERCENTAGE_TO_DECIMAL,
+    slippagePercentage * PERCENT_TO_DECIMAL,
     fromAddress,
   );
   if (priceDict.outSwapAmountValue === 0n) {
@@ -80,7 +79,7 @@ export const getBestSwapQuote = async ({
   inSwapToken,
   outSwapToken,
   inSwapAmount,
-  slippagePercentage = DEFAULT_SLIPPAGE_PERCENTAGE,
+  slippagePercentage = DEFAULT_BRIDGING_SLIPPAGE,
 }: GetBestSwapQuoteParams): Promise<BestSwapQuote> => {
   const quote = isSolanaLike(chainId)
     ? await fetchOkxQuote(chainId, inSwapToken, outSwapToken, inSwapAmount, slippagePercentage)

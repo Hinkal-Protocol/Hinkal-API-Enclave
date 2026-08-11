@@ -51,6 +51,13 @@ export const sendEvmTransaction = async (
   return response.hash;
 };
 
+export const readErc20Allowance = async (
+  provider: ethers.JsonRpcProvider,
+  tokenAddress: string,
+  owner: string,
+  spender: string,
+): Promise<bigint> => new ethers.Contract(tokenAddress, ERC20ABI, provider)['allowance'](owner, spender);
+
 export const encodeApproveCalldata = (spender: string, amount: bigint): string =>
   new ethers.Interface(ERC20ABI).encodeFunctionData('approve', [spender, amount]);
 
