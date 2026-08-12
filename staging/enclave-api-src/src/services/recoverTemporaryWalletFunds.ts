@@ -132,7 +132,7 @@ export const recoverTemporaryWalletFunds = async (
         }
 
         for (const { nonce, recoveryDestination } of entries) {
-          const { privateKey, ethAddress } = deriveTempWallet(hinkal, chainId, BigInt(nonce));
+          const { privateKey, address: ethAddress } = deriveTempWallet(hinkal, chainId, BigInt(nonce));
 
           const balances = (await getPublicBalancesOfTokens(chainId, ethAddress)).filter(
             ({ token, balance }) => balance > 0n && !isNFTToken(token),
@@ -142,7 +142,6 @@ export const recoverTemporaryWalletFunds = async (
             continue;
           }
 
-          let allRecovered = true;
           for (const { token, balance } of balances) {
             try {
               const { txHash, recoveredAmount } = await recoverTemporaryWalletBalance(
@@ -166,7 +165,6 @@ export const recoverTemporaryWalletFunds = async (
                 recoveredTo: recoveryDestination,
               });
             } catch (error) {
-              allRecovered = false;
               failed.push({
                 chainId,
                 nonce,
@@ -174,14 +172,6 @@ export const recoverTemporaryWalletFunds = async (
                 tokenAddress: token.erc20TokenAddress,
                 error: getErrorMessage(error),
               });
-            }
-          }
-
-          if (allRecovered) {
-            try {
-              await API.removeTemporaryWalletNonce(chainId, hashedEthereumAddress, Number(nonce));
-            } catch (error) {
-              Logger.error(`Failed to remove temp-wallet nonce ${nonce} on chain ${chainId}`, error);
             }
           }
         }

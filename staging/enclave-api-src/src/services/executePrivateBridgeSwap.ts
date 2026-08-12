@@ -28,6 +28,7 @@ export const executePrivateBridgeSwap = async (
         { recipientInfo: hinkal.getRecipientInfo() },
         bridgeSlippage,
         inToken.erc20TokenAddress,
+        undefined,
         AdminTransactionType.PayPrivateToPrivateBridgeSend,
       ),
     false,
