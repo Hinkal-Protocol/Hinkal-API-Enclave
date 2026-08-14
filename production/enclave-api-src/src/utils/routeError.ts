@@ -1,6 +1,11 @@
 import { Response } from 'express';
-import { getErrorMessage, HttpError } from '@hinkal/common';
+import { getErrorMessage, HttpError, transactionErrorCodes } from '@hinkal/common';
 import axios from 'axios';
+
+const detailedMessage = (err: unknown): string => {
+  const mapped = getErrorMessage(err);
+  return mapped === transactionErrorCodes.UNKNOWN && err instanceof Error && err.message ? err.message : mapped;
+};
 
 export const sendError = (res: Response, err: unknown): void => {
   try {
@@ -21,7 +26,7 @@ export const sendError = (res: Response, err: unknown): void => {
       return;
     }
 
-    res.status(500).send({ status: 'error', message: getErrorMessage(err) });
+    res.status(500).send({ status: 'error', message: detailedMessage(err) });
   } catch {
     res.status(500).send({ status: 'error', message: 'Internal server error' });
   }

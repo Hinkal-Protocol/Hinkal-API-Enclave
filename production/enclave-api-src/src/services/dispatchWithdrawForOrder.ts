@@ -102,7 +102,6 @@ export const dispatchTronWithdrawForOrder = async (
 
   const depositedUtxos = getUtxosFromReceipt(
     receipt,
-    hinkal,
     order.chainId,
     token.erc20TokenAddress,
     hinkal.userKeys.getShieldedPrivateKey(),

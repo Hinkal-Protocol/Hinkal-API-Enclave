@@ -1,14 +1,14 @@
 import { BalanceResponse, getErrorMessage, RefreshCacheResponse } from '@hinkal/common';
 import { Request, Response, Router } from 'express';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
-import { verifySignatureMiddleware } from '../middleware';
+import { verifyReadOnlySignatureMiddleware, verifySignatureMiddleware } from '../middleware';
 import { refreshAddressCache } from '../utils/balance.utils';
 
 const router = Router();
 
 router.get(
   '/balance',
-  verifySignatureMiddleware,
+  verifyReadOnlySignatureMiddleware,
   async (req: Request<object, BalanceResponse>, res: Response<BalanceResponse>) => {
     try {
       const chainIdNum = Number(req.query.chainId);
@@ -36,7 +36,7 @@ router.get(
 
 router.get(
   '/stuck-utxo-balance',
-  verifySignatureMiddleware,
+  verifyReadOnlySignatureMiddleware,
   async (req: Request<object, BalanceResponse>, res: Response<BalanceResponse>) => {
     try {
       const chainIdNum = Number(req.query.chainId);

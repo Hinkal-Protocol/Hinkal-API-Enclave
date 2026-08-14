@@ -1,32 +1,34 @@
 import { Request, Response, Router } from 'express';
 import { isSolanaLike, isTronLike } from '@hinkal/common/constants/chains.constants';
 import { zeroAddress } from '@hinkal/common/constants/protocol.constants';
-import { getAmountInWei } from '@hinkal/common/functions/web3/etherFunctions';
+import { getAmountInToken, getAmountInWei } from '@hinkal/common/functions/web3/etherFunctions';
+import { caseInsensitiveEqual } from '@hinkal/common/functions/utils/caseInsensitive.utils';
 import { HttpError } from '@hinkal/common';
-import { PublicKey } from '@solana/web3.js';
-import { parseChainId, resolveToken } from '../../utils/transactionHelpers';
 import {
-  buildEvmSigner,
-  encodeApproveCalldata,
-  encodeTransferCalldata,
-  sendEvmTransaction,
-} from '../../utils/evm-wallet.utils';
+  hasMissingSwapFields,
+  isNearIntentsBridgeRequest,
+  parseChainId,
+  resolveAndValidateNearBridgeRequest,
+  resolveAndValidatePublicSwapRequest,
+  resolveToken,
+} from '../../utils/transactionHelpers';
+import { buildEvmSigner, encodeApproveCalldata, sendEvmTransaction } from '../../utils/evm-wallet.utils';
 import {
   buildTronApproveTransaction,
   buildTronExecuteTransaction,
   buildTronSigner,
-  buildTronTransferTransaction,
   sendTronTransaction,
 } from '../../utils/tron-wallet.utils';
-import {
-  buildAndSendSolanaTransaction,
-  buildSolanaSigner,
-  buildSolanaTransferInstructionsForSend,
-} from '../../utils/solana-wallet.utils';
+import { buildSolanaSigner } from '../../utils/solana-wallet.utils';
 import { sendError } from '../../utils/routeError';
 import { xStampMiddleware } from '../../middleware';
 import { requireActionPermission, resolveTargetUser } from '../../utils';
 import { WaasPolicyAction } from '../../constants/policyActions';
+import { executeEvmSwap, executeSolanaSwap } from '../../services/executePublicSwap';
+import { executeNearBridgeDeposit } from '../../services/executeNearBridgeDeposit';
+import { executeWalletTransfer } from '../../services/executeWalletTransfer';
+import { REQUIRED_SWAP_FIELDS_MESSAGE } from '../../constants/swap.constants';
+import { SwapExecutionParams, SwapExecutionResult } from '../../types/swap.types';
 
 const router = Router();
 
@@ -121,46 +123,15 @@ router.post('/waas/wallet/send', xStampMiddleware, async (req: Request, res: Res
     const token = resolveToken(tokenAddress, parsedChainId);
     const parsedAmount = getAmountInWei(token, String(amount));
 
-    if (isSolanaLike(parsedChainId)) {
-      const { signer, connection } = await buildSolanaSigner(
-        signerPublicKey,
-        organizationId,
-        userId,
-        fromAddress,
-        parsedChainId,
-      );
-      const instructions = await buildSolanaTransferInstructionsForSend(
-        connection,
-        signer.publicKey,
-        new PublicKey(to),
-        token,
-        parsedAmount,
-      );
-      const txHash = await buildAndSendSolanaTransaction(connection, signer, instructions);
-      res.status(200).send({ status: 'success', data: { txHash } });
-      return;
-    }
-
-    if (isTronLike(parsedChainId)) {
-      const { tronWeb } = await buildTronSigner(signerPublicKey, organizationId, userId, fromAddress, parsedChainId);
-      const tx = await buildTronTransferTransaction(tronWeb, fromAddress, to, token.erc20TokenAddress, parsedAmount);
-      const txHash = await sendTronTransaction(tronWeb, tx);
-      res.status(200).send({ status: 'success', data: { txHash } });
-      return;
-    }
-
-    const { signer, provider } = await buildEvmSigner(
+    const txHash = await executeWalletTransfer({
       signerPublicKey,
       organizationId,
       userId,
       fromAddress,
-      parsedChainId,
-    );
-    const isNative = token.erc20TokenAddress.toLowerCase() === zeroAddress.toLowerCase();
-    const txHash = await sendEvmTransaction(signer, provider, {
-      to: isNative ? to : token.erc20TokenAddress,
-      data: isNative ? '0x' : encodeTransferCalldata(to, parsedAmount),
-      value: isNative ? parsedAmount : 0n,
+      chainId: parsedChainId,
+      token,
+      amount: parsedAmount,
+      to,
     });
     res.status(200).send({ status: 'success', data: { txHash } });
   } catch (err) {
@@ -280,6 +251,94 @@ router.post('/waas/wallet/contract/execute', xStampMiddleware, async (req: Reque
       value: value ? BigInt(value) : 0n,
     });
     res.status(200).send({ status: 'success', data: { txHash } });
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+router.post('/waas/wallet/swap', xStampMiddleware, async (req: Request, res: Response) => {
+  const { organizationId, userId, fromAddress, fromToken, toToken, amount, chainId, toChainId, slippagePercentage } =
+    req.body ?? {};
+
+  if (hasMissingSwapFields(req.body ?? {})) {
+    res.status(400).send({ status: 'error', message: REQUIRED_SWAP_FIELDS_MESSAGE });
+    return;
+  }
+
+  try {
+    const signerPublicKey = res.locals.signerPublicKey as string;
+    const authorizedUser = await resolveTargetUser(organizationId, userId, signerPublicKey);
+    requireActionPermission(authorizedUser, WaasPolicyAction.SIGN_TRANSACTION);
+
+    const sourceChainId = parseChainId(chainId);
+    const destChainId = toChainId === undefined || toChainId === null ? sourceChainId : parseChainId(toChainId);
+
+    if (isNearIntentsBridgeRequest(sourceChainId, destChainId)) {
+      const validated = resolveAndValidateNearBridgeRequest(
+        fromToken,
+        toToken,
+        amount,
+        sourceChainId,
+        destChainId,
+        fromAddress,
+        authorizedUser.wallets,
+        slippagePercentage,
+      );
+
+      const { txHash, depositAddress, amountOut } = await executeNearBridgeDeposit({
+        ...validated,
+        signerPublicKey,
+        organizationId,
+        userId,
+        fromAddress,
+        sourceChainId,
+        destChainId,
+      });
+
+      res.status(200).send({
+        status: 'success',
+        data: {
+          txHash,
+          depositAddress,
+          expectedOutput: getAmountInToken(validated.destToken, BigInt(amountOut)),
+          destinationChainId: destChainId,
+          destinationRecipient: validated.destinationRecipient,
+        },
+      });
+      return;
+    }
+
+    const { parsedChainId, isCrossChain, inToken, outToken, amountWei, parsedSlippage } =
+      resolveAndValidatePublicSwapRequest(fromToken, toToken, chainId, amount, slippagePercentage, toChainId);
+
+    const swapParams: SwapExecutionParams = {
+      signerPublicKey,
+      organizationId,
+      userId,
+      fromAddress,
+      chainId: parsedChainId,
+      inToken,
+      outToken,
+      amount: String(amount),
+      amountWei,
+      isNative: caseInsensitiveEqual(inToken.erc20TokenAddress, zeroAddress),
+      slippagePercentage: parsedSlippage,
+    };
+
+    const result: SwapExecutionResult = isSolanaLike(parsedChainId)
+      ? await executeSolanaSwap(swapParams)
+      : await executeEvmSwap(swapParams);
+
+    res.status(200).send({
+      status: 'success',
+      data: {
+        txHash: result.txHash,
+        approveTxHash: result.approveTxHash,
+        expectedOutput: getAmountInToken(outToken, result.outAmount),
+        minimumOutput: getAmountInToken(outToken, result.minOutAmount),
+        ...(isCrossChain ? { destinationChainId: outToken.chainId } : {}),
+      },
+    });
   } catch (err) {
     sendError(res, err);
   }
