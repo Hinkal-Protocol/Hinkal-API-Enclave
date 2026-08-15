@@ -5,10 +5,9 @@ import {
   TransactionMessage,
   VersionedTransaction,
 } from '@solana/web3.js';
-import { networkRegistry } from '@hinkal/common/constants/chains.constants';
 import { buildSolanaTransferInstructions } from '@hinkal/common/functions/pre-transaction/solanaTransfer.utils';
 import { ERC20Token } from '@hinkal/common/types/token.types';
-import { HttpError } from '@hinkal/common';
+import { networkRegistry } from '@hinkal/common';
 import { SolanaLocalSigner } from '../data-structures';
 import { walletSecretsService } from '../services/walletSecretsService';
 
@@ -19,8 +18,7 @@ export const buildSolanaSigner = async (
   walletAddress: string,
   chainId: number,
 ): Promise<{ signer: SolanaLocalSigner; connection: Connection }> => {
-  const { fetchRpcUrl } = networkRegistry[chainId];
-  if (!fetchRpcUrl) throw new HttpError(500, `No RPC URL configured for chain ${chainId}`);
+  const { rpcUrl } = networkRegistry[chainId];
 
   const { childWallet } = await walletSecretsService.getSeedHashAndChildWallet(
     organizationId,
@@ -29,7 +27,7 @@ export const buildSolanaSigner = async (
     walletAddress,
   );
 
-  const connection = new Connection(fetchRpcUrl, 'confirmed');
+  const connection = new Connection(rpcUrl, 'confirmed');
   const signer = new SolanaLocalSigner(childWallet.solana.secretKey, childWallet.solana.publicKey);
   return { signer, connection };
 };

@@ -5,7 +5,12 @@ import {
   setCustomProofGenerator,
   setCustomUtxoDecryptor,
 } from '@hinkal/common';
-import { liveChainStateService, MONGO_CONNECTION_OPTIONS, setServerSettings } from '@hinkal/backend-common';
+import {
+  applyPaidRpcUrlOverrides,
+  liveChainStateService,
+  MONGO_CONNECTION_OPTIONS,
+  setServerSettings,
+} from '@hinkal/backend-common';
 import cors from 'cors';
 import express, { json } from 'express';
 import mongoose from 'mongoose';
@@ -16,6 +21,8 @@ import { enclaveDepositListenerService } from './services/EnclaveDepositListener
 import { generateProof } from './utils/generateProof';
 import { decryptUtxosDirect } from './utils/decryptUtxosDirect';
 import { provisionUtxoServerKey } from './utils/provisionUtxoServerKey';
+
+applyPaidRpcUrlOverrides();
 
 const app = express();
 
@@ -47,6 +54,7 @@ const resolveDbUri = async (): Promise<string> => {
 const startServer = async () => {
   try {
     await preProcessing();
+
     const dbUri = await resolveDbUri();
     mongoose.set('strictQuery', true);
     mongoose.set('sanitizeFilter', true);

@@ -115,12 +115,11 @@ export const dispatchSolanaWithdrawForOrder = async (
 ): Promise<string> => {
   const token = resolveOrderToken(order);
 
-  const { fetchRpcUrl } = networkRegistry[order.chainId];
+  const { rpcUrl } = networkRegistry[order.chainId];
   const { hinkalIdl } = networkRegistry[order.chainId].contractData;
-  if (!fetchRpcUrl) throw new Error(`Missing fetchRpcUrl for chain ${order.chainId}`);
   if (!hinkalIdl) throw new Error(`Missing Hinkal IDL for chain ${order.chainId}`);
 
-  const connection = new Connection(fetchRpcUrl, 'confirmed');
+  const connection = new Connection(rpcUrl, 'confirmed');
   const tx = await fetchSolanaTransaction(connection, order.txHash, 'confirmed');
   if (!tx) throw new Error(`Receipt not found for signature ${order.txHash}`);
 
