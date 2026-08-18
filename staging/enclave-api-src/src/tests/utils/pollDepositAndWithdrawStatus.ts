@@ -20,7 +20,10 @@ const isPollingComplete = (data: DepositAndWithdrawStatusSnapshot): boolean => {
   return (
     scheduledTransactions.length > 0 &&
     scheduledTransactions.every(
-      (tx) => tx.status === ScheduledTransactionStatus.COMPLETED || tx.status === ScheduledTransactionStatus.FAILED,
+      (tx) =>
+        tx.status === ScheduledTransactionStatus.COMPLETED ||
+        tx.status === ScheduledTransactionStatus.FAILED ||
+        tx.status === ScheduledTransactionStatus.DEPOSIT_FAILED,
     )
   );
 };
@@ -42,7 +45,10 @@ export const pollDepositAndWithdrawUntilComplete = async <T extends DepositAndWi
         throw new Error(`${label} failed`);
       }
       const failedCount =
-        data.scheduledTransactions?.filter((tx) => tx.status === ScheduledTransactionStatus.FAILED).length ?? 0;
+        data.scheduledTransactions?.filter(
+          (tx) =>
+            tx.status === ScheduledTransactionStatus.FAILED || tx.status === ScheduledTransactionStatus.DEPOSIT_FAILED,
+        ).length ?? 0;
       if (failedCount > 0) {
         throw new Error(`${label} has ${failedCount} failed scheduled transaction(s)`);
       }

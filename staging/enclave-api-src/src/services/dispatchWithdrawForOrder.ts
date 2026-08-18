@@ -77,7 +77,6 @@ const dispatchEvmLikeWithdrawForOrder = async (
     userDepositedUtxos,
     feeStructure,
     hashEthereumAddress(order.senderAddress),
-    undefined,
     order.txCompletionTime,
     order.ref,
   );
@@ -140,7 +139,6 @@ export const dispatchSolanaWithdrawForOrder = async (
     buildOrderFeeStructure(order),
     hashEthereumAddress(order.senderAddress),
     recipientAmounts,
-    undefined,
     order.txCompletionTime,
     order.ref,
   );
