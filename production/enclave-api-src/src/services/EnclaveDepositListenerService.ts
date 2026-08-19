@@ -74,11 +74,11 @@ class EnclaveDepositListenerService {
   }
 
   private async initSolanaChain(chainId: number, fromSlot: number): Promise<void> {
-    const { fetchRpcUrl, contractData, maxPageSize } = networkRegistry[chainId];
+    const { rpcUrl, contractData, maxPageSize } = networkRegistry[chainId];
     const { hinkalAddress, hinkalIdl } = contractData;
-    if (!fetchRpcUrl || !hinkalAddress || !hinkalIdl) return;
+    if (!hinkalAddress || !hinkalIdl) return;
 
-    const connection = new Connection(fetchRpcUrl, 'confirmed');
+    const connection = new Connection(rpcUrl, 'confirmed');
     this.solanaConnection = connection;
 
     const mutex = getChainBalanceFetchingMutex(chainId);
@@ -285,9 +285,8 @@ class EnclaveDepositListenerService {
   }
 
   private async fetchSolanaHead(chainId: number): Promise<number> {
-    const { fetchRpcUrl } = networkRegistry[chainId];
-    if (!fetchRpcUrl) throw new Error(`Missing fetchRpcUrl for chain ${chainId}`);
-    const connection = new Connection(fetchRpcUrl, 'confirmed');
+    const { rpcUrl } = networkRegistry[chainId];
+    const connection = new Connection(rpcUrl, 'confirmed');
     return connection.getSlot();
   }
 

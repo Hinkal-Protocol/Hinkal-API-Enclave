@@ -8,7 +8,7 @@ export const verifyTronSignature = (
   chainId: number,
 ): boolean => {
   try {
-    const tronWeb = new TronWeb({ fullHost: networkRegistry[chainId].fetchRpcUrl });
+    const tronWeb = new TronWeb({ fullHost: networkRegistry[chainId].rpcUrl });
     const recovered = tronWeb.utils.message.verifyMessage(message, signature);
     return recovered === tronAddress;
   } catch {

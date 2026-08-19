@@ -24,9 +24,8 @@ import {
 import type { SolanaTestWallet } from './solanaTestWallet';
 
 const getSolanaConnection = (chainId: number) => {
-  const { fetchRpcUrl } = networkRegistry[chainId];
-  if (!fetchRpcUrl) throw new Error(`No RPC URL configured for chain ${chainId}`);
-  return createCustomSolanaConnection(fetchRpcUrl);
+  const { rpcUrl } = networkRegistry[chainId];
+  return createCustomSolanaConnection(rpcUrl);
 };
 
 const SOLANA_BALANCE_SETTLE_MS = 15_000;

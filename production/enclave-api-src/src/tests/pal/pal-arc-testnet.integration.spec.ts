@@ -98,8 +98,7 @@ describe('PAL Arc testnet E2E (EVM)', () => {
 
   beforeAll(() => {
     const apiKey = requireEnv('ENCLAVE_TESTING_PAL_API_KEY').trim();
-    const rpcUrl = networkRegistry[CHAIN_ID].fetchRpcUrl;
-    if (!rpcUrl) throw new Error(`No fetchRpcUrl for chain ${CHAIN_ID}`);
+    const { rpcUrl } = networkRegistry[CHAIN_ID];
 
     client = new WaasHttpClient(ENCLAVE_API_URL, apiKey);
     provider = new ethers.JsonRpcProvider(rpcUrl);
