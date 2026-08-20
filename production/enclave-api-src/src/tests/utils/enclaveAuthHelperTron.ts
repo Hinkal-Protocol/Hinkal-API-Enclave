@@ -124,6 +124,7 @@ export const buildWithdrawAuthFieldsTron = (
     recipientAddress: string;
     feeToken?: string;
     feeStructure?: SerializedFeeStructure;
+    ref?: string;
   },
 ) =>
   signEnclaveTypedDataTron(session.sessionId, tronWeb, (nonce, sessionId) =>

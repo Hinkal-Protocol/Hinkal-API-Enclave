@@ -133,6 +133,7 @@ export const buildWithdrawAuthFields = (
     recipientAddress: string;
     feeToken?: string;
     feeStructure?: SerializedFeeStructure;
+    ref?: string;
   },
 ) =>
   signEnclaveTypedData(session.sessionId, wallet, (nonce, sessionId) =>

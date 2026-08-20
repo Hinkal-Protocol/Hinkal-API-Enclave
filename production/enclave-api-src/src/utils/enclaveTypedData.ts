@@ -229,6 +229,7 @@ const buildTransferLikeTypedData = (
     chainId: BigInt(params.chainId),
     tokenAmounts: toTokenAmountValues(pairs),
     recipient: params.recipientAddress,
+    ...(params.ref !== undefined ? { ref: params.ref } : {}),
     ...buildFeeValueFields(params),
   });
 };

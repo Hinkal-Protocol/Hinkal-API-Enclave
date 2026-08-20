@@ -43,7 +43,8 @@ export const buildSolanaDepositForOtherMessage = (params: TokenAmountsFields & {
   `${buildTokenAmountsMessage('DepositForOther', params)}\nRecipient Info: ${params.recipientInfo}`;
 
 const buildTransferLikeMessage = (primaryType: string, params: TransferLikeAuthFields): string =>
-  `${buildTokenAmountsMessage(primaryType, params)}\nRecipient: ${params.recipientAddress}${renderFeeFields(params)}`;
+  `${buildTokenAmountsMessage(primaryType, params)}\nRecipient: ${params.recipientAddress}${renderFeeFields(params)}` +
+  `${params.ref !== undefined ? `\nRef: ${params.ref}` : ''}`;
 
 export const buildSolanaWithdrawMessage = (params: TransferLikeAuthFields): string =>
   buildTransferLikeMessage('Withdraw', params);

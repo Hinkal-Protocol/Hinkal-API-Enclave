@@ -2,6 +2,7 @@ import {
   ENCLAVE_API_URL,
   ExternalActionId,
   HINKAL_PRIVATE_SEND_VARIABLE_RATE,
+  HINKAL_UNSHIELD_VARIABLE_RATE,
   httpClient,
   TxHashResponse,
   waitForTransactionConfirmation,
@@ -42,7 +43,11 @@ describe('withdraw route (Solana mainnet)', () => {
       [WITHDRAW_AMOUNT],
     );
 
-    const totalRelayFee = solanaRelayFee(feeStructure.flatFee, feeStructure.variableRate, WITHDRAW_AMOUNT);
+    const totalRelayFee = solanaRelayFee(
+      feeStructure.flatFee,
+      HINKAL_UNSHIELD_VARIABLE_RATE.toString(),
+      WITHDRAW_AMOUNT,
+    );
     const depositAmount = WITHDRAW_AMOUNT + totalRelayFee;
     await depositUsdcToPrivate(wallet, depositAmount, authFields, SOLANA_MAINNET_USDC_ADDRESS, true);
 
