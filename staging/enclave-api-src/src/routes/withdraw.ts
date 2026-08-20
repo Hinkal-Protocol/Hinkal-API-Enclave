@@ -1,10 +1,12 @@
-import { getErrorMessage, isSolanaLike, TxHashResponse } from '@hinkal/common';
+import { getErrorMessage, HINKAL_UNSHIELD_VARIABLE_RATE, isSolanaLike, TxHashResponse } from '@hinkal/common';
+import { createHash } from 'crypto';
 import { Request, Response, Router } from 'express';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { WithdrawRequest } from '../types/route.types';
 import { parseFeeStructure } from '../utils/parseFeeStructure';
 import { verifyWithdrawSignatureMiddleware } from '../middleware';
 import { getERC20Token } from '@hinkal/erc20-registry';
+import { WITHDRAW_REF_HASH_VARIABLE_RATE_BPS } from '../constants/withdrawRefVariableRates';
 
 const router = Router();
 
@@ -13,7 +15,7 @@ router.post(
   verifyWithdrawSignatureMiddleware,
   async (req: Request<object, TxHashResponse, WithdrawRequest>, res: Response<TxHashResponse>) => {
     try {
-      const { chainId, tokenAddresses, amounts, recipientAddress, feeToken, feeStructure } =
+      const { chainId, tokenAddresses, amounts, recipientAddress, feeToken, feeStructure, ref } =
         req.body as WithdrawRequest;
 
       if (tokenAddresses.length !== amounts.length) {
@@ -30,6 +32,12 @@ router.post(
       }
 
       const resolvedFeeToken = isSolanaLike(chainId) ? tokenAddresses[0] : feeToken;
+
+      const refHash = createHash('sha256')
+        .update(ref ?? '')
+        .digest('hex');
+      const resolvedVariableRate = WITHDRAW_REF_HASH_VARIABLE_RATE_BPS[refHash] ?? HINKAL_UNSHIELD_VARIABLE_RATE;
+
       const txData = await hinkalInitializerService.withHinkalForAddress(
         res.locals.address,
         chainId,
@@ -41,6 +49,7 @@ router.post(
             false,
             resolvedFeeToken,
             parseFeeStructure(feeStructure),
+            resolvedVariableRate,
           );
         },
       );

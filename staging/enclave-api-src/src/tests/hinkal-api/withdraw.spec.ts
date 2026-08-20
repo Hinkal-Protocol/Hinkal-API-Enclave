@@ -1,9 +1,11 @@
 import {
   ARC_TESTNET_USDC_ADDRESS,
+  calculateTotalFee,
   chainIds,
   ENCLAVE_API_URL,
   ERC20ABI,
   ExternalActionId,
+  HINKAL_UNSHIELD_VARIABLE_RATE,
   httpClient,
   TxHashResponse,
   waitForEthereumTransactionConfirmation,
@@ -92,9 +94,13 @@ describe('withdraw route', () => {
       authFields,
     );
 
+    const totalFee = calculateTotalFee(WITHDRAW_AMOUNT, {
+      feeToken: ARC_TESTNET_USDC_ADDRESS,
+      flatFee: BigInt(feeStructure.flatFee),
+      variableRate: HINKAL_UNSHIELD_VARIABLE_RATE,
+    });
+
     expect(balanceAfterWithdraw - balanceBeforeWithdraw).toBeGreaterThan(0n);
-    expect(privateBalanceAfterWithdraw - privateBalanceBeforeWithdraw).toEqual(
-      -WITHDRAW_AMOUNT - BigInt(feeStructure.flatFee),
-    );
+    expect(privateBalanceAfterWithdraw - privateBalanceBeforeWithdraw).toEqual(-WITHDRAW_AMOUNT - totalFee);
   });
 });

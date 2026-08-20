@@ -108,6 +108,14 @@ const parseFeeFields = (body: Record<string, unknown>): ParseResult<FeeAuthField
   return { ok: true, value: { feeToken, feeStructure: { feeToken: ft, flatFee, variableRate } } };
 };
 
+const parseRef = (body: Record<string, unknown>): ParseResult<string | undefined> => {
+  const rawRef = body.ref;
+  if (typeof rawRef === 'string' && containsControlChars(rawRef)) {
+    return { ok: false, error: 'Invalid ref' };
+  }
+  return { ok: true, value: typeof rawRef === 'string' && rawRef ? rawRef : undefined };
+};
+
 export const parseTokenTransferAuthBody = (
   body: Record<string, unknown>,
 ): ParseResult<
@@ -147,6 +155,7 @@ export const parseTokenWithdrawAuthBody = (
     recipientAddress: string;
     feeToken?: string;
     feeStructure?: SerializedFeeStructure;
+    ref?: string;
   }
 > => {
   const deposit = parseTokenDepositAuthBody(body);
@@ -158,12 +167,16 @@ export const parseTokenWithdrawAuthBody = (
   const fee = parseFeeFields(body);
   if (fee.ok === false) return fee;
 
+  const ref = parseRef(body);
+  if (ref.ok === false) return ref;
+
   return {
     ok: true,
     value: {
       ...deposit.value,
       recipientAddress: recipient.value,
       ...fee.value,
+      ref: ref.value,
     },
   };
 };

@@ -2,6 +2,7 @@ import {
   ENCLAVE_API_URL,
   ExternalActionId,
   HINKAL_PRIVATE_SEND_VARIABLE_RATE,
+  HINKAL_UNSHIELD_VARIABLE_RATE,
   httpClient,
   TxHashResponse,
   waitForTransactionConfirmation,
@@ -41,7 +42,7 @@ describe('withdraw route (Tron Nile)', () => {
       HINKAL_PRIVATE_SEND_VARIABLE_RATE,
     );
 
-    const totalRelayFee = tronRelayFee(feeStructure.flatFee, feeStructure.variableRate, WITHDRAW_AMOUNT);
+    const totalRelayFee = tronRelayFee(feeStructure.flatFee, HINKAL_UNSHIELD_VARIABLE_RATE.toString(), WITHDRAW_AMOUNT);
     const depositAmount = WITHDRAW_AMOUNT + totalRelayFee;
     await depositUsdtToPrivate(wallet, depositAmount, authFields, TRON_NILE_USDT_ADDRESS, true);
 

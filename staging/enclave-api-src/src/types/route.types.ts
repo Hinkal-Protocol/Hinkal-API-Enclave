@@ -54,6 +54,7 @@ export type WithdrawRequest = {
   recipientAddress: string;
   feeToken?: string;
   feeStructure?: FeeStructure<string>;
+  ref?: string;
 };
 
 export type TransferRequest = {
