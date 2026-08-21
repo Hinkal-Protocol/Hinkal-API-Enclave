@@ -62,6 +62,7 @@ export const executePrivateSwap = async (params: PrivateSwapExecutionParams): Pr
         swapData,
         outToken.erc20TokenAddress,
         feeStructureOverride,
+        parsedSlippage,
       );
     },
   );
