@@ -1,4 +1,4 @@
-import { getErrorMessage, isSolanaLike, TxHashResponse } from '@hinkal/common';
+import { getErrorMessage, HINKAL_PRIVATE_SEND_VARIABLE_RATE, isSolanaLike, TxHashResponse } from '@hinkal/common';
 import { Request, Response, Router } from 'express';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { TransferRequest } from '../types/route.types';
@@ -14,8 +14,7 @@ router.post(
   verifyTransferSignatureMiddleware,
   async (req: Request<object, TxHashResponse, TransferRequest>, res: Response<TxHashResponse>) => {
     try {
-      const { chainId, tokenAddresses, amounts, recipientAddress, feeToken, feeStructure } =
-        req.body as TransferRequest;
+      const { chainId, tokenAddresses, amounts, recipientAddress, feeToken, feeAmount } = req.body as TransferRequest;
 
       if (tokenAddresses.length !== amounts.length) {
         res.status(400).json({ success: false, error: 'Token addresses and amounts must have the same length' });
@@ -32,6 +31,9 @@ router.post(
 
       const resolvedRecipientInfo = await resolveRecipientInfo(recipientAddress);
       const resolvedFeeToken = isSolanaLike(chainId) ? tokenAddresses[0] : feeToken;
+
+      const resolvedFeeStructure = parseFeeStructure(resolvedFeeToken, feeAmount, HINKAL_PRIVATE_SEND_VARIABLE_RATE);
+
       const txHash = await hinkalInitializerService.withHinkalForAddress(
         res.locals.address,
         chainId,
@@ -41,7 +43,7 @@ router.post(
             amounts.map((amount) => -1n * BigInt(amount)),
             resolvedRecipientInfo,
             resolvedFeeToken,
-            parseFeeStructure(feeStructure),
+            resolvedFeeStructure,
           );
         },
       );

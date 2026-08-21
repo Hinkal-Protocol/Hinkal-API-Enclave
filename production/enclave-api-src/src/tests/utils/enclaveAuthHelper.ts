@@ -15,7 +15,6 @@ import {
 } from '@hinkal/common';
 import { randomBytes, randomUUID } from 'crypto';
 import { ethers } from 'ethers';
-import type { SerializedFeeStructure } from '../../utils/enclaveAuthNormalization';
 import { EnclaveTypedDataPayload } from '../../types';
 import {
   buildDepositAndWithdrawTypedData,
@@ -116,7 +115,7 @@ export const buildTransferAuthFields = (
     amounts: string[];
     recipientAddress: string;
     feeToken?: string;
-    feeStructure?: SerializedFeeStructure;
+    feeAmount?: string;
   },
 ) =>
   signEnclaveTypedData(session.sessionId, wallet, (nonce, sessionId) =>
@@ -132,7 +131,7 @@ export const buildWithdrawAuthFields = (
     amounts: string[];
     recipientAddress: string;
     feeToken?: string;
-    feeStructure?: SerializedFeeStructure;
+    feeAmount?: string;
     ref?: string;
   },
 ) =>
@@ -150,7 +149,7 @@ export const buildSwapAuthFields = (
     externalActionId: string;
     swapData: string;
     feeToken?: string;
-    feeStructure?: SerializedFeeStructure;
+    feeAmount?: string;
   },
 ) =>
   signEnclaveTypedData(session.sessionId, wallet, (nonce, sessionId) =>

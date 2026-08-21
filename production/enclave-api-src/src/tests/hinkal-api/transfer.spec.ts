@@ -21,7 +21,7 @@ import {
   createEnclaveSession,
   requestSignatureGetHeader,
 } from '../utils/enclaveAuthHelper';
-import { fetchFeeStructure } from '../utils/fetchFeeStructure';
+import { fetchFee } from '../utils/fetchFee';
 import { getPrivateBalanceForToken } from '../utils/getPrivateBalance';
 
 const CHAIN_ID = chainIds.arcTestnet;
@@ -62,7 +62,7 @@ describe('transfer route', () => {
       authFields,
     );
 
-    const feeStructure = await fetchFeeStructure(
+    const feeAmount = await fetchFee(
       wallet,
       CHAIN_ID,
       ARC_TESTNET_USDC_ADDRESS,
@@ -72,16 +72,13 @@ describe('transfer route', () => {
       HINKAL_PRIVATE_SEND_VARIABLE_RATE,
     );
 
-    const txParams = {
+    const authParams = {
       chainId: CHAIN_ID,
       tokenAddresses: [ARC_TESTNET_USDC_ADDRESS],
       amounts: [TRANSFER_AMOUNT.toString()],
       recipientAddress: recipientInfo,
-    };
-    const authParams = {
-      ...txParams,
       feeToken: ARC_TESTNET_USDC_ADDRESS,
-      feeStructure,
+      feeAmount,
     };
     const { body, headers } = await buildAuthPost(authFields, CHAIN_ID, '/transfer', authParams, () =>
       buildTransferAuthFields(authFields, wallet, authParams),
@@ -105,9 +102,9 @@ describe('transfer route', () => {
       authFields,
     );
     const totalRelayFee = calculateTotalFee(TRANSFER_AMOUNT, {
-      feeToken: feeStructure.feeToken,
-      flatFee: BigInt(feeStructure.flatFee),
-      variableRate: BigInt(feeStructure.variableRate),
+      feeToken: ARC_TESTNET_USDC_ADDRESS,
+      flatFee: BigInt(feeAmount),
+      variableRate: HINKAL_PRIVATE_SEND_VARIABLE_RATE,
     });
     expect(privateBalanceAfterTransfer).toEqual(privateBalanceBeforeTransfer - totalRelayFee);
   });

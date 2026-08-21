@@ -15,7 +15,7 @@ router.post(
   verifyWithdrawSignatureMiddleware,
   async (req: Request<object, TxHashResponse, WithdrawRequest>, res: Response<TxHashResponse>) => {
     try {
-      const { chainId, tokenAddresses, amounts, recipientAddress, feeToken, feeStructure, ref } =
+      const { chainId, tokenAddresses, amounts, recipientAddress, feeToken, feeAmount, ref } =
         req.body as WithdrawRequest;
 
       if (tokenAddresses.length !== amounts.length) {
@@ -32,11 +32,11 @@ router.post(
       }
 
       const resolvedFeeToken = isSolanaLike(chainId) ? tokenAddresses[0] : feeToken;
-
       const refHash = createHash('sha256')
         .update(ref ?? '')
         .digest('hex');
       const resolvedVariableRate = WITHDRAW_REF_HASH_VARIABLE_RATE_BPS[refHash] ?? HINKAL_UNSHIELD_VARIABLE_RATE;
+      const feeStructureOverride = parseFeeStructure(resolvedFeeToken, feeAmount, resolvedVariableRate);
 
       const txData = await hinkalInitializerService.withHinkalForAddress(
         res.locals.address,
@@ -48,7 +48,7 @@ router.post(
             recipientAddress,
             false,
             resolvedFeeToken,
-            parseFeeStructure(feeStructure),
+            feeStructureOverride,
             resolvedVariableRate,
           );
         },

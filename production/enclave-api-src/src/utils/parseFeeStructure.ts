@@ -1,11 +1,15 @@
 import { FeeStructure } from '@hinkal/common';
 
-export const parseFeeStructure = (feeStructure?: FeeStructure<string>): FeeStructure<bigint> | undefined => {
-  if (!feeStructure) return undefined;
+export const parseFeeStructure = (
+  feeToken: string | undefined,
+  feeAmount: string | undefined,
+  variableRate: bigint,
+): FeeStructure<bigint> | undefined => {
+  if (!feeToken || !feeAmount) return undefined;
 
   return {
-    feeToken: feeStructure.feeToken,
-    flatFee: BigInt(feeStructure.flatFee),
-    variableRate: BigInt(feeStructure.variableRate),
+    feeToken,
+    flatFee: BigInt(feeAmount),
+    variableRate,
   };
 };

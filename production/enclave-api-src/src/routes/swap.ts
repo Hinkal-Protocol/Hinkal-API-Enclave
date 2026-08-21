@@ -1,4 +1,11 @@
-import { getErrorMessage, GetSwapDataResponse, isSolanaLike, Logger, TxHashResponse } from '@hinkal/common';
+import {
+  getErrorMessage,
+  GetSwapDataResponse,
+  HINKAL_SWAP_VARIABLE_RATE,
+  isSolanaLike,
+  Logger,
+  TxHashResponse,
+} from '@hinkal/common';
 import { Request, Response, Router } from 'express';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { getBestSwapQuote } from '../services/getBestSwapQuote';
@@ -14,7 +21,7 @@ router.post(
   verifySwapSignatureMiddleware,
   async (req: Request<object, TxHashResponse, SwapRequest>, res: Response<TxHashResponse>) => {
     try {
-      const { chainId, tokenAddresses, amounts, externalActionId, swapData, feeToken, feeStructure } =
+      const { chainId, tokenAddresses, amounts, externalActionId, swapData, feeToken, feeAmount } =
         req.body as SwapRequest;
 
       if (tokenAddresses.length !== amounts.length) {
@@ -39,7 +46,7 @@ router.post(
 
       const resolvedFeeToken = isSolanaLike(chainId) ? tokenAddresses[1] : feeToken;
 
-      const resolvedFeeStructure = parseFeeStructure(feeStructure);
+      const resolvedFeeStructure = parseFeeStructure(resolvedFeeToken, feeAmount, HINKAL_SWAP_VARIABLE_RATE);
       const txHash = await hinkalInitializerService.withHinkalForAddress(
         res.locals.address,
         chainId,

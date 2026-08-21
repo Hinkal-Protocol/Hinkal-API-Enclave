@@ -1,6 +1,6 @@
 import { getAddress } from 'ethers';
 import { BaseAuthFields, DepositAndWithdrawRecipient, ParseResult } from '../types';
-import type { FeeAuthFields, SerializedFeeStructure } from './enclaveAuthNormalization';
+import type { FeeAuthFields } from './enclaveAuthNormalization';
 
 const parseChainId = (chainId: unknown): number | undefined => {
   const parsed = typeof chainId === 'number' ? chainId : Number(chainId);
@@ -93,19 +93,13 @@ const parseFeeFields = (body: Record<string, unknown>): ParseResult<FeeAuthField
     return { ok: false, error: 'Invalid feeToken' };
   }
   const feeToken = typeof rawFeeToken === 'string' && rawFeeToken ? rawFeeToken : undefined;
-  const raw = body.feeStructure;
-  if (!raw) return { ok: true, value: { feeToken } };
-  if (typeof raw !== 'object' || Array.isArray(raw)) {
-    return { ok: false, error: 'Invalid feeStructure' };
+
+  const rawFeeAmount = body.feeAmount;
+  if (rawFeeAmount === undefined) return { ok: true, value: { feeToken } };
+  if (typeof rawFeeAmount !== 'string' || containsControlChars(rawFeeAmount)) {
+    return { ok: false, error: 'Invalid feeAmount' };
   }
-  const { feeToken: ft, flatFee, variableRate } = raw as Record<string, unknown>;
-  if (typeof ft !== 'string' || typeof flatFee !== 'string' || typeof variableRate !== 'string') {
-    return { ok: false, error: 'Invalid feeStructure' };
-  }
-  if (containsControlChars(ft) || containsControlChars(flatFee) || containsControlChars(variableRate)) {
-    return { ok: false, error: 'Invalid feeStructure' };
-  }
-  return { ok: true, value: { feeToken, feeStructure: { feeToken: ft, flatFee, variableRate } } };
+  return { ok: true, value: { feeToken, feeAmount: rawFeeAmount } };
 };
 
 const parseRef = (body: Record<string, unknown>): ParseResult<string | undefined> => {
@@ -124,7 +118,7 @@ export const parseTokenTransferAuthBody = (
     amounts: string[];
     recipientAddress: string;
     feeToken?: string;
-    feeStructure?: SerializedFeeStructure;
+    feeAmount?: string;
   }
 > => {
   const deposit = parseTokenDepositAuthBody(body);
@@ -154,7 +148,7 @@ export const parseTokenWithdrawAuthBody = (
     amounts: string[];
     recipientAddress: string;
     feeToken?: string;
-    feeStructure?: SerializedFeeStructure;
+    feeAmount?: string;
     ref?: string;
   }
 > => {
@@ -190,7 +184,7 @@ export const parseTokenSwapAuthBody = (
     externalActionId: string;
     swapData: string;
     feeToken?: string;
-    feeStructure?: SerializedFeeStructure;
+    feeAmount?: string;
   }
 > => {
   const deposit = parseTokenDepositAuthBody(body);
