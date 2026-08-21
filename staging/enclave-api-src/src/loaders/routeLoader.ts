@@ -13,7 +13,7 @@ import privateBalance from '../routes/balance';
 import deposit from '../routes/deposit';
 import withdraw from '../routes/withdraw';
 import transfer from '../routes/transfer';
-import getFeeStructureRoute from '../routes/get-fee-structure';
+import getFeeRoute from '../routes/get-fee';
 import swap from '../routes/swap';
 import organization from '../routes/waas/waas-organization';
 import user from '../routes/waas/waas-user';
@@ -50,7 +50,7 @@ export const loadRoutes = (app: Express) => {
   hinkalAPIRouter.use(deposit);
   hinkalAPIRouter.use(privateSend);
   hinkalAPIRouter.use(withdrawStuckUtxos);
-  hinkalAPIRouter.use(getFeeStructureRoute);
+  hinkalAPIRouter.use(getFeeRoute);
   hinkalAPIRouter.use(withdraw);
   hinkalAPIRouter.use(transfer);
   hinkalAPIRouter.use(swap);

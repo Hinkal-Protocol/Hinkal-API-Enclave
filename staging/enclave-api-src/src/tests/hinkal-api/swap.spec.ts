@@ -12,7 +12,7 @@ import { createJsonRpcProvider } from '@hinkal/common/functions/utils/create-pro
 import { requireEnv } from '@hinkal/common/functions/utils/requireEnv';
 import { depositUsdcToPrivate } from '../utils/enclaveIntegrationHelpers';
 import { buildAuthPost, buildSwapAuthFields, createEnclaveSession } from '../utils/enclaveAuthHelper';
-import { fetchFeeStructure } from '../utils/fetchFeeStructure';
+import { fetchFee } from '../utils/fetchFee';
 import { fetchSwapData } from '../utils/fetchSwapData';
 import { getPrivateBalanceForToken } from '../utils/getPrivateBalance';
 import { getERC20Token } from '@hinkal/erc20-registry';
@@ -79,14 +79,13 @@ describe('swap routes', () => {
     const inSwapAmountWei = getAmountInWei(inSwapToken, SWAP_INPUT_AMOUNT);
     const outSwapAmount = (BigInt(quotedOutSwapAmount) * (10000n - HINKAL_SWAP_VARIABLE_RATE)) / 10000n;
 
-    const feeStructure = await fetchFeeStructure(
+    const feeAmount = await fetchFee(
       wallet,
       CHAIN_ID,
       OPTIMISM_USDC_ADDRESS,
       [OPTIMISM_USDC_ADDRESS, OPTIMISM_USDT_ADDRESS],
       externalActionId,
       authFields,
-      HINKAL_SWAP_VARIABLE_RATE,
     );
 
     const txData = {
@@ -96,7 +95,7 @@ describe('swap routes', () => {
       externalActionId,
       swapData,
       feeToken: OPTIMISM_USDC_ADDRESS,
-      feeStructure,
+      feeAmount,
     };
 
     const { body, headers } = await buildAuthPost(authFields, CHAIN_ID, '/swap', txData, () =>
@@ -119,6 +118,6 @@ describe('swap routes', () => {
     const privateUsdtAfter = await getPrivateBalanceForToken(wallet, CHAIN_ID, OPTIMISM_USDT_ADDRESS, authFields);
 
     expect(privateUsdtAfter - privateUsdtBefore).toBeGreaterThanOrEqual(0n);
-    expect(privateUsdcBefore - privateUsdcAfter).toEqual(inSwapAmountWei + BigInt(feeStructure.flatFee));
+    expect(privateUsdcBefore - privateUsdcAfter).toEqual(inSwapAmountWei + BigInt(feeAmount));
   });
 });

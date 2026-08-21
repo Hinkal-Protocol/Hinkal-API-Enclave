@@ -13,7 +13,7 @@ import {
   createEnclaveSolanaSession,
 } from '../../utils/enclaveSolanaAuthHelper';
 import { depositUsdcToPrivate, getSolanaTokenBalance } from '../../utils/solanaIntegrationHelpers';
-import { fetchFeeStructure } from '../../utils/fetchFeeStructureSolana';
+import { fetchFee } from '../../utils/fetchFeeSolana';
 import { getPrivateBalanceForToken } from '../../utils/getPrivateBalanceSolana';
 import { SOLANA_MAINNET_USDC_ADDRESS } from '../../utils/solanaTestConstants';
 import { getEnclaveSolanaTestWallet, type SolanaTestWallet } from '../../utils/solanaTestWallet';
@@ -33,7 +33,7 @@ describe('withdraw route (Solana mainnet)', () => {
   it('returns tx hash and increases public USDC balance after withdrawing from private balance', async () => {
     const authFields = await createEnclaveSolanaSession(wallet);
 
-    const feeStructure = await fetchFeeStructure(
+    const feeAmount = await fetchFee(
       wallet,
       SOLANA_MAINNET_USDC_ADDRESS,
       [SOLANA_MAINNET_USDC_ADDRESS],
@@ -43,11 +43,7 @@ describe('withdraw route (Solana mainnet)', () => {
       [WITHDRAW_AMOUNT],
     );
 
-    const totalRelayFee = solanaRelayFee(
-      feeStructure.flatFee,
-      HINKAL_UNSHIELD_VARIABLE_RATE.toString(),
-      WITHDRAW_AMOUNT,
-    );
+    const totalRelayFee = solanaRelayFee(feeAmount, HINKAL_UNSHIELD_VARIABLE_RATE.toString(), WITHDRAW_AMOUNT);
     const depositAmount = WITHDRAW_AMOUNT + totalRelayFee;
     await depositUsdcToPrivate(wallet, depositAmount, authFields, SOLANA_MAINNET_USDC_ADDRESS, true);
 
@@ -63,13 +59,10 @@ describe('withdraw route (Solana mainnet)', () => {
       tokenAddresses: [SOLANA_MAINNET_USDC_ADDRESS],
       amounts: [WITHDRAW_AMOUNT.toString()],
       recipientAddress: wallet.address,
+      feeAmount,
     };
-    const { body, headers } = buildAuthPostSolana(
-      authFields,
-      wallet.chainId,
-      '/withdraw',
-      { ...txParams, feeStructure },
-      () => buildSolanaWithdrawAuthFields(authFields, wallet, txParams),
+    const { body, headers } = buildAuthPostSolana(authFields, wallet.chainId, '/withdraw', txParams, () =>
+      buildSolanaWithdrawAuthFields(authFields, wallet, txParams),
     );
 
     const response = await httpClient.post<TxHashResponse>(

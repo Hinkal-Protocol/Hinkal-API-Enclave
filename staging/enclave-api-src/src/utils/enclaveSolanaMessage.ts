@@ -20,11 +20,8 @@ const renderRecipients = (recipients: { address: string; amount: string }[]): st
 const buildHeader = (primaryType: string, nonce: string, sessionId: string, chainId: number): string =>
   `${DOMAIN_NAME}\n\nPrimary Type: ${primaryType}\nSession ID: ${sessionId}\nNonce: ${nonce}\nChain ID: ${chainId}`;
 
-const renderFeeFields = (params: FeeAuthFields): string => {
-  if (!params.feeStructure) return '';
-  const { feeToken, flatFee, variableRate } = params.feeStructure;
-  return `\nFee Structure:\n    Fee Token: ${feeToken}\n    Flat Fee: ${flatFee}\n    Variable Rate: ${variableRate}`;
-};
+const renderFeeFields = (params: FeeAuthFields): string =>
+  params.feeAmount !== undefined ? `\nFee Amount: ${params.feeAmount}` : '';
 
 type TokenAmountsFields = BaseAuthFields & { tokenAddresses: string[]; amounts: string[] };
 

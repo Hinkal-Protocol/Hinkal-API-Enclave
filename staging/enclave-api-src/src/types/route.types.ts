@@ -1,4 +1,4 @@
-import { ExternalActionId, FailedResponse, FeeStructure } from '@hinkal/common';
+import { ExternalActionId, FailedResponse } from '@hinkal/common';
 import { ethers } from 'ethers';
 import type { Types as TronWebTypes } from 'tronweb';
 
@@ -53,7 +53,7 @@ export type WithdrawRequest = {
   amounts: string[];
   recipientAddress: string;
   feeToken?: string;
-  feeStructure?: FeeStructure<string>;
+  feeAmount?: string;
   ref?: string;
 };
 
@@ -64,7 +64,7 @@ export type TransferRequest = {
   amounts: string[];
   recipientAddress: string;
   feeToken?: string;
-  feeStructure?: FeeStructure<string>;
+  feeAmount?: string;
 };
 
 export type SwapRequest = {
@@ -75,7 +75,7 @@ export type SwapRequest = {
   externalActionId: ExternalActionId;
   swapData: string;
   feeToken?: string;
-  feeStructure?: FeeStructure<string>;
+  feeAmount?: string;
 };
 
 export type GetSwapDataRequest = {
@@ -87,13 +87,12 @@ export type GetSwapDataRequest = {
   slippagePercentage?: number;
 };
 
-export type GetFeeStructureRequest = {
+export type GetFeeRequest = {
   address: string;
   chainId: number;
   feeToken: string;
   tokenAddresses: string[];
   externalActionId: ExternalActionId;
-  variableRate?: string;
   mintFrom?: string;
 };
 

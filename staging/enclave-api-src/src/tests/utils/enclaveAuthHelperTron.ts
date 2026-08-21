@@ -17,7 +17,6 @@ import {
   buildWithdrawStuckUtxosTypedData,
   buildWithdrawTypedData,
 } from '../../utils/enclaveTypedData';
-import type { SerializedFeeStructure } from '../../utils/enclaveAuthNormalization';
 import {
   createEnclaveSessionFromSignature,
   type EnclaveTxAuthFields,
@@ -107,7 +106,7 @@ export const buildTransferAuthFieldsTron = (
     amounts: string[];
     recipientAddress: string;
     feeToken?: string;
-    feeStructure?: SerializedFeeStructure;
+    feeAmount?: string;
   },
 ) =>
   signEnclaveTypedDataTron(session.sessionId, tronWeb, (nonce, sessionId) =>
@@ -123,7 +122,7 @@ export const buildWithdrawAuthFieldsTron = (
     amounts: string[];
     recipientAddress: string;
     feeToken?: string;
-    feeStructure?: SerializedFeeStructure;
+    feeAmount?: string;
     ref?: string;
   },
 ) =>

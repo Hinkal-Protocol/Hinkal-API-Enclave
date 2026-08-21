@@ -19,7 +19,7 @@ import type { DepositAndWithdrawRecipient } from '../types';
 const ENCLAVE_TYPED_DATA_DOMAIN_NAME = 'Hinkal Enclave';
 
 const FEE_TOKEN_FIELD: TypedDataField = { name: 'feeToken', type: 'address' };
-const FEE_STRUCTURE_FIELD: TypedDataField = { name: 'feeStructure', type: 'FeeStructure' };
+const FEE_AMOUNT_FIELD: TypedDataField = { name: 'feeAmount', type: 'uint256' };
 const TX_COMPLETION_TIME_FIELD: TypedDataField = { name: 'txCompletionTime', type: 'uint256' };
 const REF_FIELD: TypedDataField = { name: 'ref', type: 'string' };
 
@@ -29,12 +29,8 @@ const buildFeeValueFields = (fields: FeeAuthFields) => {
   if (fields.feeToken) {
     value.feeToken = getAddress(fields.feeToken);
   }
-  if (fields.feeStructure) {
-    value.feeStructure = {
-      feeToken: getAddress(fields.feeStructure.feeToken),
-      flatFee: BigInt(fields.feeStructure.flatFee),
-      variableRate: BigInt(fields.feeStructure.variableRate),
-    };
+  if (fields.feeAmount !== undefined) {
+    value.feeAmount = BigInt(fields.feeAmount);
   }
 
   return value;
@@ -48,11 +44,6 @@ const ENCLAVE_TYPED_DATA_TYPES: Record<string, TypedDataField[]> = {
   RecipientAmount: [
     { name: 'recipient', type: 'address' },
     { name: 'amount', type: 'int256' },
-  ],
-  FeeStructure: [
-    { name: 'feeToken', type: 'address' },
-    { name: 'flatFee', type: 'uint256' },
-    { name: 'variableRate', type: 'uint256' },
   ],
   Deposit: [
     { name: 'nonce', type: 'string' },
@@ -123,7 +114,7 @@ const getPrimaryFields = (
   const fields = [...ENCLAVE_TYPED_DATA_TYPES[primaryType]];
 
   if (value.feeToken) fields.push(FEE_TOKEN_FIELD);
-  if (value.feeStructure) fields.push(FEE_STRUCTURE_FIELD);
+  if (value.feeAmount !== undefined) fields.push(FEE_AMOUNT_FIELD);
   if (value.txCompletionTime !== undefined) fields.push(TX_COMPLETION_TIME_FIELD);
   if (value.ref !== undefined) fields.push(REF_FIELD);
 

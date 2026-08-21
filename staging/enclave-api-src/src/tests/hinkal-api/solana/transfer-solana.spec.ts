@@ -15,7 +15,7 @@ import {
 } from '../../utils/enclaveSolanaAuthHelper';
 import { depositUsdcToPrivate } from '../../utils/solanaIntegrationHelpers';
 import { requestSignatureGetHeader } from '../../utils/enclaveAuthHelper';
-import { fetchFeeStructure } from '../../utils/fetchFeeStructureSolana';
+import { fetchFee } from '../../utils/fetchFeeSolana';
 import { getPrivateBalanceForToken } from '../../utils/getPrivateBalanceSolana';
 import { SOLANA_MAINNET_USDC_ADDRESS } from '../../utils/solanaTestConstants';
 import { getEnclaveSolanaTestWallet, type SolanaTestWallet } from '../../utils/solanaTestWallet';
@@ -35,7 +35,7 @@ describe('transfer route (Solana mainnet)', () => {
   it('returns tx hash after transferring USDC to a private recipient', async () => {
     const authFields = await createEnclaveSolanaSession(wallet);
 
-    const feeStructure = await fetchFeeStructure(
+    const feeAmount = await fetchFee(
       wallet,
       SOLANA_MAINNET_USDC_ADDRESS,
       [SOLANA_MAINNET_USDC_ADDRESS],
@@ -45,7 +45,7 @@ describe('transfer route (Solana mainnet)', () => {
       [TRANSFER_AMOUNT],
     );
 
-    const totalRelayFee = solanaRelayFee(feeStructure.flatFee, feeStructure.variableRate, TRANSFER_AMOUNT);
+    const totalRelayFee = solanaRelayFee(feeAmount, HINKAL_PRIVATE_SEND_VARIABLE_RATE.toString(), TRANSFER_AMOUNT);
     const depositAmount = TRANSFER_AMOUNT + totalRelayFee;
     await depositUsdcToPrivate(wallet, depositAmount, authFields, SOLANA_MAINNET_USDC_ADDRESS, true);
 
@@ -68,13 +68,10 @@ describe('transfer route (Solana mainnet)', () => {
       tokenAddresses: [SOLANA_MAINNET_USDC_ADDRESS],
       amounts: [TRANSFER_AMOUNT.toString()],
       recipientAddress: recipientInfo,
+      feeAmount,
     };
-    const { body, headers } = buildAuthPostSolana(
-      authFields,
-      wallet.chainId,
-      '/transfer',
-      { ...txParams, feeStructure },
-      () => buildSolanaTransferAuthFields(authFields, wallet, txParams),
+    const { body, headers } = buildAuthPostSolana(authFields, wallet.chainId, '/transfer', txParams, () =>
+      buildSolanaTransferAuthFields(authFields, wallet, txParams),
     );
 
     const response = await httpClient.post<TxHashResponse>(

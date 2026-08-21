@@ -2,11 +2,9 @@ import { BaseAuthFields, DepositAndWithdrawRecipient } from '../types';
 
 export type TokenAmountPair = { tokenAddress: string; amount: string };
 
-export type SerializedFeeStructure = { feeToken: string; flatFee: string; variableRate: string };
-
 export type FeeAuthFields = {
   feeToken?: string;
-  feeStructure?: SerializedFeeStructure;
+  feeAmount?: string;
 };
 
 export type TokenAmountsAuthFields = BaseAuthFields & { tokenAddresses: string[]; amounts: string[] };

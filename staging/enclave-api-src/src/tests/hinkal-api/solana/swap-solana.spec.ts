@@ -19,7 +19,7 @@ import {
   createEnclaveSolanaSession,
 } from '../../utils/enclaveSolanaAuthHelper';
 import { requestSignatureGetHeader } from '../../utils/enclaveAuthHelper';
-import { fetchFeeStructure } from '../../utils/fetchFeeStructureSolana';
+import { fetchFee } from '../../utils/fetchFeeSolana';
 import { SOLANA_MAINNET_CHAIN_ID, SOLANA_MAINNET_USDC_ADDRESS } from '../../utils/solanaTestConstants';
 import { getEnclaveSolanaTestWallet, type SolanaTestWallet } from '../../utils/solanaTestWallet';
 
@@ -108,7 +108,7 @@ describe('Solana swap routes', () => {
     const inSwapAmountWei = getAmountInWei(inSwapToken, SWAP_INPUT_AMOUNT);
     const tokenAddresses = [SOLANA_MAINNET_USDC_ADDRESS, SOLANA_MAINNET_USDT_ADDRESS];
 
-    const feeStructure = await fetchFeeStructure(
+    const feeAmount = await fetchFee(
       wallet,
       SOLANA_MAINNET_USDT_ADDRESS,
       tokenAddresses,
@@ -123,13 +123,12 @@ describe('Solana swap routes', () => {
       chainId: CHAIN_ID,
       tokenAddresses,
       amounts: [(-inSwapAmountWei).toString(), quotedOutSwapAmount],
+      externalActionId,
+      swapData,
+      feeAmount,
     };
-    const { body, headers } = buildAuthPostSolana(
-      authFields,
-      CHAIN_ID,
-      '/swap',
-      { ...txParams, externalActionId, swapData, feeStructure },
-      () => buildSolanaSwapAuthFields(authFields, wallet, txParams),
+    const { body, headers } = buildAuthPostSolana(authFields, CHAIN_ID, '/swap', txParams, () =>
+      buildSolanaSwapAuthFields(authFields, wallet, txParams),
     );
 
     const response = await httpClient.post<TxHashResponse>(

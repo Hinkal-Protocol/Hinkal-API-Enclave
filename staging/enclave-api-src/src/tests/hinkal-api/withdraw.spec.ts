@@ -15,7 +15,7 @@ import { createJsonRpcProvider } from '@hinkal/common/functions/utils/create-pro
 import { requireEnv } from '@hinkal/common/functions/utils/requireEnv';
 import { depositUsdcToPrivate } from '../utils/enclaveIntegrationHelpers';
 import { buildAuthPost, buildWithdrawAuthFields, createEnclaveSession } from '../utils/enclaveAuthHelper';
-import { fetchFeeStructure } from '../utils/fetchFeeStructure';
+import { fetchFee } from '../utils/fetchFee';
 import { getPrivateBalanceForToken } from '../utils/getPrivateBalance';
 
 const CHAIN_ID = chainIds.arcTestnet;
@@ -51,7 +51,7 @@ describe('withdraw route', () => {
       authFields,
     );
 
-    const feeStructure = await fetchFeeStructure(
+    const feeAmount = await fetchFee(
       wallet,
       CHAIN_ID,
       ARC_TESTNET_USDC_ADDRESS,
@@ -60,16 +60,13 @@ describe('withdraw route', () => {
       authFields,
     );
 
-    const txParams = {
+    const authParams = {
       chainId: CHAIN_ID,
       tokenAddresses: [ARC_TESTNET_USDC_ADDRESS],
       amounts: [WITHDRAW_AMOUNT.toString()],
       recipientAddress: wallet.address,
-    };
-    const authParams = {
-      ...txParams,
       feeToken: ARC_TESTNET_USDC_ADDRESS,
-      feeStructure,
+      feeAmount,
     };
     const { body, headers } = await buildAuthPost(authFields, CHAIN_ID, '/withdraw', authParams, () =>
       buildWithdrawAuthFields(authFields, wallet, authParams),
@@ -96,7 +93,7 @@ describe('withdraw route', () => {
 
     const totalFee = calculateTotalFee(WITHDRAW_AMOUNT, {
       feeToken: ARC_TESTNET_USDC_ADDRESS,
-      flatFee: BigInt(feeStructure.flatFee),
+      flatFee: BigInt(feeAmount),
       variableRate: HINKAL_UNSHIELD_VARIABLE_RATE,
     });
 

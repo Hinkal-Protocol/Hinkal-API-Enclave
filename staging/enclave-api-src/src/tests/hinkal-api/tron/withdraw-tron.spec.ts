@@ -13,7 +13,7 @@ import {
   buildWithdrawAuthFieldsTron,
   createEnclaveSessionTron,
 } from '../../utils/enclaveAuthHelperTron';
-import { fetchFeeStructure } from '../../utils/fetchFeeStructureTron';
+import { fetchFee } from '../../utils/fetchFeeTron';
 import { getPrivateBalanceForToken } from '../../utils/getPrivateBalanceTron';
 import { TRON_NILE_USDT_ADDRESS } from '../../utils/tronTestConstants';
 import { getEnclaveTronTestWallet, type TronTestWallet } from '../../utils/tronTestWallet';
@@ -33,7 +33,7 @@ describe('withdraw route (Tron Nile)', () => {
   it('returns tx hash and increases public USDT balance after withdrawing from private balance', async () => {
     const authFields = await createEnclaveSessionTron(wallet.tronWeb, wallet.address);
 
-    const feeStructure = await fetchFeeStructure(
+    const feeAmount = await fetchFee(
       wallet,
       TRON_NILE_USDT_ADDRESS,
       [TRON_NILE_USDT_ADDRESS],
@@ -42,23 +42,20 @@ describe('withdraw route (Tron Nile)', () => {
       HINKAL_PRIVATE_SEND_VARIABLE_RATE,
     );
 
-    const totalRelayFee = tronRelayFee(feeStructure.flatFee, HINKAL_UNSHIELD_VARIABLE_RATE.toString(), WITHDRAW_AMOUNT);
+    const totalRelayFee = tronRelayFee(feeAmount, HINKAL_UNSHIELD_VARIABLE_RATE.toString(), WITHDRAW_AMOUNT);
     const depositAmount = WITHDRAW_AMOUNT + totalRelayFee;
     await depositUsdtToPrivate(wallet, depositAmount, authFields, TRON_NILE_USDT_ADDRESS, true);
 
     const balanceBeforeWithdraw = await getTronUsdtBalance(wallet);
     const privateBalanceBeforeWithdraw = await getPrivateBalanceForToken(wallet, TRON_NILE_USDT_ADDRESS, authFields);
 
-    const txParams = {
+    const authParams = {
       chainId: wallet.chainId,
       tokenAddresses: [TRON_NILE_USDT_ADDRESS],
       amounts: [WITHDRAW_AMOUNT.toString()],
       recipientAddress: wallet.address,
-    };
-    const authParams = {
-      ...txParams,
       feeToken: TRON_NILE_USDT_ADDRESS,
-      feeStructure,
+      feeAmount,
     };
     const { body, headers } = buildAuthPostTron(authFields, wallet.chainId, '/withdraw', authParams, () =>
       buildWithdrawAuthFieldsTron(authFields, wallet.tronWeb, authParams),

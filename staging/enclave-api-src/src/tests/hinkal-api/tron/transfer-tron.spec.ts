@@ -15,7 +15,7 @@ import {
   createEnclaveSessionTron,
 } from '../../utils/enclaveAuthHelperTron';
 import { requestSignatureGetHeader } from '../../utils/enclaveAuthHelper';
-import { fetchFeeStructure } from '../../utils/fetchFeeStructureTron';
+import { fetchFee } from '../../utils/fetchFeeTron';
 import { getPrivateBalanceForToken } from '../../utils/getPrivateBalanceTron';
 import { TRON_NILE_USDT_ADDRESS } from '../../utils/tronTestConstants';
 import { getEnclaveTronTestWallet, type TronTestWallet } from '../../utils/tronTestWallet';
@@ -35,7 +35,7 @@ describe('transfer route (Tron Nile)', () => {
   it('returns tx hash after transferring USDT to a private recipient', async () => {
     const authFields = await createEnclaveSessionTron(wallet.tronWeb, wallet.address);
 
-    const feeStructure = await fetchFeeStructure(
+    const feeAmount = await fetchFee(
       wallet,
       TRON_NILE_USDT_ADDRESS,
       [TRON_NILE_USDT_ADDRESS],
@@ -44,7 +44,7 @@ describe('transfer route (Tron Nile)', () => {
       HINKAL_PRIVATE_SEND_VARIABLE_RATE,
     );
 
-    const totalRelayFee = tronRelayFee(feeStructure.flatFee, feeStructure.variableRate, TRANSFER_AMOUNT);
+    const totalRelayFee = tronRelayFee(feeAmount, HINKAL_PRIVATE_SEND_VARIABLE_RATE.toString(), TRANSFER_AMOUNT);
     const depositAmount = TRANSFER_AMOUNT + totalRelayFee;
     await depositUsdtToPrivate(wallet, depositAmount, authFields, TRON_NILE_USDT_ADDRESS, true);
 
@@ -58,16 +58,13 @@ describe('transfer route (Tron Nile)', () => {
 
     const privateBalanceBeforeTransfer = await getPrivateBalanceForToken(wallet, TRON_NILE_USDT_ADDRESS, authFields);
 
-    const txParams = {
+    const authParams = {
       chainId: wallet.chainId,
       tokenAddresses: [TRON_NILE_USDT_ADDRESS],
       amounts: [TRANSFER_AMOUNT.toString()],
       recipientAddress: recipientInfo,
-    };
-    const authParams = {
-      ...txParams,
       feeToken: TRON_NILE_USDT_ADDRESS,
-      feeStructure,
+      feeAmount,
     };
     const { body, headers } = buildAuthPostTron(authFields, wallet.chainId, '/transfer', authParams, () =>
       buildTransferAuthFieldsTron(authFields, wallet.tronWeb, authParams),

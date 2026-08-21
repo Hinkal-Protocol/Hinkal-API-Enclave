@@ -30,7 +30,7 @@ import {
   requestSignaturePostHeader,
 } from './enclaveAuthHelper';
 import { DepositResponse } from '../../types';
-import { fetchFeeStructure } from './fetchFeeStructure';
+import { fetchFee } from './fetchFee';
 
 export const getRecipientInfo = async (
   wallet: ethers.Wallet,
@@ -195,7 +195,7 @@ export const withdrawUsdc = async (
   recipientAddress: string,
   session: EnclaveSessionAuthFields,
 ): Promise<string> => {
-  const feeStructure = await fetchFeeStructure(
+  const feeAmount = await fetchFee(
     wallet,
     chainId,
     ARC_TESTNET_USDC_ADDRESS,
@@ -204,16 +204,13 @@ export const withdrawUsdc = async (
     session as EnclaveSessionAuthFields,
   );
 
-  const txParams = {
+  const authParams = {
     chainId,
     tokenAddresses: [ARC_TESTNET_USDC_ADDRESS],
     amounts: [amount.toString()],
     recipientAddress,
-  };
-  const authParams = {
-    ...txParams,
     feeToken: ARC_TESTNET_USDC_ADDRESS,
-    feeStructure,
+    feeAmount,
   };
   const { body, headers } = await buildAuthPost(session, chainId, '/withdraw', authParams, () =>
     buildWithdrawAuthFields(session, wallet as ethers.Wallet, authParams),
@@ -232,7 +229,7 @@ export const transferUsdc = async (
   recipientInfo: string,
   session: EnclaveSessionAuthFields,
 ): Promise<string> => {
-  const feeStructure = await fetchFeeStructure(
+  const feeAmount = await fetchFee(
     wallet,
     chainId,
     ARC_TESTNET_USDC_ADDRESS,
@@ -242,16 +239,13 @@ export const transferUsdc = async (
     HINKAL_PRIVATE_SEND_VARIABLE_RATE,
   );
 
-  const txParams = {
+  const authParams = {
     chainId,
     tokenAddresses: [ARC_TESTNET_USDC_ADDRESS],
     amounts: [amount.toString()],
     recipientAddress: recipientInfo,
-  };
-  const authParams = {
-    ...txParams,
     feeToken: ARC_TESTNET_USDC_ADDRESS,
-    feeStructure,
+    feeAmount,
   };
   const { body, headers } = await buildAuthPost(session, chainId, '/transfer', authParams, () =>
     buildTransferAuthFields(session, wallet as ethers.Wallet, authParams),
