@@ -1,11 +1,11 @@
 import { getErrorMessage, HINKAL_UNSHIELD_VARIABLE_RATE, isSolanaLike, TxHashResponse } from '@hinkal/common';
+import { createHash } from 'crypto';
 import { Request, Response, Router } from 'express';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { WithdrawRequest } from '../types/route.types';
 import { parseFeeStructure } from '../utils/parseFeeStructure';
 import { verifyWithdrawSignatureMiddleware } from '../middleware';
 import { getERC20Token } from '@hinkal/erc20-registry';
-import { createHash } from 'crypto';
 import { WITHDRAW_REF_HASH_VARIABLE_RATE_BPS } from '../constants/withdrawRefVariableRates';
 
 const router = Router();
