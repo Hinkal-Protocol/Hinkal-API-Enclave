@@ -76,18 +76,27 @@ export const fetchPrivateBalances = async (
     addressChainId,
     async (hinkal) => {
       const targetChainIds = chainId !== undefined ? [chainId] : hinkal.getSupportedChains();
-      const privateTokenBalancesByChain = await Promise.all(
+      const preparedChainIds: number[] = [];
+      await Promise.all(
         targetChainIds.map(async (targetChainId) => {
           try {
             await liveChainStateService.prepareHinkal(targetChainId, hinkal);
-            return await hinkal.getTotalBalance(targetChainId, undefined, undefined, false, true, useBlockedUtxos);
+            preparedChainIds.push(targetChainId);
           } catch (err) {
-            Logger.error(`Error fetching balances for chainId ${targetChainId}:`, err);
-            return [];
+            Logger.error(`Error preparing chainId ${targetChainId}:`, err);
           }
         }),
       );
-      const privateTokenBalances = privateTokenBalancesByChain.flat();
+
+      const privateTokenBalancesByChain = await hinkal.getTotalBalances(
+        preparedChainIds,
+        undefined,
+        undefined,
+        false,
+        true,
+        useBlockedUtxos,
+      );
+      const privateTokenBalances = [...privateTokenBalancesByChain.values()].flat();
 
       return privateTokenBalances
         .filter(({ balance }) => balance > 0n)

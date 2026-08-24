@@ -16,7 +16,10 @@ router.get(
         res.locals.address,
         chainIdNum,
         async (hinkal) => {
-          return hinkal.getTotalBalance(chainIdNum, undefined, undefined, false, true);
+          const balancesByChain = await hinkal.getTotalBalances([chainIdNum], undefined, undefined, false, true);
+          const chainBalances = balancesByChain.get(chainIdNum);
+          if (!chainBalances) throw new Error(`Failed to fetch balances for chainId ${chainIdNum}`);
+          return chainBalances;
         },
       );
 
@@ -44,7 +47,10 @@ router.get(
         res.locals.address,
         chainIdNum,
         async (hinkal) => {
-          return hinkal.getTotalBalance(chainIdNum, undefined, undefined, false, true, true);
+          const balancesByChain = await hinkal.getTotalBalances([chainIdNum], undefined, undefined, false, true, true);
+          const chainBalances = balancesByChain.get(chainIdNum);
+          if (!chainBalances) throw new Error(`Failed to fetch stuck balances for chainId ${chainIdNum}`);
+          return chainBalances;
         },
       );
 
