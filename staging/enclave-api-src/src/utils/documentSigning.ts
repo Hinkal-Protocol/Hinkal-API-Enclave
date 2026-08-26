@@ -67,16 +67,6 @@ export const verifyDocument = async (doc: Record<string, unknown>, label: string
 export const stripInternalFields = (doc: Record<string, unknown>): Record<string, unknown> =>
   Object.fromEntries(Object.entries(doc).filter(([k]) => !UNSIGNED_FIELDS.has(k)));
 
-export const encryptField = async (value: string): Promise<string> => {
-  const encrypted = await cryptoHelper.encrypt(Buffer.from(value, 'utf8'));
-  return encrypted.toString('base64');
-};
-
-export const decryptField = async (blob: string): Promise<string> => {
-  const decrypted = await cryptoHelper.decrypt(Buffer.from(blob, 'base64'));
-  return decrypted.toString('utf8');
-};
-
 export const toRecord = (doc: unknown): Record<string, unknown> | null | undefined => {
   if (doc == null) return doc as null | undefined;
   return doc as Record<string, unknown>;

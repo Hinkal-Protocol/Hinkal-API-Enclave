@@ -4,7 +4,6 @@ import { signResponseMiddleware } from '../middleware';
 import handshake from '../routes/handshake';
 import createSession from '../routes/create-session';
 import ping from '../routes/ping';
-import encryptPlaintextOrders from '../routes/encrypt-plaintext-orders';
 // import palOrder from '../routes/pal/pal-order';
 // import palQuote from '../routes/pal/pal-quote';
 // import palStatus from '../routes/pal/pal-status';
@@ -39,7 +38,6 @@ import info from '../routes/info';
 
 export const loadRoutes = (app: Express) => {
   app.use(BASE_URL, ping);
-  app.use(BASE_URL, encryptPlaintextOrders);
 
   // Hinkal API routes — all responses signed by the enclave
   const hinkalAPIRouter = Router();

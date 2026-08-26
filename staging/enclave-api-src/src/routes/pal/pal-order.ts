@@ -20,7 +20,7 @@ import {
   DepositAndWithdrawOrderStatus,
 } from '../../models/DepositAndWithdrawOrderSchema';
 import { hinkalInitializerService } from '../../services/hinkalInitializerService';
-import { encryptField, sealDocument } from '../../utils/documentSigning';
+import { sealDocument } from '../../utils/documentSigning';
 import { sendError } from '../../utils/routeError';
 import { palApiKeyMiddleware } from '../../middleware/palApiKeyMiddleware';
 import { getERC20Token } from '@hinkal/erc20-registry';
@@ -100,26 +100,19 @@ router.post('/pal/order', palApiKeyMiddleware, async (req: Request, res: Respons
     const totalAmount = utxoAmounts.reduce((sum, a) => sum + a, 0n);
     const fee = totalAmount - recipientAmount;
 
-    const [encryptedSenderAddress, encryptedRecipientAddress, encryptedAmount, encryptedUtxoAmounts] =
-      await Promise.all([
-        encryptField(String(senderAddress)),
-        encryptField(String(recipientAddress)),
-        encryptField(recipientAmount.toString()),
-        Promise.all(utxoAmounts.map((a) => encryptField(a.toString()))),
-      ]);
-
     const sealed = await sealDocument({
       orderId,
       chainId: parsed,
-      senderAddress: encryptedSenderAddress,
-      recipientAddress: encryptedRecipientAddress,
+      senderAddress: String(senderAddress),
+      recipientAddress: String(recipientAddress),
       tokenAddress: token.erc20TokenAddress,
-      amount: encryptedAmount,
+      amount: recipientAmount.toString(),
       feeToken: feeStructure.feeToken,
       flatFee: feeStructure.flatFee.toString(),
       variableRate: feeStructure.variableRate.toString(),
-      utxoAmounts: encryptedUtxoAmounts,
+      utxoAmounts: utxoAmounts.map((a) => a.toString()),
       status: DepositAndWithdrawOrderStatus.AwaitingDeposit,
+      preparedAt: new Date(),
     });
     await DepositAndWithdrawOrderModel.create(sealed);
 
