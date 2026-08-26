@@ -3,7 +3,7 @@ import {
   dispatchSolanaWithdrawForOrder,
   dispatchTronWithdrawForOrder,
 } from './dispatchWithdrawForOrder';
-import { extractMessage, isSolanaLike, isTronLike } from '@hinkal/common';
+import { extractMessage, isSolanaLike, isTronLike, Logger } from '@hinkal/common';
 import mongoose from 'mongoose';
 import {
   DepositAndWithdrawOrder,
@@ -11,9 +11,9 @@ import {
   DepositAndWithdrawOrderStatus,
 } from '../models/DepositAndWithdrawOrderSchema';
 import { hinkalInitializerService } from './hinkalInitializerService';
-import { publicDoc, replaceSignedDoc, verifyRawDoc } from '../utils/documentSigning';
+import { decryptField, publicDoc, replaceSignedDoc, verifyRawDoc } from '../utils/documentSigning';
 import { liveChainStateService } from '@hinkal/backend-common';
-import { assertUuid } from '../utils/queryGuards';
+import { assertUuid } from '../utils';
 
 const ORDER_LABEL = 'deposit-and-withdraw order';
 
@@ -23,27 +23,57 @@ const toRaw = (order: DepositAndWithdrawOrder & { _id: mongoose.Types.ObjectId }
   order as unknown as RawOrder;
 
 class EnclaveWithdrawDispatcherService {
-  async dispatchWithdraw(order: DepositAndWithdrawOrder & { _id: mongoose.Types.ObjectId }): Promise<void> {
-    if (!order.txHash) throw new Error(`Order ${order.orderId} missing txHash`);
-    const { txHash } = order;
+  private async decryptOrderAddresses(
+    order: DepositAndWithdrawOrder & { _id: mongoose.Types.ObjectId },
+  ): Promise<DepositAndWithdrawOrder & { _id: mongoose.Types.ObjectId }> {
+    const senderAddress = await decryptField(order.senderAddress);
+    const recipients = order.recipients
+      ? await Promise.all(
+          order.recipients.map(async (r) => ({
+            address: await decryptField(r.address),
+            amount: await decryptField(r.amount),
+          })),
+        )
+      : order.recipients;
+    const utxoAmounts = await Promise.all(order.utxoAmounts.map((a) => decryptField(a)));
+    const raw = order as unknown as Record<string, unknown>;
+    const recipientAddress =
+      typeof raw.recipientAddress === 'string' ? await decryptField(raw.recipientAddress) : undefined;
+    const amount = typeof raw.amount === 'string' ? await decryptField(raw.amount) : undefined;
+    return {
+      ...order,
+      senderAddress,
+      recipients,
+      utxoAmounts,
+      ...(recipientAddress !== undefined && { recipientAddress }),
+      ...(amount !== undefined && { amount }),
+    };
+  }
+
+  async dispatchWithdraw(
+    decryptedOrder: DepositAndWithdrawOrder & { _id: mongoose.Types.ObjectId },
+    encryptedOrderRaw: RawOrder,
+  ): Promise<void> {
+    if (!decryptedOrder.txHash) throw new Error(`Order ${decryptedOrder.orderId} missing txHash`);
+    const { txHash } = decryptedOrder;
 
     const scheduleId = await hinkalInitializerService.withHinkalForAddress(
-      order.senderAddress,
-      order.chainId,
+      decryptedOrder.senderAddress,
+      decryptedOrder.chainId,
       async (hinkal) => {
-        if (isSolanaLike(order.chainId)) {
-          return dispatchSolanaWithdrawForOrder(hinkal, { ...order, txHash });
+        if (isSolanaLike(decryptedOrder.chainId)) {
+          return dispatchSolanaWithdrawForOrder(hinkal, { ...decryptedOrder, txHash });
         }
-        if (isTronLike(order.chainId)) {
-          return dispatchTronWithdrawForOrder(hinkal, { ...order, txHash });
+        if (isTronLike(decryptedOrder.chainId)) {
+          return dispatchTronWithdrawForOrder(hinkal, { ...decryptedOrder, txHash });
         }
-        return dispatchEvmWithdrawForOrder(hinkal, { ...order, txHash });
+        return dispatchEvmWithdrawForOrder(hinkal, { ...decryptedOrder, txHash });
       },
     );
 
     await replaceSignedDoc(
       DepositAndWithdrawOrderModel.collection,
-      toRaw(order),
+      encryptedOrderRaw,
       { status: DepositAndWithdrawOrderStatus.WithdrawScheduled, scheduleId },
       { status: DepositAndWithdrawOrderStatus.DepositConfirmed },
     );
@@ -58,34 +88,42 @@ class EnclaveWithdrawDispatcherService {
     const claimed = await verifyRawDoc(raw as unknown as RawOrder | null, ORDER_LABEL);
     if (!claimed) return;
 
-    const order = claimed as unknown as DepositAndWithdrawOrder & { _id: mongoose.Types.ObjectId };
+    const encryptedOrder = claimed as unknown as DepositAndWithdrawOrder & { _id: mongoose.Types.ObjectId };
 
     const confirmed = await replaceSignedDoc(
       DepositAndWithdrawOrderModel.collection,
-      toRaw(order),
+      toRaw(encryptedOrder),
       { status: DepositAndWithdrawOrderStatus.DepositConfirmed, txHash: event.txHash },
       { status: DepositAndWithdrawOrderStatus.AwaitingDeposit },
     );
     if (!confirmed) return;
 
-    const confirmedOrder: DepositAndWithdrawOrder & { _id: mongoose.Types.ObjectId } = {
-      ...order,
+    const decryptedOrder = await this.decryptOrderAddresses(encryptedOrder);
+
+    const confirmedEncryptedRaw: RawOrder = {
+      ...toRaw(encryptedOrder),
+      status: DepositAndWithdrawOrderStatus.DepositConfirmed,
+      txHash: event.txHash,
+    };
+
+    const confirmedDecryptedOrder: DepositAndWithdrawOrder & { _id: mongoose.Types.ObjectId } = {
+      ...decryptedOrder,
       status: DepositAndWithdrawOrderStatus.DepositConfirmed,
       txHash: event.txHash,
     };
 
     try {
       await liveChainStateService.syncNow(event.chainId);
-      await this.dispatchWithdraw(confirmedOrder);
+      await this.dispatchWithdraw(confirmedDecryptedOrder, confirmedEncryptedRaw);
     } catch (err) {
       const failureReason = extractMessage(err) ?? String(err);
-      console.error(
+      Logger.error(
         `[EnclaveWithdrawDispatcherService] dispatchWithdraw failed for ${event.orderId}: ${failureReason}`,
         err,
       );
       await replaceSignedDoc(
         DepositAndWithdrawOrderModel.collection,
-        toRaw(confirmedOrder),
+        confirmedEncryptedRaw,
         { status: DepositAndWithdrawOrderStatus.Failed },
         { status: DepositAndWithdrawOrderStatus.DepositConfirmed },
       );

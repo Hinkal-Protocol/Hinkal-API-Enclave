@@ -22,7 +22,6 @@ export interface DepositAndWithdrawOrder {
   status: DepositAndWithdrawOrderStatus;
   txHash?: string;
   scheduleId?: string;
-  preparedAt: Date;
   enclaveHmac?: object;
 }
 
@@ -42,7 +41,6 @@ const DepositAndWithdrawOrderSchema = new Schema<DepositAndWithdrawOrder>(
     status: { type: String, enum: Object.values(DepositAndWithdrawOrderStatus), required: true },
     txHash: { type: String },
     scheduleId: { type: String },
-    preparedAt: { type: Date, required: true, default: () => new Date() },
     enclaveHmac: { type: Object },
   },
   { strict: false, versionKey: false },
