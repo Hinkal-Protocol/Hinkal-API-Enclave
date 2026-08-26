@@ -43,7 +43,7 @@ loadRoutes(app);
 if (DEPLOYMENT_MODE !== 'development') {
   setCustomProofGenerator(generateProof);
   setCustomUtxoDecryptor(decryptUtxosDirect);
-  provisionUtxoServerKey().catch((err) => Logger.error('provisionUtxoServerKey failed', getErrorMessage(err), err));
+  provisionUtxoServerKey().catch((err) => Logger.error('provisionUtxoServerKey failed:', getErrorMessage(err), err));
 }
 
 const resolveDbUri = async (): Promise<string> => {
