@@ -8,7 +8,7 @@ export const HEADER_ENCLAVE_SIGNATURE = 'x-hinkal-response-signature';
 
 export const MONGO_DUPLICATE_KEY_ERROR = 11000;
 
-export const { DEPLOYMENT_MODE } = process.env;
+export const DEPLOYMENT_MODE = requireEnv('DEPLOYMENT_MODE');
 
 const CRYPTO_MODE_BY_DEPLOYMENT: Record<string, CryptoMode> = {
   development: 'local',

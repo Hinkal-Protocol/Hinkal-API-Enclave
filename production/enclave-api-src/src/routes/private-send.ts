@@ -19,6 +19,7 @@ import { DepositAndWithdrawRequest } from '../types';
 import { WHITELISTED_REFERRALS } from '@hinkal/backend-common';
 import { ethers } from 'ethers';
 import { DepositAndWithdrawOrderModel, DepositAndWithdrawOrderStatus } from '../models';
+import { DEPLOYMENT_MODE } from '../constants';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { sealDocument } from '../utils/documentSigning';
 import { enclaveDepositDispatcherService } from '../services/EnclaveWithdrawDispatcherService';
@@ -118,6 +119,7 @@ router.post(
 
       const sealed = await sealDocument({
         orderId,
+        deploymentMode: DEPLOYMENT_MODE,
         chainId,
         senderAddress: res.locals.address,
         recipients,

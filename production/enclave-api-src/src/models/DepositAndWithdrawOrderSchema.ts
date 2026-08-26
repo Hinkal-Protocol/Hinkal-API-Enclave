@@ -9,6 +9,7 @@ export enum DepositAndWithdrawOrderStatus {
 
 export interface DepositAndWithdrawOrder {
   orderId: string;
+  deploymentMode?: string;
   chainId: number;
   senderAddress: string;
   recipients: { address: string; amount: string }[];
@@ -29,6 +30,7 @@ export interface DepositAndWithdrawOrder {
 const DepositAndWithdrawOrderSchema = new Schema<DepositAndWithdrawOrder>(
   {
     orderId: { type: String, required: true, unique: true, index: true },
+    deploymentMode: { type: String },
     chainId: { type: Number, required: true },
     senderAddress: { type: String, required: true },
     recipients: { type: [{ _id: false, address: String, amount: String }], required: true },
