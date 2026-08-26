@@ -19,6 +19,7 @@ import {
   DepositAndWithdrawOrderModel,
   DepositAndWithdrawOrderStatus,
 } from '../../models/DepositAndWithdrawOrderSchema';
+import { DEPLOYMENT_MODE } from '../../constants';
 import { hinkalInitializerService } from '../../services/hinkalInitializerService';
 import { sealDocument } from '../../utils/documentSigning';
 import { sendError } from '../../utils/routeError';
@@ -102,6 +103,7 @@ router.post('/pal/order', palApiKeyMiddleware, async (req: Request, res: Respons
 
     const sealed = await sealDocument({
       orderId,
+      deploymentMode: DEPLOYMENT_MODE,
       chainId: parsed,
       senderAddress: String(senderAddress),
       recipientAddress: String(recipientAddress),

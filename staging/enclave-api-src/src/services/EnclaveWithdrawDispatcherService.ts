@@ -14,6 +14,7 @@ import { hinkalInitializerService } from './hinkalInitializerService';
 import { publicDoc, replaceSignedDoc, verifyRawDoc } from '../utils/documentSigning';
 import { liveChainStateService } from '@hinkal/backend-common';
 import { assertUuid } from '../utils/queryGuards';
+import { DEPLOYMENT_MODE } from '../constants';
 
 const ORDER_LABEL = 'deposit-and-withdraw order';
 
@@ -53,6 +54,7 @@ class EnclaveWithdrawDispatcherService {
     const raw = await DepositAndWithdrawOrderModel.findOne({
       orderId: event.orderId,
       status: DepositAndWithdrawOrderStatus.AwaitingDeposit,
+      deploymentMode: DEPLOYMENT_MODE,
     }).lean();
 
     const claimed = await verifyRawDoc(raw as unknown as RawOrder | null, ORDER_LABEL);
@@ -93,7 +95,10 @@ class EnclaveWithdrawDispatcherService {
   }
 
   async getOrder(orderId: string): Promise<DepositAndWithdrawOrder | null> {
-    const raw = await DepositAndWithdrawOrderModel.findOne({ orderId: assertUuid(orderId, 'orderId') }).lean();
+    const raw = await DepositAndWithdrawOrderModel.findOne({
+      orderId: assertUuid(orderId, 'orderId'),
+      deploymentMode: DEPLOYMENT_MODE,
+    }).lean();
     const doc = await publicDoc(raw as unknown as RawOrder | null, ORDER_LABEL);
     return doc as unknown as DepositAndWithdrawOrder | null;
   }
