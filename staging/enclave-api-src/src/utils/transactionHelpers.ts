@@ -1,6 +1,7 @@
 import { isAddress } from 'ethers';
 import { getAnyRecipientInfo } from '@hinkal/common/API/getAnyRecipientInfo';
 import {
+  isNativePlaceholderAddress,
   isValidPrivateAddress,
   isValidSolanaPublicKey,
   isValidTronAddress,
@@ -39,6 +40,10 @@ export const resolveToken = (tokenAddress: unknown, chainId: number): ERC20Token
 };
 
 export const resolvePrivateRecipient = async (to: string): Promise<string> => {
+  if (isNativePlaceholderAddress(to)) {
+    throw new HttpError(400, 'Recipient must not be the native token placeholder address');
+  }
+
   const existing = await getAnyRecipientInfo(to);
   if (existing && isValidPrivateAddress(existing)) return existing;
 
@@ -47,6 +52,10 @@ export const resolvePrivateRecipient = async (to: string): Promise<string> => {
 
 export const resolveRecipientInfo = async (recipientInfo: string): Promise<string> => {
   if (isValidPrivateAddress(recipientInfo)) return recipientInfo;
+
+  if (isNativePlaceholderAddress(recipientInfo)) {
+    throw new HttpError(400, 'recipientInfo must not be the native token placeholder address');
+  }
 
   if (!isAddress(recipientInfo) && !isValidSolanaPublicKey(recipientInfo) && !isValidTronAddress(recipientInfo)) {
     throw new HttpError(

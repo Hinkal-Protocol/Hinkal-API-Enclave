@@ -7,6 +7,7 @@ import {
   hinkalPalEvmDepositPrepare,
   hinkalPalSolanaDepositPrepare,
   hinkalPalTronDepositPrepare,
+  isNativePlaceholderAddress,
   isSolanaLike,
   isTronLike,
   Logger,
@@ -49,6 +50,13 @@ router.post(
 
     if (ref !== undefined && !WHITELISTED_REFERRALS.includes(ref)) {
       res.status(400).json({ success: false, error: `Invalid ref: '${ref}' is not a whitelisted referral` });
+      return;
+    }
+
+    if (recipients.some((r) => isNativePlaceholderAddress(r.address, chainId))) {
+      res
+        .status(400)
+        .json({ success: false, error: 'Recipient address must not be the native token placeholder address' });
       return;
     }
 

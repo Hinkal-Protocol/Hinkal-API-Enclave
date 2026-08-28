@@ -9,6 +9,7 @@ import {
   hinkalPalSolanaDepositPrepare,
   hinkalPalTronDepositPrepare,
   HttpError,
+  isNativePlaceholderAddress,
   isSolanaLike,
   isTronLike,
   Logger,
@@ -42,6 +43,10 @@ router.post('/pal/order', palApiKeyMiddleware, async (req: Request, res: Respons
   try {
     const parsed = Number(chainId);
     if (!Number.isFinite(parsed)) throw new HttpError(400, 'Invalid chainId');
+
+    if (isNativePlaceholderAddress(String(recipientAddress), parsed)) {
+      throw new HttpError(400, 'recipientAddress must not be the native token placeholder address');
+    }
 
     const token = getERC20Token(String(sourceAssetId), parsed);
     if (!token) throw new HttpError(400, 'Token not found in registry for provided chainId');

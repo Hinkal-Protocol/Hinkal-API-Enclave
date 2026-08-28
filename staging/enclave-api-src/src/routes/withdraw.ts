@@ -1,4 +1,10 @@
-import { getErrorMessage, HINKAL_UNSHIELD_VARIABLE_RATE, isSolanaLike, TxHashResponse } from '@hinkal/common';
+import {
+  getErrorMessage,
+  HINKAL_UNSHIELD_VARIABLE_RATE,
+  isNativePlaceholderAddress,
+  isSolanaLike,
+  TxHashResponse,
+} from '@hinkal/common';
 import { createHash } from 'crypto';
 import { Request, Response, Router } from 'express';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
@@ -20,6 +26,13 @@ router.post(
 
       if (tokenAddresses.length !== amounts.length) {
         res.status(400).json({ success: false, error: 'Token addresses and amounts must have the same length' });
+        return;
+      }
+
+      if (isNativePlaceholderAddress(recipientAddress, chainId)) {
+        res
+          .status(400)
+          .json({ success: false, error: 'recipientAddress must not be the native token placeholder address' });
         return;
       }
 
