@@ -1,4 +1,10 @@
-import { hashEthereumAddress, isValidPrivateAddress, RECIPIENT_INFO_TARGET_POOL_SIZE } from '@hinkal/common';
+import {
+  getErrorMessage,
+  hashEthereumAddress,
+  isValidPrivateAddress,
+  Logger,
+  RECIPIENT_INFO_TARGET_POOL_SIZE,
+} from '@hinkal/common';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { PrivateSendRecipientInfoPool, RecipientInfoEntry } from '@hinkal/backend-common';
 
@@ -67,4 +73,12 @@ export const ensureRecipientInfoPoolForApi = async (
   doc.recipientInfos = refillRecipientInfoPool(doc.recipientInfos, recipientInfos, RECIPIENT_INFO_TARGET_POOL_SIZE);
 
   await doc.save();
+};
+
+export const ensureRecipientInfoPoolForApiInBackground = (
+  ...args: Parameters<typeof ensureRecipientInfoPoolForApi>
+): void => {
+  ensureRecipientInfoPoolForApi(...args).catch((err) =>
+    Logger.error('ensureRecipientInfoPoolForApi failed', getErrorMessage(err), err),
+  );
 };

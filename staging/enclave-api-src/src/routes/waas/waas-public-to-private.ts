@@ -3,7 +3,7 @@ import { constructStealthAddressStructure } from '@hinkal/common/functions/utils
 import { getAmountInWei } from '@hinkal/common/functions/web3/etherFunctions';
 import { parseChainId, resolvePrivateRecipient, resolveToken } from '../../utils/transactionHelpers';
 import { sendError } from '../../utils/routeError';
-import { ensureRecipientInfoPoolForApi } from '../../utils/ensureRecipientInfoPoolForApi';
+import { ensureRecipientInfoPoolForApiInBackground } from '../../utils/ensureRecipientInfoPoolForApi';
 import { hinkalInitializerService } from '../../services/hinkalInitializerService';
 import { xStampMiddleware } from '../../middleware';
 import { requireActionPermission, resolveTargetUser } from '../../utils';
@@ -48,7 +48,7 @@ router.post('/waas/public-to-private', xStampMiddleware, async (req: Request, re
       },
     );
 
-    ensureRecipientInfoPoolForApi(organizationId, userId, fromAddress, signerPublicKey, parsedChainId);
+    ensureRecipientInfoPoolForApiInBackground(organizationId, userId, fromAddress, signerPublicKey, parsedChainId);
 
     res.status(200).send({ status: 'success', data: { txHash } });
   } catch (err) {
