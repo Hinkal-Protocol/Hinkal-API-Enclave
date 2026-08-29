@@ -38,11 +38,10 @@ import info from '../routes/info';
 
 export const loadRoutes = (app: Express) => {
   app.use(BASE_URL, ping);
+  app.use(signResponseMiddleware);
   // app.use(BASE_URL, maintenance); // TEMPORARY
 
-  // Hinkal API routes — all responses signed by the enclave
   const hinkalAPIRouter = Router();
-  hinkalAPIRouter.use(signResponseMiddleware);
   hinkalAPIRouter.use(attestation);
   hinkalAPIRouter.use(createSession);
   hinkalAPIRouter.use(handshake);
