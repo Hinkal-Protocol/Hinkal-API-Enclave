@@ -53,6 +53,7 @@ class EnclaveWithdrawDispatcherService {
   async handleDeposit(event: { chainId: number; txHash: string; fromAddress: string; orderId: string }): Promise<void> {
     const raw = await DepositAndWithdrawOrderModel.findOne({
       orderId: event.orderId,
+      chainId: event.chainId,
       status: DepositAndWithdrawOrderStatus.AwaitingDeposit,
       deploymentMode: DEPLOYMENT_MODE,
     }).lean();
