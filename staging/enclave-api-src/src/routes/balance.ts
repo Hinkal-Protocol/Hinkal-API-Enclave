@@ -1,8 +1,7 @@
-import { BalanceResponse, getErrorMessage, RefreshCacheResponse } from '@hinkal/common';
+import { BalanceResponse, getErrorMessage } from '@hinkal/common';
 import { Request, Response, Router } from 'express';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
-import { verifyReadOnlySignatureMiddleware, verifySignatureMiddleware } from '../middleware';
-import { refreshAddressCache } from '../utils/balance.utils';
+import { verifyReadOnlySignatureMiddleware } from '../middleware';
 
 const router = Router();
 
@@ -21,6 +20,7 @@ router.get(
           if (!chainBalances) throw new Error(`Failed to fetch balances for chainId ${chainIdNum}`);
           return chainBalances;
         },
+        true,
       );
 
       res.status(200).json({
@@ -52,6 +52,7 @@ router.get(
           if (!chainBalances) throw new Error(`Failed to fetch stuck balances for chainId ${chainIdNum}`);
           return chainBalances;
         },
+        true,
       );
 
       res.status(200).json({
@@ -62,21 +63,6 @@ router.get(
           balance: balance.toString(),
         })),
       });
-    } catch (error) {
-      res.status(500).json({ success: false, error: getErrorMessage(error) });
-    }
-  },
-);
-
-router.post(
-  '/refresh-cache',
-  verifySignatureMiddleware,
-  async (req: Request<object, RefreshCacheResponse>, res: Response<RefreshCacheResponse>) => {
-    try {
-      const chainIdNum = Number(req.body.chainId);
-      await refreshAddressCache(res.locals.address, chainIdNum);
-
-      res.status(200).json({ success: true });
     } catch (error) {
       res.status(500).json({ success: false, error: getErrorMessage(error) });
     }

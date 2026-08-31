@@ -1,10 +1,4 @@
-import {
-  getErrorMessage,
-  Logger,
-  preProcessing,
-  setCustomProofGenerator,
-  setCustomUtxoDecryptor,
-} from '@hinkal/common';
+import { getErrorMessage, Logger, preProcessing, setCustomProofGenerator, setCustomUtxoProvider } from '@hinkal/common';
 import {
   applyPaidRpcUrlOverrides,
   liveChainStateService,
@@ -19,7 +13,7 @@ import { cryptoHelper } from './crypto';
 import { loadRoutes } from './loaders/routeLoader';
 import { enclaveDepositListenerService } from './services/EnclaveDepositListenerService';
 import { generateProof } from './utils/generateProof';
-import { decryptUtxosDirect } from './utils/decryptUtxosDirect';
+import { getUtxosFromUtxoServer } from './utils/utxoServerBalance';
 import { provisionUtxoServerKey } from './utils/provisionUtxoServerKey';
 
 applyPaidRpcUrlOverrides();
@@ -42,7 +36,7 @@ loadRoutes(app);
 
 if (DEPLOYMENT_MODE !== 'development') {
   setCustomProofGenerator(generateProof);
-  setCustomUtxoDecryptor(decryptUtxosDirect);
+  setCustomUtxoProvider(getUtxosFromUtxoServer);
   provisionUtxoServerKey().catch((err) => Logger.error('provisionUtxoServerKey failed', getErrorMessage(err), err));
 }
 

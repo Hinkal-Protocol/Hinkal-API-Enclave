@@ -21,8 +21,9 @@ class HinkalInitializerService {
     ethereumAddress: string,
     chainId: number,
     callback: (hinkal: Hinkal<unknown>) => Promise<T>,
+    skipMerkleTreeInit = false,
   ): Promise<T> {
-    const hinkal = await this.initalizeHinkalForAddress(ethereumAddress, chainId);
+    const hinkal = await this.initalizeHinkalForAddress(ethereumAddress, chainId, skipMerkleTreeInit);
     try {
       return await callback(hinkal);
     } finally {
@@ -66,19 +67,20 @@ class HinkalInitializerService {
     hinkal.initUserKeysWithSignature(loginSignature);
     await hinkal.switchNetwork(networkRegistry[chainId]);
     if (!skipMerkleTreeInit) {
-      await liveChainStateService.prepareHinkal(chainId, hinkal);
+      await liveChainStateService.syncNow(chainId, hinkal);
     }
   };
 
-  private async initalizeHinkalForAddress(ethereumAddress: string, chainId: number) {
+  private async initalizeHinkalForAddress(ethereumAddress: string, chainId: number, skipMerkleTreeInit = false) {
     const userKey = await userKeysService.findOrCreatePrivateKey(ethereumAddress);
     const hinkal = new Hinkal<unknown>({
       useFileCache: true,
       generateProofRemotely: false,
       allowParallelBalanceLocalDecryption: true,
+      trustLocalMerkleTree: true,
     });
     const { wallet, providerAdapter } = buildVoidProviderAdapter(chainId, ethereumAddress);
-    await this.finalizeHinkalInit(hinkal, wallet, providerAdapter, chainId, userKey);
+    await this.finalizeHinkalInit(hinkal, wallet, providerAdapter, chainId, userKey, skipMerkleTreeInit);
     return hinkal;
   }
 
@@ -94,6 +96,7 @@ class HinkalInitializerService {
       useFileCache: true,
       generateProofRemotely: false,
       allowParallelBalanceLocalDecryption: true,
+      trustLocalMerkleTree: true,
     });
 
     const { seedHash, childWallet } = await walletSecretsService.getSeedHashAndChildWallet(
