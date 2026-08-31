@@ -1,3 +1,4 @@
+import { liveChainStateService } from '@hinkal/backend-common';
 import {
   addressToHexFormat,
   chainIds,
@@ -9,11 +10,47 @@ import {
   isValidSolanaPublicKey,
   isValidTronAddress,
   Logger,
+  resetCache,
   TokenBalance,
   validateWalletAddressForChainId,
 } from '@hinkal/common';
 import { getErc20TokensForChain } from '@hinkal/erc20-registry';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
+
+export const refreshAddressCache = async (address: string, chainId: number) => {
+  await hinkalInitializerService.withHinkalForAddress(address, chainId, async (hinkal) => {
+    const shieldedPublicKey = hinkal.userKeys.getShieldedPublicKey();
+
+    hinkal.getSupportedChains().forEach((supportedChainId) => {
+      resetCache(hinkal, supportedChainId, shieldedPublicKey);
+    });
+  });
+};
+
+export const refreshUserCache = async (
+  organizationId: string,
+  userId: string,
+  signerPublicKey: string,
+  walletAddress: string,
+) => {
+  let addressChainId = chainIds.ethMainnet;
+  if (isValidTronAddress(walletAddress)) addressChainId = currentTronChainId;
+  else if (isValidSolanaPublicKey(walletAddress)) addressChainId = currentSolanaChainId;
+
+  await hinkalInitializerService.withHinkalForOrganization(
+    organizationId,
+    userId,
+    signerPublicKey,
+    walletAddress,
+    addressChainId,
+    async (hinkal) => {
+      const shieldedPublicKey = hinkal.userKeys.getShieldedPublicKey();
+      hinkal.getSupportedChains().forEach((chainId) => {
+        resetCache(hinkal, chainId, shieldedPublicKey);
+      });
+    },
+  );
+};
 
 export const fetchPrivateBalances = async (
   organizationId: string,
@@ -39,9 +76,20 @@ export const fetchPrivateBalances = async (
     addressChainId,
     async (hinkal) => {
       const targetChainIds = chainId !== undefined ? [chainId] : hinkal.getSupportedChains();
+      const preparedChainIds: number[] = [];
+      await Promise.all(
+        targetChainIds.map(async (targetChainId) => {
+          try {
+            await liveChainStateService.prepareHinkal(targetChainId, hinkal);
+            preparedChainIds.push(targetChainId);
+          } catch (err) {
+            Logger.error(`Error preparing chainId ${targetChainId}:`, err);
+          }
+        }),
+      );
 
       const privateTokenBalancesByChain = await hinkal.getTotalBalances(
-        targetChainIds,
+        preparedChainIds,
         undefined,
         undefined,
         false,
@@ -54,7 +102,6 @@ export const fetchPrivateBalances = async (
         .filter(({ balance }) => balance > 0n)
         .map(({ token, balance }) => ({ token, balance: balance.toString() }));
     },
-    true,
   );
 };
 

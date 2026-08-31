@@ -197,6 +197,19 @@ describe('WAAS transactions E2E (EVM)', () => {
         ctx.userKp,
       );
     });
+
+    it('GET /waas/refresh-cache', async () => {
+      await ctx.client.getJson<unknown>(
+        '/waas/refresh-cache',
+        {
+          organizationId: ctx.organizationId,
+          userId: ctx.userId,
+          walletAddress: ctx.evmAddress,
+          chainId: String(ctx.chainId),
+        },
+        ctx.userKp,
+      );
+    });
   });
 
   describe('wallet action routes (EVM)', () => {

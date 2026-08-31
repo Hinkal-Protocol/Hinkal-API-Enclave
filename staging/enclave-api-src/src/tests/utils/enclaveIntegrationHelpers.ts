@@ -9,6 +9,8 @@ import {
   HINKAL_PRIVATE_SEND_VARIABLE_RATE,
   httpClient,
   RecipientInfoResponse,
+  RefreshCacheResponse,
+  sessionBodyParams,
   sessionQueryParams,
   TxHashResponse,
   waitForEthereumTransactionConfirmation,
@@ -25,6 +27,7 @@ import {
   buildWithdrawAuthFields,
   buildWithdrawStuckUtxosAuthFields,
   requestSignatureGetHeader,
+  requestSignaturePostHeader,
 } from './enclaveAuthHelper';
 import { DepositResponse } from '../../types';
 import { fetchFee } from './fetchFee';
@@ -98,6 +101,17 @@ export const depositUsdcToPrivate = async (
 
   const txResponse = await wallet.sendTransaction(txData);
   await waitForEthereumTransactionConfirmation(chainId, txResponse.hash, TX_OPTS);
+};
+
+export const refreshCache = async (
+  wallet: ethers.Wallet | ethers.HDNodeWallet,
+  chainId: number,
+  authFields: EnclaveSessionAuthFields,
+): Promise<void> => {
+  const body = sessionBodyParams(authFields, chainId);
+  const headers = requestSignaturePostHeader(authFields, '/refresh-cache', body);
+  const response = await httpClient.post<RefreshCacheResponse>(`${ENCLAVE_API_URL}/refresh-cache`, body, { headers });
+  if (response.success === false) throw new Error(response.error);
 };
 
 export const getStuckUtxoBalance = async (
