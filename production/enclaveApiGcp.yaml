@@ -9,6 +9,7 @@ permissions:
   contents: read
 env:
   DEPLOYMENT_MODE: ${{ github.ref_name == 'production-api-v1' && 'production' || 'staging' }}
+  MODE_SHORT: ${{ github.ref_name == 'production-api-v1' && 'prod' || 'staging' }}
   FULL_DOMAIN_NAME: ${{ github.ref_name == 'production-api-v1' && 'api.hinkal.io' || 'api-staging.hinkal.io' }}
   DOMAIN_ZONE_NAME: hinkal-io-zone
   DNS_PROJECT: hinkal-backend
@@ -28,7 +29,7 @@ jobs:
       image_digest: ${{ steps.build.outputs.image-digest }}
       changed: ${{ steps.check.outputs.changed }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 2
 
@@ -47,6 +48,23 @@ jobs:
             echo "changed=false" >> $GITHUB_OUTPUT
           fi
 
+      - name: Extract enclave-api secrets
+        id: secrets
+        if: steps.check.outputs.changed == 'true'
+        shell: bash
+        env:
+          SECRETS_BLOB: ${{ env.DEPLOYMENT_MODE == 'production' && secrets.PROD_ENCLAVE_API_SECRETS || secrets.STAGING_ENCLAVE_API_SECRETS }}
+        run: |
+          for field in DB_URI_ENCRYPTED ENCLAVE_HMAC_ENCRYPTED_SEED ENCLAVE_UTXO_PRIVATE_KEY_ENCRYPTED; do
+            value=$(printf '%s' "$SECRETS_BLOB" | jq -r --arg f "$field" '.[$f]')
+            if [ -z "$value" ] || [ "$value" = "null" ]; then
+              echo "$field not found in enclave-api secrets blob" >&2
+              exit 1
+            fi
+            echo "::add-mask::$value"
+            echo "${field,,}=$value" >> "$GITHUB_OUTPUT"
+          done
+
       - name: Build and push image
         id: build
         if: steps.check.outputs.changed == 'true'
@@ -54,7 +72,15 @@ jobs:
         with:
           service: enclave-api
           tag-prefix: ${{ env.DEPLOYMENT_MODE }}
-          build-args: UTXO_BASE_IMAGE=${{ env.UTXO_BASE_IMAGE }}
+          build-args: |
+            UTXO_BASE_IMAGE=${{ env.UTXO_BASE_IMAGE }}
+            DEPLOYMENT_MODE=${{ env.DEPLOYMENT_MODE }}
+            MODE_SHORT=${{ env.MODE_SHORT }}
+            GCP_PROJECT_ID=${{ env.GCP_PROJECT }}
+            GCP_REGION=${{ env.GCP_REGION }}
+            DB_URI_ENCRYPTED=${{ steps.secrets.outputs.db_uri_encrypted }}
+            ENCLAVE_HMAC_ENCRYPTED_SEED=${{ steps.secrets.outputs.enclave_hmac_encrypted_seed }}
+            ENCLAVE_UTXO_PRIVATE_KEY_ENCRYPTED=${{ steps.secrets.outputs.enclave_utxo_private_key_encrypted }}
           gcp-project: ${{ env.GCP_PROJECT }}
           gcp-region: ${{ env.ARTIFACT_REGISTRY_REGION }}
           gcp-workload-identity-provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
@@ -65,10 +91,10 @@ jobs:
     if: needs.build-enclave-api.outputs.changed == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Install cosign
-        uses: sigstore/cosign-installer@v3
+        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3.9.1
 
       - name: Build JS bundle for audit
         run: |
@@ -124,23 +150,7 @@ jobs:
     needs: build-enclave-api
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Extract enclave-api secrets
-        id: secrets
-        shell: bash
-        env:
-          SECRETS_BLOB: ${{ env.DEPLOYMENT_MODE == 'production' && secrets.PROD_ENCLAVE_API_SECRETS || secrets.STAGING_ENCLAVE_API_SECRETS }}
-        run: |
-          for field in DB_URI_ENCRYPTED ENCLAVE_HMAC_ENCRYPTED_SEED DEPLOYMENT_MODE ENCLAVE_UTXO_PRIVATE_KEY_ENCRYPTED; do
-            value=$(printf '%s' "$SECRETS_BLOB" | jq -r --arg f "$field" '.[$f]')
-            if [ -z "$value" ] || [ "$value" = "null" ]; then
-              echo "$field not found in enclave-api secrets blob" >&2
-              exit 1
-            fi
-            echo "::add-mask::$value"
-            echo "${field,,}=$value" >> "$GITHUB_OUTPUT"
-          done
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Deploy via terraform
         uses: ./.github/actions/deploy-enclave-api-tf
@@ -155,6 +165,3 @@ jobs:
           domain-zone-name: ${{ env.DOMAIN_ZONE_NAME }}
           dns-project: ${{ env.DNS_PROJECT }}
           artifact-registry-region: ${{ env.ARTIFACT_REGISTRY_REGION }}
-          db-uri-encrypted: ${{ steps.secrets.outputs.db_uri_encrypted }}
-          enclave-hmac-encrypted-seed: ${{ steps.secrets.outputs.enclave_hmac_encrypted_seed }}
-          enclave-utxo-private-key-encrypted: ${{ steps.secrets.outputs.enclave_utxo_private_key_encrypted }}

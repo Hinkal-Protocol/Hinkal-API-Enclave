@@ -1,9 +1,10 @@
 import { Request, Response, Router } from 'express';
+import { isTronLike } from '@hinkal/common/constants/chains.constants';
 import { constructStealthAddressStructure } from '@hinkal/common/functions/utils/addresses';
 import { getAmountInWei } from '@hinkal/common/functions/web3/etherFunctions';
 import { parseChainId, resolvePrivateRecipient, resolveToken } from '../../utils/transactionHelpers';
 import { sendError } from '../../utils/routeError';
-import { ensureRecipientInfoPoolForApi } from '../../utils/ensureRecipientInfoPoolForApi';
+import { ensureRecipientInfoPoolForApiInBackground } from '../../utils/ensureRecipientInfoPoolForApi';
 import { hinkalInitializerService } from '../../services/hinkalInitializerService';
 import { xStampMiddleware } from '../../middleware';
 import { requireActionPermission, resolveTargetUser } from '../../utils';
@@ -29,6 +30,7 @@ router.post('/waas/public-to-private', xStampMiddleware, async (req: Request, re
 
     const parsedChainId = parseChainId(chainId);
     const token = resolveToken(tokenAddress, parsedChainId);
+    const isTron = isTronLike(parsedChainId);
     const recipientInfo = await resolvePrivateRecipient(String(to));
     const amountWei = getAmountInWei(token, String(amount));
     const txHash = await hinkalInitializerService.withHinkalForOrganization(
@@ -38,6 +40,9 @@ router.post('/waas/public-to-private', xStampMiddleware, async (req: Request, re
       fromAddress,
       parsedChainId,
       async (hinkal) => {
+        if (isTron) {
+          return hinkal.depositForOther([token], [amountWei], recipientInfo);
+        }
         const encryptionKey = recipientInfo.split(',')[5];
         return hinkal.prooflessDeposit(
           [token],
@@ -48,7 +53,7 @@ router.post('/waas/public-to-private', xStampMiddleware, async (req: Request, re
       },
     );
 
-    ensureRecipientInfoPoolForApi(organizationId, userId, fromAddress, signerPublicKey, parsedChainId);
+    ensureRecipientInfoPoolForApiInBackground(organizationId, userId, fromAddress, signerPublicKey, parsedChainId);
 
     res.status(200).send({ status: 'success', data: { txHash } });
   } catch (err) {

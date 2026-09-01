@@ -73,31 +73,6 @@ class EnclaveDepositListenerService {
     await emitter.init();
   }
 
-  private async initSolanaChain(chainId: number, fromSlot: number): Promise<void> {
-    const { rpcUrl, contractData, maxPageSize } = networkRegistry[chainId];
-    const { hinkalAddress, hinkalIdl } = contractData;
-    if (!hinkalAddress || !hinkalIdl) return;
-
-    const connection = new Connection(rpcUrl, 'confirmed');
-    this.solanaConnection = connection;
-
-    const mutex = getChainBalanceFetchingMutex(chainId);
-    const emitter = new PollingSolanaBlockchainEventEmitter(
-      chainId,
-      connection,
-      new PublicKey(hinkalAddress),
-      fromSlot,
-      false,
-      mutex,
-      maxPageSize,
-    );
-    emitter.setIdl(hinkalIdl);
-    emitter.addEventProcessorFunction(async (events, scannedToBlock) =>
-      this.processSolanaEvents(chainId, events, scannedToBlock),
-    );
-    await emitter.init();
-  }
-
   private async processEvmEvents(
     chainId: number,
     events: BlockchainEvent[],
@@ -206,6 +181,31 @@ class EnclaveDepositListenerService {
     } catch {
       return null;
     }
+  }
+
+  private async initSolanaChain(chainId: number, fromSlot: number): Promise<void> {
+    const { rpcUrl, contractData, maxPageSize } = networkRegistry[chainId];
+    const { hinkalAddress, hinkalIdl } = contractData;
+    if (!hinkalAddress || !hinkalIdl) return;
+
+    const connection = new Connection(rpcUrl, 'confirmed');
+    this.solanaConnection = connection;
+
+    const mutex = getChainBalanceFetchingMutex(chainId);
+    const emitter = new PollingSolanaBlockchainEventEmitter(
+      chainId,
+      connection,
+      new PublicKey(hinkalAddress),
+      fromSlot,
+      false,
+      mutex,
+      maxPageSize,
+    );
+    emitter.setIdl(hinkalIdl);
+    emitter.addEventProcessorFunction(async (events, scannedToBlock) =>
+      this.processSolanaEvents(chainId, events, scannedToBlock),
+    );
+    await emitter.init();
   }
 
   private async processSolanaEvents(

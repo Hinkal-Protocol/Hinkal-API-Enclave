@@ -6,7 +6,7 @@ import { getAmountInWei } from '@hinkal/common/functions/web3/etherFunctions';
 import { ExternalActionId } from '@hinkal/common/types/external-action.types';
 import { parseChainId, resolveToken } from '../../utils/transactionHelpers';
 import { sendError } from '../../utils/routeError';
-import { ensureRecipientInfoPoolForApi } from '../../utils/ensureRecipientInfoPoolForApi';
+import { ensureRecipientInfoPoolForApiInBackground } from '../../utils/ensureRecipientInfoPoolForApi';
 import { hinkalInitializerService } from '../../services/hinkalInitializerService';
 import { xStampMiddleware } from '../../middleware';
 import { requireActionPermission, resolveTargetUser } from '../../utils';
@@ -61,7 +61,7 @@ router.post('/waas/public-to-public', xStampMiddleware, async (req: Request, res
       },
     );
 
-    ensureRecipientInfoPoolForApi(organizationId, userId, fromAddress, signerPublicKey, parsedChainId);
+    ensureRecipientInfoPoolForApiInBackground(organizationId, userId, fromAddress, signerPublicKey, parsedChainId);
 
     res.status(200).send({ status: 'success', data: { txHash: depositTxHash, scheduleId } });
   } catch (err) {

@@ -1,5 +1,19 @@
-import { randomUUID } from 'crypto';
+import { createVerify, randomUUID } from 'crypto';
 import { buildXStamp, SignKeyPair } from './stamp';
+
+const HEADER_ENCLAVE_SIGNATURE = 'x-hinkal-response-signature';
+
+let attestedKey: Promise<string> | undefined;
+
+const verificationPublicKey = (baseUrl: string): Promise<string> => {
+  attestedKey ??= fetch(`${baseUrl}/attestation?nonce=${randomUUID()}`)
+    .then((res) => res.json() as Promise<{ verificationPublicKey?: string }>)
+    .then(({ verificationPublicKey: key }) => {
+      if (!key) throw new Error('enclave returned no verificationPublicKey to verify responses against');
+      return key;
+    });
+  return attestedKey;
+};
 
 export interface WaasSuccessEnvelope<T> {
   status: 'success';
@@ -25,6 +39,23 @@ export class WaasHttpClient {
     const root = this.baseUrl.replace(/\/+$/, '');
     const p = path.startsWith('/') ? path : `/${path}`;
     return `${root}${p}`;
+  }
+
+  /**
+   * TLS terminates at the load balancer, outside the TEE, so every WAAS response must carry the enclave's
+   * signature over the raw body and echo the request nonce.
+   */
+  private async assertSignedByEnclave(path: string, res: Response, text: string, nonce?: string): Promise<void> {
+    const signature = res.headers.get(HEADER_ENCLAVE_SIGNATURE);
+    if (!signature) throw new Error(`WAAS ${path} responded without ${HEADER_ENCLAVE_SIGNATURE}`);
+
+    const signed = createVerify('SHA256')
+      .update(text)
+      .verify({ key: await verificationPublicKey(this.baseUrl), dsaEncoding: 'ieee-p1363' }, signature, 'base64');
+    if (!signed) throw new Error(`WAAS ${path} response failed enclave signature verification`);
+
+    if (nonce && (JSON.parse(text) as { nonce?: string }).nonce !== nonce)
+      throw new Error(`WAAS ${path} response does not echo nonce ${nonce}`);
   }
 
   private parseEnvelope<T>(path: string, status: number, text: string): T {
@@ -58,6 +89,7 @@ export class WaasHttpClient {
       body: JSON.stringify(finalBody),
     });
     const text = await res.text();
+    await this.assertSignedByEnclave(path, res, text, finalBody.nonce as string | undefined);
     if (!res.ok) throw createHttpError(path, res.status, text);
     return this.parseEnvelope<T>(path, res.status, text);
   }
@@ -86,6 +118,7 @@ export class WaasHttpClient {
       body: JSON.stringify(finalBody),
     });
     const text = await res.text();
+    await this.assertSignedByEnclave(path, res, text, finalBody.nonce as string | undefined);
     let json: unknown = null;
     try {
       json = JSON.parse(text) as unknown;
@@ -117,6 +150,7 @@ export class WaasHttpClient {
     const fullPath = qs ? `${path}?${qs}` : path;
     const res = await fetch(this.url(fullPath), { method: 'GET', headers });
     const text = await res.text();
+    await this.assertSignedByEnclave(path, res, text, new URLSearchParams(qs).get('nonce') ?? undefined);
     if (!res.ok) throw createHttpError(path, res.status, text);
     return this.parseEnvelope<T>(path, res.status, text);
   }

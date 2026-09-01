@@ -8,7 +8,7 @@ import { ExternalActionId } from '@hinkal/common/types/external-action.types';
 import { parseChainId, resolvePrivateRecipient, resolveToken } from '../../utils/transactionHelpers';
 import { sendError } from '../../utils/routeError';
 import { hinkalInitializerService } from '../../services/hinkalInitializerService';
-import { ensureRecipientInfoPoolForApi } from '../../utils/ensureRecipientInfoPoolForApi';
+import { ensureRecipientInfoPoolForApiInBackground } from '../../utils/ensureRecipientInfoPoolForApi';
 import { xStampMiddleware } from '../../middleware';
 import { requireActionPermission, resolveTargetUser } from '../../utils';
 import { WaasPolicyAction } from '../../constants/policyActions';
@@ -75,7 +75,7 @@ router.post('/waas/private-to-private', xStampMiddleware, async (req: Request, r
       },
     );
 
-    ensureRecipientInfoPoolForApi(organizationId, userId, fromAddress, signerPublicKey, parsedChainId);
+    ensureRecipientInfoPoolForApiInBackground(organizationId, userId, fromAddress, signerPublicKey, parsedChainId);
 
     res.status(200).send({ status: 'success', data: { txHash } });
   } catch (err) {

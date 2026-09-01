@@ -1,11 +1,12 @@
 import { isAddress } from 'ethers';
-import { getAnyRecipientInfo } from '@hinkal/common/API/getAnyRecipientInfo';
 import {
+  isNativePlaceholderAddress,
   isValidPrivateAddress,
   isValidSolanaPublicKey,
   isValidTronAddress,
 } from '@hinkal/common/functions/utils/addresses';
 import { getRecipientInfoFromUserKeys } from '@hinkal/common/functions/utils/getRecipientInfoFromUserKeys';
+import { allocateRecipientInfos } from '@hinkal/common/functions/utils/enclave-recipient-info-storage';
 import { UserKeys } from '@hinkal/common/data-structures/crypto-keys/keys';
 import { getERC20Token } from '@hinkal/erc20-registry';
 import { ERC20Token } from '@hinkal/common/types/token.types';
@@ -39,7 +40,13 @@ export const resolveToken = (tokenAddress: unknown, chainId: number): ERC20Token
 };
 
 export const resolvePrivateRecipient = async (to: string): Promise<string> => {
-  const existing = await getAnyRecipientInfo(to);
+  if (isNativePlaceholderAddress(to)) {
+    throw new HttpError(400, 'Recipient must not be the native token placeholder address');
+  }
+
+  const [allocation] = await allocateRecipientInfos([to], true);
+
+  const existing = allocation?.recipientInfo;
   if (existing && isValidPrivateAddress(existing)) return existing;
 
   throw new HttpError(400, 'Could not resolve private recipient info from provided public address');
@@ -47,6 +54,10 @@ export const resolvePrivateRecipient = async (to: string): Promise<string> => {
 
 export const resolveRecipientInfo = async (recipientInfo: string): Promise<string> => {
   if (isValidPrivateAddress(recipientInfo)) return recipientInfo;
+
+  if (isNativePlaceholderAddress(recipientInfo)) {
+    throw new HttpError(400, 'recipientInfo must not be the native token placeholder address');
+  }
 
   if (!isAddress(recipientInfo) && !isValidSolanaPublicKey(recipientInfo) && !isValidTronAddress(recipientInfo)) {
     throw new HttpError(
