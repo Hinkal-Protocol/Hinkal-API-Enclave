@@ -1,6 +1,7 @@
 import {
   caseInsensitiveEqual,
   DepositAndWithdrawResponse,
+  ENCLAVE_PUBLIC_SEND_VARIABLE_RATE,
   ExternalActionId,
   getErrorMessage,
   getFeeStructure,
@@ -12,7 +13,6 @@ import {
   isTronLike,
   Logger,
   networkRegistry,
-  PAY_SEND_VARIABLE_RATE,
 } from '@hinkal/common';
 import { Request, Response, Router } from 'express';
 import { verifyDepositAndWithdrawSignatureMiddleware, verifyReadOnlySignatureMiddleware } from '../middleware';
@@ -77,7 +77,7 @@ router.post(
         [token.erc20TokenAddress],
         ExternalActionId.Transact,
         [],
-        PAY_SEND_VARIABLE_RATE,
+        ENCLAVE_PUBLIC_SEND_VARIABLE_RATE,
         isSolanaLike(chainId)
           ? { mintTo: token.erc20TokenAddress, recipient: recipients[0].address, nullifierCount: recipients.length }
           : undefined,

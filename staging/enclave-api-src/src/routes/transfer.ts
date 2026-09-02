@@ -1,4 +1,4 @@
-import { getErrorMessage, HINKAL_PRIVATE_SEND_VARIABLE_RATE, isSolanaLike, TxHashResponse } from '@hinkal/common';
+import { ENCLAVE_PRIVATE_SEND_VARIABLE_RATE, getErrorMessage, isSolanaLike, TxHashResponse } from '@hinkal/common';
 import { Request, Response, Router } from 'express';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { TransferRequest } from '../types/route.types';
@@ -32,7 +32,7 @@ router.post(
       const resolvedRecipientInfo = await resolveRecipientInfo(recipientAddress);
       const resolvedFeeToken = isSolanaLike(chainId) ? tokenAddresses[0] : feeToken;
 
-      const resolvedFeeStructure = parseFeeStructure(resolvedFeeToken, feeAmount, HINKAL_PRIVATE_SEND_VARIABLE_RATE);
+      const resolvedFeeStructure = parseFeeStructure(resolvedFeeToken, feeAmount, ENCLAVE_PRIVATE_SEND_VARIABLE_RATE);
 
       const txHash = await hinkalInitializerService.withHinkalForAddress(
         res.locals.address,

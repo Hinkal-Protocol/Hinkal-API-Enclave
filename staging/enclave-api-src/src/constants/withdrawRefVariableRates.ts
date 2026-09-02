@@ -1,5 +1,5 @@
 // sha256(ref) -> variableRate (bips) overrides for /withdraw, so partner refs are not
-// readable in the image. Falls back to HINKAL_UNSHIELD_VARIABLE_RATE when ref is missing
+// readable in the image. Falls back to ENCLAVE_UNSHIELD_VARIABLE_RATE when ref is missing
 // or not present here.
 export const WITHDRAW_REF_HASH_VARIABLE_RATE_BPS: Record<string, bigint> = {
   // pm

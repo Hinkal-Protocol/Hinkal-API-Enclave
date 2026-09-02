@@ -1,12 +1,12 @@
 import { Request, Response, Router } from 'express';
 import {
   calculateTotalFee,
+  ENCLAVE_PUBLIC_SEND_VARIABLE_RATE,
   ExternalActionId,
   getAmountInWei,
   getFeeStructure,
   HttpError,
   isSolanaLike,
-  PAY_SEND_VARIABLE_RATE,
 } from '@hinkal/common';
 import { sendError } from '../../utils/routeError';
 import { palApiKeyMiddleware } from '../../middleware/palApiKeyMiddleware';
@@ -39,7 +39,7 @@ router.post('/pal/quote', palApiKeyMiddleware, async (req: Request, res: Respons
       [token.erc20TokenAddress],
       ExternalActionId.Transact,
       [],
-      PAY_SEND_VARIABLE_RATE,
+      ENCLAVE_PUBLIC_SEND_VARIABLE_RATE,
       isSolanaLike(parsed)
         ? { mintTo: token.erc20TokenAddress, recipient: String(recipientAddress ?? ''), nullifierCount: 1 }
         : undefined,

@@ -1,8 +1,8 @@
 import {
   chainIds,
   ENCLAVE_API_URL,
+  ENCLAVE_SWAP_VARIABLE_RATE,
   getAmountInWei,
-  HINKAL_SWAP_VARIABLE_RATE,
   httpClient,
   TxHashResponse,
   waitForEthereumTransactionConfirmation,
@@ -77,7 +77,7 @@ describe('swap routes', () => {
     );
 
     const inSwapAmountWei = getAmountInWei(inSwapToken, SWAP_INPUT_AMOUNT);
-    const outSwapAmount = (BigInt(quotedOutSwapAmount) * (10000n - HINKAL_SWAP_VARIABLE_RATE)) / 10000n;
+    const outSwapAmount = (BigInt(quotedOutSwapAmount) * (10000n - ENCLAVE_SWAP_VARIABLE_RATE)) / 10000n;
 
     const feeAmount = await fetchFee(
       wallet,

@@ -1,5 +1,5 @@
 import { isSolanaLike } from '@hinkal/common/constants/chains.constants';
-import { HINKAL_SWAP_VARIABLE_RATE } from '@hinkal/common/constants/protocol.constants';
+import { ENCLAVE_SWAP_VARIABLE_RATE } from '@hinkal/common/constants/protocol.constants';
 import { getFeeStructure } from '@hinkal/common/functions/pre-transaction/getFeeStructure';
 import { calculateSolanaNullifierCount } from '@hinkal/common/functions/pre-transaction/calculateSolanaNullifierCount';
 import { hinkalInitializerService } from './hinkalInitializerService';
@@ -49,7 +49,7 @@ export const executePrivateSwap = async (params: PrivateSwapExecutionParams): Pr
         [inToken.erc20TokenAddress, outToken.erc20TokenAddress],
         externalActionId,
         [],
-        HINKAL_SWAP_VARIABLE_RATE,
+        ENCLAVE_SWAP_VARIABLE_RATE,
         isSolana
           ? { mintTo: outToken.erc20TokenAddress, mintFrom: inToken.erc20TokenAddress, nullifierCount }
           : undefined,
