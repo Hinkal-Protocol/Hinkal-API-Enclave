@@ -298,6 +298,29 @@ export const parseDepositAndWithdrawAuthBody = (
   };
 };
 
+export const parseReceiveVaultRecoverAuthBody = (
+  body: Record<string, unknown>,
+): ParseResult<BaseAuthFields & { vaultAddress: string; tokenAddress: string; recipientAddress: string }> => {
+  const base = parseBaseAuthBody(body);
+  if (base.ok === false) return base;
+
+  const { vaultAddress, tokenAddress } = body;
+  const recipient = parseRecipientAddress(body.recipientAddress);
+
+  if (typeof vaultAddress !== 'string' || !vaultAddress || containsControlChars(vaultAddress)) {
+    return { ok: false, error: 'Missing vaultAddress' };
+  }
+  if (typeof tokenAddress !== 'string' || !tokenAddress || containsControlChars(tokenAddress)) {
+    return { ok: false, error: 'Missing tokenAddress' };
+  }
+  if (recipient.ok === false) return recipient;
+
+  return {
+    ok: true,
+    value: { ...base.value, vaultAddress, tokenAddress, recipientAddress: recipient.value },
+  };
+};
+
 export const parseWithdrawStuckUtxosAuthBody = (
   body: Record<string, unknown>,
 ): ParseResult<BaseAuthFields & { tokenAddress: string; recipientAddress: string }> => {

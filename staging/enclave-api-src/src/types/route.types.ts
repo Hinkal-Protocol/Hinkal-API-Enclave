@@ -1,4 +1,10 @@
-import { ExternalActionId, FailedResponse } from '@hinkal/common';
+import {
+  ERC20Token,
+  ExternalActionId,
+  FailedResponse,
+  ReceiveVaultBlockReason,
+  ReceiveVaultRecord,
+} from '@hinkal/common';
 import { ethers } from 'ethers';
 import type { Types as TronWebTypes } from 'tronweb';
 
@@ -146,3 +152,50 @@ export type DepositAndWithdrawRequest = {
   txCompletionTime?: number;
   ref?: string;
 };
+
+export type ReceiveAddressRequest = {
+  chainId: number;
+  tokenAddress: string;
+};
+
+export type ReceiveAddressResponse =
+  | {
+      success: true;
+      record: ReceiveVaultRecord;
+    }
+  | FailedResponse;
+
+export type ReceiveVaultEntryResponse = {
+  record: ReceiveVaultRecord;
+  token: ERC20Token;
+  expiresAt: string;
+};
+
+export type ReceiveVaultBlockedFundResponse = {
+  record: ReceiveVaultRecord;
+  token: ERC20Token;
+  amount: string;
+  reason: ReceiveVaultBlockReason;
+};
+
+export type ReceiveVaultAccountResponse =
+  | {
+      success: true;
+      entries: ReceiveVaultEntryResponse[];
+      blockedFunds: ReceiveVaultBlockedFundResponse[];
+    }
+  | FailedResponse;
+
+export type ReceiveVaultRecoverRequest = {
+  chainId: number;
+  vaultAddress: string;
+  tokenAddress: string;
+  recipientAddress: string;
+};
+
+export type ReceiveVaultRecoverResponse =
+  | {
+      success: true;
+      txData: ethers.TransactionRequest | TronWebTypes.Transaction<TronWebTypes.TriggerSmartContract>;
+    }
+  | FailedResponse;

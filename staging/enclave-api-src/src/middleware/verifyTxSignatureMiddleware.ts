@@ -6,6 +6,7 @@ import {
   buildDepositForOtherTypedData,
   buildDepositTypedData,
   buildProoflessDepositTypedData,
+  buildReceiveVaultRecoverTypedData,
   buildSwapTypedData,
   buildTransferTypedData,
   buildWithdrawStuckUtxosTypedData,
@@ -23,6 +24,7 @@ import {
 } from '../utils/enclaveSolanaMessage';
 import {
   parseDepositAndWithdrawAuthBody,
+  parseReceiveVaultRecoverAuthBody,
   parseTokenDepositAuthBody,
   parseTokenDepositForOtherAuthBody,
   parseTokenSwapAuthBody,
@@ -200,3 +202,9 @@ export const verifyWithdrawStuckUtxosSignatureMiddleware = createVerifyEnclaveTx
   buildWithdrawStuckUtxosTypedData,
   buildSolanaWithdrawStuckUtxosMessage,
 );
+
+export const verifyReceiveVaultRecoverSignatureMiddleware = createVerifyTypedDataSignatureMiddleware((body) => {
+  const parsed = parseReceiveVaultRecoverAuthBody(body);
+  if (parsed.ok === false) return parsed;
+  return { ok: true, value: buildReceiveVaultRecoverTypedData(parsed.value) };
+});
