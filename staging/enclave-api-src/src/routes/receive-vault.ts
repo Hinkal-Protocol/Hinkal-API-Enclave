@@ -96,14 +96,10 @@ router.post(
           const { entries, blockedFunds } = await hinkal.getReceiveVaultAccount();
           const record = [...entries, ...blockedFunds]
             .map(({ record: entryRecord }) => entryRecord)
-            .find(
-              (entryRecord) =>
-                entryRecord.chainId === chainId &&
-                entryRecord.vaultAddress.toLowerCase() === vaultAddress.toLowerCase(),
-            );
+            .find((entryRecord) => entryRecord.vaultAddress.toLowerCase() === vaultAddress.toLowerCase());
           if (!record) throw new Error(`Receive address ${vaultAddress} does not belong to this account`);
 
-          return hinkal.recoverReceiveVault(record, tokenAddress, recipientAddress, true);
+          return hinkal.recoverReceiveVault(record, tokenAddress, chainId, recipientAddress, true);
         },
       );
 
