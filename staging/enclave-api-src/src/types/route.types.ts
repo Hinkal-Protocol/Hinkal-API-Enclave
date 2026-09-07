@@ -155,7 +155,6 @@ export type DepositAndWithdrawRequest = {
 
 export type ReceiveAddressRequest = {
   chainId: number;
-  tokenAddress: string;
 };
 
 export type ReceiveAddressResponse =
@@ -164,12 +163,6 @@ export type ReceiveAddressResponse =
       record: ReceiveVaultRecord;
     }
   | FailedResponse;
-
-export type ReceiveVaultEntryResponse = {
-  record: ReceiveVaultRecord;
-  token: ERC20Token;
-  expiresAt: string;
-};
 
 export type ReceiveVaultBlockedFundResponse = {
   record: ReceiveVaultRecord;
@@ -181,7 +174,7 @@ export type ReceiveVaultBlockedFundResponse = {
 export type ReceiveVaultAccountResponse =
   | {
       success: true;
-      entries: ReceiveVaultEntryResponse[];
+      entries: ReceiveVaultRecord[];
       blockedFunds: ReceiveVaultBlockedFundResponse[];
     }
   | FailedResponse;

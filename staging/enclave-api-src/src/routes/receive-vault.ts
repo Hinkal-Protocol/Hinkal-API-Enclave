@@ -1,4 +1,4 @@
-import { getErrorMessage, isReceiveVaultSupported, Logger, toJsonSafe } from '@hinkal/common';
+import { caseInsensitiveEqual, getErrorMessage, isReceiveVaultSupported, Logger, toJsonSafe } from '@hinkal/common';
 import { Request, Response, Router } from 'express';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import {
@@ -24,7 +24,7 @@ router.post(
     res: Response<ReceiveAddressResponse>,
   ) => {
     try {
-      const { chainId, tokenAddress } = req.body;
+      const { chainId } = req.body;
 
       if (!isReceiveVaultSupported(chainId)) {
         res.status(400).json({ success: false, error: `Receive addresses are not available on chain ${chainId}` });
@@ -32,7 +32,7 @@ router.post(
       }
 
       const record = await hinkalInitializerService.withHinkalForAddress(res.locals.address, chainId, async (hinkal) =>
-        hinkal.createReceiveAddress(chainId, tokenAddress),
+        hinkal.createReceiveAddress(chainId),
       );
 
       res.status(200).json({ success: true, record });
@@ -58,11 +58,7 @@ router.get(
 
       res.status(200).json({
         success: true,
-        entries: entries.map(({ record, token, expiresAt }) => ({
-          record,
-          token,
-          expiresAt: expiresAt.toISOString(),
-        })),
+        entries,
         blockedFunds: blockedFunds.map(({ record, token, amount, reason }) => ({
           record,
           token,
@@ -94,9 +90,9 @@ router.post(
         chainId,
         async (hinkal) => {
           const { entries, blockedFunds } = await hinkal.getReceiveVaultAccount();
-          const record = [...entries, ...blockedFunds]
-            .map(({ record: entryRecord }) => entryRecord)
-            .find((entryRecord) => entryRecord.vaultAddress.toLowerCase() === vaultAddress.toLowerCase());
+          const record = [...entries, ...blockedFunds.map(({ record: entryRecord }) => entryRecord)].find(
+            (entryRecord) => caseInsensitiveEqual(entryRecord.vaultAddress, vaultAddress),
+          );
           if (!record) throw new Error(`Receive address ${vaultAddress} does not belong to this account`);
 
           return hinkal.recoverReceiveVault(record, tokenAddress, chainId, recipientAddress, true);
