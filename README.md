@@ -97,7 +97,7 @@ The server starts on `http://localhost:8000`.
 
 ## Verifying the deployment
 
-Every deployment produces three files that together prove what code is running in the Hinkal enclave.
+Every deployment produces two files that together prove what code is running in the Hinkal enclave.
 
 ### Files
 
