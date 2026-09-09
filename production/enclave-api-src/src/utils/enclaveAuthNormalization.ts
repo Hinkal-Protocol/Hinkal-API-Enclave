@@ -22,6 +22,11 @@ export type PrivateSendAuthFields = BaseAuthFields & {
   ref?: string;
 };
 export type WithdrawStuckUtxosAuthFields = BaseAuthFields & { tokenAddress: string; recipientAddress: string };
+export type ReceiveVaultRecoverAuthFields = BaseAuthFields & {
+  vaultAddress: string;
+  tokenAddress: string;
+  recipientAddress: string;
+};
 
 export const buildSortedTokenPairs = (
   tokenAddresses: string[],

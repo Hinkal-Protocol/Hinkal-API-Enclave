@@ -1,6 +1,6 @@
 import { Request, Response, Router } from 'express';
 import { isSolanaLike } from '@hinkal/common/constants/chains.constants';
-import { HINKAL_PRIVATE_SEND_VARIABLE_RATE } from '@hinkal/common/constants/protocol.constants';
+import { ENCLAVE_PRIVATE_SEND_VARIABLE_RATE } from '@hinkal/common/constants/protocol.constants';
 import { getFeeStructure } from '@hinkal/common/functions/pre-transaction/getFeeStructure';
 import { getAmountInWei } from '@hinkal/common/functions/web3/etherFunctions';
 import { calculateSolanaNullifierCount } from '@hinkal/common/functions/pre-transaction/calculateSolanaNullifierCount';
@@ -57,7 +57,7 @@ router.post('/waas/private-to-private', xStampMiddleware, async (req: Request, r
             [token.erc20TokenAddress],
             ExternalActionId.Transact,
             [],
-            HINKAL_PRIVATE_SEND_VARIABLE_RATE,
+            ENCLAVE_PRIVATE_SEND_VARIABLE_RATE,
             { mintTo: token.erc20TokenAddress, nullifierCount },
           );
         } else {
@@ -67,7 +67,7 @@ router.post('/waas/private-to-private', xStampMiddleware, async (req: Request, r
             [token.erc20TokenAddress],
             ExternalActionId.Transact,
             [],
-            HINKAL_PRIVATE_SEND_VARIABLE_RATE,
+            ENCLAVE_PRIVATE_SEND_VARIABLE_RATE,
           );
         }
 

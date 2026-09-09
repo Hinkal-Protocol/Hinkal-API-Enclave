@@ -1,7 +1,7 @@
 import {
   ENCLAVE_API_URL,
+  ENCLAVE_PRIVATE_SEND_VARIABLE_RATE,
   ExternalActionId,
-  HINKAL_PRIVATE_SEND_VARIABLE_RATE,
   httpClient,
   RecipientInfoResponse,
   sessionQueryParams,
@@ -41,10 +41,10 @@ describe('transfer route (Tron Nile)', () => {
       [TRON_NILE_USDT_ADDRESS],
       ExternalActionId.Transact,
       authFields,
-      HINKAL_PRIVATE_SEND_VARIABLE_RATE,
+      ENCLAVE_PRIVATE_SEND_VARIABLE_RATE,
     );
 
-    const totalRelayFee = tronRelayFee(feeAmount, HINKAL_PRIVATE_SEND_VARIABLE_RATE.toString(), TRANSFER_AMOUNT);
+    const totalRelayFee = tronRelayFee(feeAmount, ENCLAVE_PRIVATE_SEND_VARIABLE_RATE.toString(), TRANSFER_AMOUNT);
     const depositAmount = TRANSFER_AMOUNT + totalRelayFee;
     await depositUsdtToPrivate(wallet, depositAmount, authFields, TRON_NILE_USDT_ADDRESS, true);
 

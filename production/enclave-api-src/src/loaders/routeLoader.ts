@@ -32,6 +32,7 @@ import solanaWalletActions from '../routes/waas/waas-solana-wallet-actions';
 import tronWalletActions from '../routes/waas/waas-tron-wallet-actions';
 import waasBalances from '../routes/waas/waas-balance';
 import privateSend from '../routes/private-send';
+import receiveVault from '../routes/receive-vault';
 import withdrawStuckUtxos from '../routes/withdraw-stuck-utxos';
 import attestation from '../routes/attestation';
 import info from '../routes/info';
@@ -49,6 +50,7 @@ export const loadRoutes = (app: Express) => {
   hinkalAPIRouter.use(deposit);
   hinkalAPIRouter.use(privateSend);
   hinkalAPIRouter.use(withdrawStuckUtxos);
+  hinkalAPIRouter.use(receiveVault);
   hinkalAPIRouter.use(getFeeRoute);
   hinkalAPIRouter.use(withdraw);
   hinkalAPIRouter.use(transfer);

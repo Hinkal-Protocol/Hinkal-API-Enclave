@@ -1,6 +1,6 @@
 import {
+  ENCLAVE_UNSHIELD_VARIABLE_RATE,
   getErrorMessage,
-  HINKAL_UNSHIELD_VARIABLE_RATE,
   isNativePlaceholderAddress,
   isSolanaLike,
   TxHashResponse,
@@ -48,7 +48,7 @@ router.post(
       const refHash = createHash('sha256')
         .update(ref ?? '')
         .digest('hex');
-      const resolvedVariableRate = WITHDRAW_REF_HASH_VARIABLE_RATE_BPS[refHash] ?? HINKAL_UNSHIELD_VARIABLE_RATE;
+      const resolvedVariableRate = WITHDRAW_REF_HASH_VARIABLE_RATE_BPS[refHash] ?? ENCLAVE_UNSHIELD_VARIABLE_RATE;
       const feeStructureOverride = parseFeeStructure(resolvedFeeToken, feeAmount, resolvedVariableRate);
 
       const txData = await hinkalInitializerService.withHinkalForAddress(

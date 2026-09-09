@@ -7,6 +7,7 @@ import {
   DepositForOtherAuthFields,
   FeeAuthFields,
   PrivateSendAuthFields,
+  ReceiveVaultRecoverAuthFields,
   sortRecipientsByAddress,
   SwapAuthFields,
   TokenAmountPair,
@@ -99,6 +100,14 @@ const ENCLAVE_TYPED_DATA_TYPES: Record<string, TypedDataField[]> = {
     { name: 'chainId', type: 'uint256' },
     { name: 'tokenAddress', type: 'address' },
     { name: 'recipient', type: 'address' },
+  ],
+  ReceiveVaultRecover: [
+    { name: 'nonce', type: 'string' },
+    { name: 'sessionId', type: 'string' },
+    { name: 'chainId', type: 'uint256' },
+    { name: 'vaultAddress', type: 'string' },
+    { name: 'tokenAddress', type: 'string' },
+    { name: 'recipient', type: 'string' },
   ],
 };
 
@@ -274,4 +283,14 @@ export const buildWithdrawStuckUtxosTypedData = (params: WithdrawStuckUtxosAuthF
     chainId: BigInt(params.chainId),
     tokenAddress: getAddress(params.tokenAddress),
     recipient: getAddress(params.recipientAddress),
+  });
+
+export const buildReceiveVaultRecoverTypedData = (params: ReceiveVaultRecoverAuthFields): EnclaveTypedDataPayload =>
+  buildTypedData('ReceiveVaultRecover', params.chainId, {
+    nonce: params.nonce,
+    sessionId: params.sessionId,
+    chainId: BigInt(params.chainId),
+    vaultAddress: params.vaultAddress,
+    tokenAddress: params.tokenAddress,
+    recipient: params.recipientAddress,
   });

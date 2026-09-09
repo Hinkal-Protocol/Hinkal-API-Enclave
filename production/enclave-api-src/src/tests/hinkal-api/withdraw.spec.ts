@@ -3,9 +3,9 @@ import {
   calculateTotalFee,
   chainIds,
   ENCLAVE_API_URL,
+  ENCLAVE_UNSHIELD_VARIABLE_RATE,
   ERC20ABI,
   ExternalActionId,
-  HINKAL_UNSHIELD_VARIABLE_RATE,
   httpClient,
   TxHashResponse,
   waitForEthereumTransactionConfirmation,
@@ -94,7 +94,7 @@ describe('withdraw route', () => {
     const totalFee = calculateTotalFee(WITHDRAW_AMOUNT, {
       feeToken: ARC_TESTNET_USDC_ADDRESS,
       flatFee: BigInt(feeAmount),
-      variableRate: HINKAL_UNSHIELD_VARIABLE_RATE,
+      variableRate: ENCLAVE_UNSHIELD_VARIABLE_RATE,
     });
 
     expect(balanceAfterWithdraw - balanceBeforeWithdraw).toBeGreaterThan(0n);

@@ -11,7 +11,8 @@ export type EnclaveTypedDataPrimaryType =
   | 'Withdraw'
   | 'Swap'
   | 'PrivateSend'
-  | 'WithdrawStuckUtxos';
+  | 'WithdrawStuckUtxos'
+  | 'ReceiveVaultRecover';
 
 export type EnclaveTypedDataPayload = {
   domain: TypedDataDomain;

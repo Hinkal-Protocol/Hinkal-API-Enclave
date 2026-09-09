@@ -3,10 +3,10 @@ import {
   BalanceResponse,
   DepositAndWithdrawResponse,
   ENCLAVE_API_URL,
+  ENCLAVE_PRIVATE_SEND_VARIABLE_RATE,
   EnclaveSessionAuthFields,
   ERC20ABI,
   ExternalActionId,
-  HINKAL_PRIVATE_SEND_VARIABLE_RATE,
   httpClient,
   RecipientInfoResponse,
   RefreshCacheResponse,
@@ -236,7 +236,7 @@ export const transferUsdc = async (
     [ARC_TESTNET_USDC_ADDRESS],
     ExternalActionId.Transact,
     session as EnclaveSessionAuthFields,
-    HINKAL_PRIVATE_SEND_VARIABLE_RATE,
+    ENCLAVE_PRIVATE_SEND_VARIABLE_RATE,
   );
 
   const authParams = {

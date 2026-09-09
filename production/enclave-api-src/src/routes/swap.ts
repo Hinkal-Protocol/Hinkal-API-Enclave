@@ -1,7 +1,7 @@
 import {
+  ENCLAVE_SWAP_VARIABLE_RATE,
   getErrorMessage,
   GetSwapDataResponse,
-  HINKAL_SWAP_VARIABLE_RATE,
   isSolanaLike,
   Logger,
   TxHashResponse,
@@ -46,7 +46,7 @@ router.post(
 
       const resolvedFeeToken = isSolanaLike(chainId) ? tokenAddresses[1] : feeToken;
 
-      const resolvedFeeStructure = parseFeeStructure(resolvedFeeToken, feeAmount, HINKAL_SWAP_VARIABLE_RATE);
+      const resolvedFeeStructure = parseFeeStructure(resolvedFeeToken, feeAmount, ENCLAVE_SWAP_VARIABLE_RATE);
       const txHash = await hinkalInitializerService.withHinkalForAddress(
         res.locals.address,
         chainId,

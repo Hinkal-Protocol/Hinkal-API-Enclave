@@ -1,6 +1,6 @@
 import { Request, Response, Router } from 'express';
 import { isSolanaLike } from '@hinkal/common/constants/chains.constants';
-import { PAY_SEND_VARIABLE_RATE } from '@hinkal/common/constants/protocol.constants';
+import { ENCLAVE_PUBLIC_SEND_VARIABLE_RATE } from '@hinkal/common/constants/protocol.constants';
 import { getFeeStructure } from '@hinkal/common/functions/pre-transaction/getFeeStructure';
 import { getAmountInWei } from '@hinkal/common/functions/web3/etherFunctions';
 import { ExternalActionId } from '@hinkal/common/types/external-action.types';
@@ -46,7 +46,7 @@ router.post('/waas/public-to-public', xStampMiddleware, async (req: Request, res
       [token.erc20TokenAddress],
       ExternalActionId.Transact,
       [],
-      PAY_SEND_VARIABLE_RATE,
+      ENCLAVE_PUBLIC_SEND_VARIABLE_RATE,
       solanaParams,
     );
 
