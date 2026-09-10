@@ -155,6 +155,7 @@ export type DepositAndWithdrawRequest = {
 
 export type ReceiveAddressRequest = {
   chainId: number;
+  forceFresh?: boolean;
 };
 
 export type ReceiveAddressResponse =
