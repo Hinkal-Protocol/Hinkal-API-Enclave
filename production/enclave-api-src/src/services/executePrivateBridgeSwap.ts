@@ -1,5 +1,4 @@
 import { hinkalBridgePrivateToPrivate } from '@hinkal/common/data-structures/Hinkal/hinkalBridgePrivateToPrivate';
-import { AdminTransactionType } from '@hinkal/common/types/admin.types';
 import { resolveBridgeSlippagePercent } from '../utils/bridgeSlippage';
 import { PERCENT_TO_DECIMAL } from '../constants/swap.constants';
 import { hinkalInitializerService } from './hinkalInitializerService';
@@ -29,7 +28,6 @@ export const executePrivateBridgeSwap = async (
         bridgeSlippage,
         inToken.erc20TokenAddress,
         undefined,
-        AdminTransactionType.PayPrivateToPrivateBridgeSend,
       ),
     false,
   );

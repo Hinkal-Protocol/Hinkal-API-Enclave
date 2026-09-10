@@ -1,4 +1,11 @@
-import { caseInsensitiveEqual, getErrorMessage, isReceiveVaultSupported, Logger, toJsonSafe } from '@hinkal/common';
+import {
+  caseInsensitiveEqual,
+  getErrorMessage,
+  isReceiveVaultSupported,
+  Logger,
+  receiveVaultNetworkOf,
+  toJsonSafe,
+} from '@hinkal/common';
 import { Request, Response, Router } from 'express';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import {
@@ -24,15 +31,16 @@ router.post(
     res: Response<ReceiveAddressResponse>,
   ) => {
     try {
-      const { chainId } = req.body;
+      const { chainId, forceFresh } = req.body;
 
       if (!isReceiveVaultSupported(chainId)) {
         res.status(400).json({ success: false, error: `Receive addresses are not available on chain ${chainId}` });
         return;
       }
 
+      const network = receiveVaultNetworkOf(chainId);
       const record = await hinkalInitializerService.withHinkalForAddress(res.locals.address, chainId, async (hinkal) =>
-        hinkal.createReceiveAddress(chainId),
+        hinkal.createReceiveAddress(network, forceFresh),
       );
 
       res.status(200).json({ success: true, record });
