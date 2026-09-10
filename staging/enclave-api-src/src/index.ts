@@ -67,7 +67,7 @@ const startServer = async () => {
     });
     setServerSettings(server);
   } catch (err) {
-    Logger.error('enclave-api failed to start', getErrorMessage(err), err);
+    Logger.error('enclave-api failed to start:', getErrorMessage(err), err);
   }
 };
 
