@@ -17,6 +17,7 @@ import {
   buildSolanaDepositMessage,
   buildSolanaPrivateSendMessage,
   buildSolanaProoflessDepositMessage,
+  buildSolanaReceiveVaultRecoverMessage,
   buildSolanaSwapMessage,
   buildSolanaTransferMessage,
   buildSolanaWithdrawMessage,
@@ -203,8 +204,8 @@ export const verifyWithdrawStuckUtxosSignatureMiddleware = createVerifyEnclaveTx
   buildSolanaWithdrawStuckUtxosMessage,
 );
 
-export const verifyReceiveVaultRecoverSignatureMiddleware = createVerifyTypedDataSignatureMiddleware((body) => {
-  const parsed = parseReceiveVaultRecoverAuthBody(body);
-  if (parsed.ok === false) return parsed;
-  return { ok: true, value: buildReceiveVaultRecoverTypedData(parsed.value) };
-});
+export const verifyReceiveVaultRecoverSignatureMiddleware = createVerifyEnclaveTxMiddleware(
+  parseReceiveVaultRecoverAuthBody,
+  buildReceiveVaultRecoverTypedData,
+  buildSolanaReceiveVaultRecoverMessage,
+);
