@@ -1,5 +1,5 @@
 import {
-  caseInsensitiveEqual,
+  addressEqual,
   getErrorMessage,
   isReceiveVaultSupported,
   Logger,
@@ -99,7 +99,7 @@ router.post(
         async (hinkal) => {
           const { entries, blockedFunds } = await hinkal.getReceiveVaultAccount();
           const record = [...entries, ...blockedFunds.map(({ record: entryRecord }) => entryRecord)].find(
-            (entryRecord) => caseInsensitiveEqual(entryRecord.vaultAddress, vaultAddress),
+            (entryRecord) => addressEqual(chainId, entryRecord.vaultAddress, vaultAddress),
           );
           if (!record) throw new Error(`Receive address ${vaultAddress} does not belong to this account`);
 

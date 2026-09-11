@@ -190,6 +190,6 @@ export type ReceiveVaultRecoverRequest = {
 export type ReceiveVaultRecoverResponse =
   | {
       success: true;
-      txData: ethers.TransactionRequest | TronWebTypes.Transaction<TronWebTypes.TriggerSmartContract>;
+      txData: ethers.TransactionRequest | TronWebTypes.Transaction<TronWebTypes.TriggerSmartContract> | string;
     }
   | FailedResponse;
