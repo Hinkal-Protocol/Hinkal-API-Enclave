@@ -1,4 +1,10 @@
-import { ENCLAVE_PRIVATE_SEND_VARIABLE_RATE, getErrorMessage, isSolanaLike, TxHashResponse } from '@hinkal/common';
+import {
+  AdminTransactionType,
+  ENCLAVE_PRIVATE_SEND_VARIABLE_RATE,
+  getErrorMessage,
+  isSolanaLike,
+  TxHashResponse,
+} from '@hinkal/common';
 import { Request, Response, Router } from 'express';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { TransferRequest } from '../types/route.types';
@@ -44,6 +50,7 @@ router.post(
             resolvedRecipientInfo,
             resolvedFeeToken,
             resolvedFeeStructure,
+            AdminTransactionType.ApiTransfer,
           );
         },
       );

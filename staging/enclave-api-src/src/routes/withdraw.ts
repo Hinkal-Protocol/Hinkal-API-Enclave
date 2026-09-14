@@ -1,4 +1,5 @@
 import {
+  AdminTransactionType,
   ENCLAVE_UNSHIELD_VARIABLE_RATE,
   getErrorMessage,
   isNativePlaceholderAddress,
@@ -63,6 +64,7 @@ router.post(
             resolvedFeeToken,
             feeStructureOverride,
             resolvedVariableRate,
+            AdminTransactionType.ApiWithdraw,
           );
         },
       );

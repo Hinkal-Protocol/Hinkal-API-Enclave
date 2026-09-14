@@ -1,5 +1,6 @@
 import { Connection } from '@solana/web3.js';
 import {
+  AdminTransactionType,
   ERC20Token,
   FeeStructure,
   fetchSolanaTransaction,
@@ -79,6 +80,7 @@ const dispatchEvmLikeWithdrawForOrder = async (
     hashEthereumAddress(order.senderAddress),
     order.txCompletionTime,
     order.ref,
+    AdminTransactionType.ApiPrivateSend,
   );
 };
 
@@ -141,5 +143,6 @@ export const dispatchSolanaWithdrawForOrder = async (
     recipientAmounts,
     order.txCompletionTime,
     order.ref,
+    AdminTransactionType.ApiPrivateSend,
   );
 };

@@ -1,4 +1,5 @@
 import {
+  AdminTransactionType,
   ENCLAVE_SWAP_VARIABLE_RATE,
   getErrorMessage,
   GetSwapDataResponse,
@@ -58,6 +59,8 @@ router.post(
             swapData,
             resolvedFeeToken,
             resolvedFeeStructure,
+            undefined,
+            AdminTransactionType.ApiSwap,
           );
         },
       );
