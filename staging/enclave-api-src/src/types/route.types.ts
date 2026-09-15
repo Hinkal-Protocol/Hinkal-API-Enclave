@@ -20,6 +20,7 @@ export type DepositRequest = {
   chainId: number;
   tokenAddresses: string[];
   amounts: string[];
+  ref?: string;
 };
 
 export type DepositForOtherRequest = {
@@ -28,6 +29,7 @@ export type DepositForOtherRequest = {
   tokenAddresses: string[];
   amounts: string[];
   recipientInfo: string;
+  ref?: string;
 };
 
 export type SolanaDepositForOtherRequest = {
@@ -36,6 +38,7 @@ export type SolanaDepositForOtherRequest = {
   tokenAddresses: string[];
   amounts: string[];
   recipientInfo: string;
+  ref?: string;
 };
 
 export type WithdrawStuckUtxosRequest = {
@@ -132,6 +135,7 @@ export type ProoflessDepositRequest = {
   chainId: number;
   tokenAddresses: string[];
   amounts: string[];
+  ref?: string;
 };
 
 export type ProoflessDepositResponse =
