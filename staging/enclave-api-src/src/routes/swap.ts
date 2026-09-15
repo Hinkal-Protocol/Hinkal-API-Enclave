@@ -12,8 +12,10 @@ import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { getBestSwapQuote } from '../services/getBestSwapQuote';
 import { GetSwapDataRequest, SwapRequest } from '../types/route.types';
 import { parseFeeStructure } from '../utils/parseFeeStructure';
+import { emitReferralVolume } from '../utils/emitReferralVolume';
 import { verifyReadOnlySignatureMiddleware, verifySwapSignatureMiddleware } from '../middleware';
 import { getERC20Token } from '@hinkal/erc20-registry';
+import { WHITELISTED_REFERRALS } from '@hinkal/backend-common';
 
 const router = Router();
 
@@ -22,11 +24,16 @@ router.post(
   verifySwapSignatureMiddleware,
   async (req: Request<object, TxHashResponse, SwapRequest>, res: Response<TxHashResponse>) => {
     try {
-      const { chainId, tokenAddresses, amounts, externalActionId, swapData, feeToken, feeAmount } =
+      const { chainId, tokenAddresses, amounts, externalActionId, swapData, feeToken, feeAmount, ref } =
         req.body as SwapRequest;
 
       if (tokenAddresses.length !== amounts.length) {
         res.status(400).json({ success: false, error: 'Token addresses and amounts must have the same length' });
+        return;
+      }
+
+      if (ref !== undefined && !WHITELISTED_REFERRALS.includes(ref)) {
+        res.status(400).json({ success: false, error: `Invalid ref: '${ref}' is not a whitelisted referral` });
         return;
       }
 
@@ -63,6 +70,16 @@ router.post(
             AdminTransactionType.ApiSwap,
           );
         },
+      );
+
+      // Fee is taken from the output token
+      emitReferralVolume(
+        ref,
+        chainId,
+        txHash,
+        [erc20Tokens[1]],
+        [amounts[1]],
+        resolvedFeeStructure?.variableRate ?? ENCLAVE_SWAP_VARIABLE_RATE,
       );
 
       res.status(200).json({ success: true, txHash });

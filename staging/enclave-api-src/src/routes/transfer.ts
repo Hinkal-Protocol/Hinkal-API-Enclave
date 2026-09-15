@@ -10,8 +10,10 @@ import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { TransferRequest } from '../types/route.types';
 import { parseFeeStructure } from '../utils/parseFeeStructure';
 import { resolveRecipientInfo } from '../utils/transactionHelpers';
+import { emitReferralVolume } from '../utils/emitReferralVolume';
 import { verifyTransferSignatureMiddleware } from '../middleware';
 import { getERC20Token } from '@hinkal/erc20-registry';
+import { WHITELISTED_REFERRALS } from '@hinkal/backend-common';
 
 const router = Router();
 
@@ -20,10 +22,16 @@ router.post(
   verifyTransferSignatureMiddleware,
   async (req: Request<object, TxHashResponse, TransferRequest>, res: Response<TxHashResponse>) => {
     try {
-      const { chainId, tokenAddresses, amounts, recipientAddress, feeToken, feeAmount } = req.body as TransferRequest;
+      const { chainId, tokenAddresses, amounts, recipientAddress, feeToken, feeAmount, ref } =
+        req.body as TransferRequest;
 
       if (tokenAddresses.length !== amounts.length) {
         res.status(400).json({ success: false, error: 'Token addresses and amounts must have the same length' });
+        return;
+      }
+
+      if (ref !== undefined && !WHITELISTED_REFERRALS.includes(ref)) {
+        res.status(400).json({ success: false, error: `Invalid ref: '${ref}' is not a whitelisted referral` });
         return;
       }
 
@@ -53,6 +61,15 @@ router.post(
             AdminTransactionType.ApiTransfer,
           );
         },
+      );
+
+      emitReferralVolume(
+        ref,
+        chainId,
+        txHash,
+        erc20Tokens,
+        amounts,
+        resolvedFeeStructure?.variableRate ?? ENCLAVE_PRIVATE_SEND_VARIABLE_RATE,
       );
 
       res.status(200).json({ success: true, txHash });

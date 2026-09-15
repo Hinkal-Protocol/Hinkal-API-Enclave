@@ -50,7 +50,8 @@ export const buildSolanaTransferMessage = (params: TransferLikeAuthFields): stri
   buildTransferLikeMessage('Transfer', params);
 
 export const buildSolanaSwapMessage = (params: SwapAuthFields): string =>
-  `${buildTokenAmountsMessage('Swap', params)}\nExternal Action ID: ${params.externalActionId}\nSwap Data: ${params.swapData}${renderFeeFields(params)}`;
+  `${buildTokenAmountsMessage('Swap', params)}\nExternal Action ID: ${params.externalActionId}\nSwap Data: ${params.swapData}${renderFeeFields(params)}` +
+  `${params.ref !== undefined ? `\nRef: ${params.ref}` : ''}`;
 
 export const buildSolanaPrivateSendMessage = (params: PrivateSendAuthFields): string => {
   const normalized = sortRecipientsByAddress(params.recipients);

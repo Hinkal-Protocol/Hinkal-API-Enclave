@@ -250,6 +250,7 @@ export const buildSwapTypedData = (params: SwapAuthFields): EnclaveTypedDataPayl
     tokenAmounts: toTokenAmountValues(pairs),
     externalActionId: params.externalActionId,
     swapData: params.swapData,
+    ...(params.ref !== undefined ? { ref: params.ref } : {}),
     ...buildFeeValueFields(params),
   });
 };

@@ -119,6 +119,7 @@ export const parseTokenTransferAuthBody = (
     recipientAddress: string;
     feeToken?: string;
     feeAmount?: string;
+    ref?: string;
   }
 > => {
   const deposit = parseTokenDepositAuthBody(body);
@@ -130,12 +131,16 @@ export const parseTokenTransferAuthBody = (
   const fee = parseFeeFields(body);
   if (fee.ok === false) return fee;
 
+  const ref = parseRef(body);
+  if (ref.ok === false) return ref;
+
   return {
     ok: true,
     value: {
       ...deposit.value,
       recipientAddress: recipient.value,
       ...fee.value,
+      ref: ref.value,
     },
   };
 };
@@ -185,6 +190,7 @@ export const parseTokenSwapAuthBody = (
     swapData: string;
     feeToken?: string;
     feeAmount?: string;
+    ref?: string;
   }
 > => {
   const deposit = parseTokenDepositAuthBody(body);
@@ -201,6 +207,9 @@ export const parseTokenSwapAuthBody = (
   const fee = parseFeeFields(body);
   if (fee.ok === false) return fee;
 
+  const ref = parseRef(body);
+  if (ref.ok === false) return ref;
+
   return {
     ok: true,
     value: {
@@ -208,6 +217,7 @@ export const parseTokenSwapAuthBody = (
       externalActionId,
       swapData,
       ...fee.value,
+      ref: ref.value,
     },
   };
 };

@@ -12,7 +12,11 @@ export type TransferLikeAuthFields = TokenAmountsAuthFields & {
   recipientAddress: string;
   ref?: string;
 } & FeeAuthFields;
-export type SwapAuthFields = TokenAmountsAuthFields & { externalActionId: string; swapData: string } & FeeAuthFields;
+export type SwapAuthFields = TokenAmountsAuthFields & {
+  externalActionId: string;
+  swapData: string;
+  ref?: string;
+} & FeeAuthFields;
 export type DepositForOtherAuthFields = TokenAmountsAuthFields & { recipientInfo: string };
 export type PrivateSendAuthFields = BaseAuthFields & {
   tokenAddress: string;

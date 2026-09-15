@@ -71,6 +71,7 @@ export type TransferRequest = {
   recipientAddress: string;
   feeToken?: string;
   feeAmount?: string;
+  ref?: string;
 };
 
 export type SwapRequest = {
@@ -82,6 +83,7 @@ export type SwapRequest = {
   swapData: string;
   feeToken?: string;
   feeAmount?: string;
+  ref?: string;
 };
 
 export type GetSwapDataRequest = {
@@ -156,6 +158,7 @@ export type DepositAndWithdrawRequest = {
 export type ReceiveAddressRequest = {
   chainId: number;
   forceFresh?: boolean;
+  ref?: string;
 };
 
 export type ReceiveAddressResponse =
