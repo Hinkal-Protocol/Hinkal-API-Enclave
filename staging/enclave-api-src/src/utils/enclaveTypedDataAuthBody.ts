@@ -310,12 +310,15 @@ export const parseDepositAndWithdrawAuthBody = (
 
 export const parseReceiveVaultRecoverAuthBody = (
   body: Record<string, unknown>,
-): ParseResult<BaseAuthFields & { vaultAddress: string; tokenAddress: string; recipientAddress: string }> => {
+): ParseResult<
+  BaseAuthFields & { vaultAddress: string; tokenAddress: string; recipientAddress: string; ref?: string }
+> => {
   const base = parseBaseAuthBody(body);
   if (base.ok === false) return base;
 
   const { vaultAddress, tokenAddress } = body;
   const recipient = parseRecipientAddress(body.recipientAddress);
+  const ref = parseRef(body);
 
   if (typeof vaultAddress !== 'string' || !vaultAddress || containsControlChars(vaultAddress)) {
     return { ok: false, error: 'Missing vaultAddress' };
@@ -324,10 +327,11 @@ export const parseReceiveVaultRecoverAuthBody = (
     return { ok: false, error: 'Missing tokenAddress' };
   }
   if (recipient.ok === false) return recipient;
+  if (ref.ok === false) return ref;
 
   return {
     ok: true,
-    value: { ...base.value, vaultAddress, tokenAddress, recipientAddress: recipient.value },
+    value: { ...base.value, vaultAddress, tokenAddress, recipientAddress: recipient.value, ref: ref.value },
   };
 };
 

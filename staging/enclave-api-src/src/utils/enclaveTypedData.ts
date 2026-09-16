@@ -294,4 +294,5 @@ export const buildReceiveVaultRecoverTypedData = (params: ReceiveVaultRecoverAut
     vaultAddress: params.vaultAddress,
     tokenAddress: params.tokenAddress,
     recipient: params.recipientAddress,
+    ...(params.ref !== undefined ? { ref: params.ref } : {}),
   });

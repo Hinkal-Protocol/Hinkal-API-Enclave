@@ -19,6 +19,7 @@ import {
 } from '../middleware';
 import { getERC20Token } from '@hinkal/erc20-registry';
 import { createPendingDepositConfirmation, resolveReferral } from '../utils/pendingDepositConfirmation';
+import { rejectNonWhitelistedRef } from '../utils/referralWhitelist';
 
 const router = Router();
 
@@ -36,6 +37,8 @@ router.post(
         res.status(400).json({ success: false, error: 'tokenAddresses and amounts must have the same length' });
         return;
       }
+
+      if (rejectNonWhitelistedRef(res, ref)) return;
 
       const validated = validateTokens(tokenAddresses, chainId);
       if (validated.ok === false) {
@@ -91,6 +94,8 @@ router.post(
         return;
       }
 
+      if (rejectNonWhitelistedRef(res, ref)) return;
+
       const validated = validateTokens(tokenAddresses, chainId);
       if (validated.ok === false) {
         res.status(400).json({ success: false, error: validated.error });
@@ -145,6 +150,8 @@ router.post(
       const { chainId, tokenAddresses, amounts, recipientInfo, ref } = req.body;
       const tokenAddress = tokenAddresses?.[0];
       const amount = amounts?.[0];
+
+      if (rejectNonWhitelistedRef(res, ref)) return;
 
       const token = getERC20Token(tokenAddress, chainId);
       if (!token) {
@@ -209,6 +216,8 @@ router.post(
         res.status(400).json({ success: false, error: 'tokenAddresses and amounts must have the same length' });
         return;
       }
+
+      if (rejectNonWhitelistedRef(res, ref)) return;
 
       const validated = validateTokens(tokenAddresses, chainId);
       if (validated.ok === false) {
