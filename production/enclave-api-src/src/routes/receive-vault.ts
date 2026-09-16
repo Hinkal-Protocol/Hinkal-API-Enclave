@@ -6,6 +6,7 @@ import {
   receiveVaultNetworkOf,
   toJsonSafe,
 } from '@hinkal/common';
+import { WHITELISTED_REFERRALS } from '@hinkal/backend-common';
 import { Request, Response, Router } from 'express';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import {
@@ -31,16 +32,21 @@ router.post(
     res: Response<ReceiveAddressResponse>,
   ) => {
     try {
-      const { chainId, forceFresh } = req.body;
+      const { chainId, forceFresh, ref } = req.body;
 
       if (!isReceiveVaultSupported(chainId)) {
         res.status(400).json({ success: false, error: `Receive addresses are not available on chain ${chainId}` });
         return;
       }
 
+      if (ref !== undefined && !WHITELISTED_REFERRALS.includes(ref)) {
+        res.status(400).json({ success: false, error: `Invalid ref: '${ref}' is not a whitelisted referral` });
+        return;
+      }
+
       const network = receiveVaultNetworkOf(chainId);
       const record = await hinkalInitializerService.withHinkalForAddress(res.locals.address, chainId, async (hinkal) =>
-        hinkal.createReceiveAddress(network, forceFresh),
+        hinkal.createReceiveAddress(network, forceFresh, ref),
       );
 
       res.status(200).json({ success: true, record });

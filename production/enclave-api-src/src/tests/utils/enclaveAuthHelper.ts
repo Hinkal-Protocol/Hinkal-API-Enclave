@@ -116,6 +116,7 @@ export const buildTransferAuthFields = (
     recipientAddress: string;
     feeToken?: string;
     feeAmount?: string;
+    ref?: string;
   },
 ) =>
   signEnclaveTypedData(session.sessionId, wallet, (nonce, sessionId) =>
@@ -150,6 +151,7 @@ export const buildSwapAuthFields = (
     swapData: string;
     feeToken?: string;
     feeAmount?: string;
+    ref?: string;
   },
 ) =>
   signEnclaveTypedData(session.sessionId, wallet, (nonce, sessionId) =>

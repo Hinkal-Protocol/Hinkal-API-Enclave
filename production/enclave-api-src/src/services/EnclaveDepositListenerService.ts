@@ -22,6 +22,7 @@ import { getContract, getRpcProvider, Web3Contracts } from '@hinkal/backend-comm
 import { PAL_EVENTS_INITIAL_BLOCK_BY_CHAIN } from '../constants/palInitialBlocks';
 import { PalOrderWatermarkModel } from '../models/PalOrderWatermarkSchema';
 import { enclaveDepositDispatcherService } from './EnclaveWithdrawDispatcherService';
+import { confirmPendingDeposit } from './DepositReferralConfirmationService';
 
 type EvmCallTrace = {
   to?: string;
@@ -122,6 +123,10 @@ class EnclaveDepositListenerService {
           }
         })
         .catch((err) => Logger.error(`[EnclaveDepositListenerService] handleDeposit threw orderId=${orderId}:`, err));
+
+      confirmPendingDeposit(orderId, chainId, txHash).catch((err) =>
+        Logger.error(`[EnclaveDepositListenerService] confirmPendingDeposit threw orderId=${orderId}:`, err),
+      );
     });
     return true;
   }
@@ -257,6 +262,10 @@ class EnclaveDepositListenerService {
           }
         })
         .catch((err) => Logger.error(`[EnclaveDepositListenerService] handleDeposit threw orderId=${orderId}:`, err));
+
+      confirmPendingDeposit(orderId, chainId, signature).catch((err) =>
+        Logger.error(`[EnclaveDepositListenerService] confirmPendingDeposit threw orderId=${orderId}:`, err),
+      );
     });
     return true;
   }

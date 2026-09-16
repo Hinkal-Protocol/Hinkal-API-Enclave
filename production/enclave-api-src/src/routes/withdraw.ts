@@ -1,4 +1,5 @@
 import {
+  AdminTransactionType,
   ENCLAVE_UNSHIELD_VARIABLE_RATE,
   getErrorMessage,
   isNativePlaceholderAddress,
@@ -10,8 +11,10 @@ import { Request, Response, Router } from 'express';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { WithdrawRequest } from '../types/route.types';
 import { parseFeeStructure } from '../utils/parseFeeStructure';
+import { emitReferralVolume } from '../utils/emitReferralVolume';
 import { verifyWithdrawSignatureMiddleware } from '../middleware';
 import { getERC20Token } from '@hinkal/erc20-registry';
+import { WHITELISTED_REFERRALS } from '@hinkal/backend-common';
 import { WITHDRAW_REF_HASH_VARIABLE_RATE_BPS } from '../constants/withdrawRefVariableRates';
 
 const router = Router();
@@ -44,6 +47,11 @@ router.post(
         return;
       }
 
+      if (ref !== undefined && !WHITELISTED_REFERRALS.includes(ref)) {
+        res.status(400).json({ success: false, error: `Invalid ref: '${ref}' is not a whitelisted referral` });
+        return;
+      }
+
       const resolvedFeeToken = isSolanaLike(chainId) ? tokenAddresses[0] : feeToken;
       const refHash = createHash('sha256')
         .update(ref ?? '')
@@ -63,11 +71,14 @@ router.post(
             resolvedFeeToken,
             feeStructureOverride,
             resolvedVariableRate,
+            AdminTransactionType.ApiWithdraw,
           );
         },
       );
 
       const txHash = typeof txData === 'string' ? txData : txData.hash;
+
+      emitReferralVolume(ref, chainId, txHash, erc20Tokens, amounts, resolvedVariableRate);
 
       res.status(200).json({ success: true, txHash });
     } catch (error) {

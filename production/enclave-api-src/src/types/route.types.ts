@@ -20,6 +20,7 @@ export type DepositRequest = {
   chainId: number;
   tokenAddresses: string[];
   amounts: string[];
+  ref?: string;
 };
 
 export type DepositForOtherRequest = {
@@ -28,6 +29,7 @@ export type DepositForOtherRequest = {
   tokenAddresses: string[];
   amounts: string[];
   recipientInfo: string;
+  ref?: string;
 };
 
 export type SolanaDepositForOtherRequest = {
@@ -36,6 +38,7 @@ export type SolanaDepositForOtherRequest = {
   tokenAddresses: string[];
   amounts: string[];
   recipientInfo: string;
+  ref?: string;
 };
 
 export type WithdrawStuckUtxosRequest = {
@@ -43,6 +46,7 @@ export type WithdrawStuckUtxosRequest = {
   chainId: number;
   tokenAddress: string;
   recipientAddress: string;
+  ref?: string;
 };
 
 export type SolanaDepositResponse =
@@ -71,6 +75,7 @@ export type TransferRequest = {
   recipientAddress: string;
   feeToken?: string;
   feeAmount?: string;
+  ref?: string;
 };
 
 export type SwapRequest = {
@@ -82,6 +87,7 @@ export type SwapRequest = {
   swapData: string;
   feeToken?: string;
   feeAmount?: string;
+  ref?: string;
 };
 
 export type GetSwapDataRequest = {
@@ -130,6 +136,7 @@ export type ProoflessDepositRequest = {
   chainId: number;
   tokenAddresses: string[];
   amounts: string[];
+  ref?: string;
 };
 
 export type ProoflessDepositResponse =
@@ -156,6 +163,7 @@ export type DepositAndWithdrawRequest = {
 export type ReceiveAddressRequest = {
   chainId: number;
   forceFresh?: boolean;
+  ref?: string;
 };
 
 export type ReceiveAddressResponse =

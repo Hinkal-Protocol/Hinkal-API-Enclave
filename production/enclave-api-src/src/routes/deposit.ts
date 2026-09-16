@@ -1,5 +1,5 @@
 import { Request, Response, Router } from 'express';
-import { getErrorMessage, isSolanaLike, isTronLike, Logger, toJsonSafe } from '@hinkal/common';
+import { AdminTransactionType, getErrorMessage, isSolanaLike, isTronLike, Logger, toJsonSafe } from '@hinkal/common';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import {
   DepositForOtherRequest,
@@ -18,6 +18,7 @@ import {
   verifyProoflessDepositSignatureMiddleware,
 } from '../middleware';
 import { getERC20Token } from '@hinkal/erc20-registry';
+import { createPendingDepositConfirmation, resolveReferral } from '../utils/pendingDepositConfirmation';
 
 const router = Router();
 
@@ -29,7 +30,7 @@ router.post(
     res: Response<DepositResponse | SolanaDepositResponse>,
   ) => {
     try {
-      const { chainId, tokenAddresses, amounts } = req.body;
+      const { chainId, tokenAddresses, amounts, ref } = req.body;
 
       if (tokenAddresses.length !== amounts.length) {
         res.status(400).json({ success: false, error: 'tokenAddresses and amounts must have the same length' });
@@ -46,15 +47,28 @@ router.post(
         return;
       }
 
+      const resolvedRef = resolveReferral(ref);
+      const orderId = crypto.randomUUID();
+
       const txData = await hinkalInitializerService.withHinkalForAddress(
         res.locals.address,
         chainId,
         async (hinkal) => {
           if (isSolanaLike(chainId)) {
-            return hinkal.depositSolana(BigInt(amounts[0]), validated.tokens[0], true);
+            return hinkal.depositSolana(BigInt(amounts[0]), validated.tokens[0], true, orderId);
           }
-          return hinkal.deposit(validated.tokens, amounts.map(BigInt), false, true);
+          return hinkal.deposit(validated.tokens, amounts.map(BigInt), false, true, orderId);
         },
+      );
+
+      await createPendingDepositConfirmation(
+        orderId,
+        chainId,
+        AdminTransactionType.ApiDeposit,
+        res.locals.address,
+        tokenAddresses,
+        amounts,
+        resolvedRef,
       );
 
       res.status(200).json(toJsonSafe({ success: true, txData }) as DepositResponse);
@@ -70,7 +84,7 @@ router.post(
   verifyDepositForOtherSignatureMiddleware,
   async (req: Request<object, DepositResponse, DepositForOtherRequest>, res: Response<DepositResponse>) => {
     try {
-      const { chainId, tokenAddresses, amounts, recipientInfo } = req.body;
+      const { chainId, tokenAddresses, amounts, recipientInfo, ref } = req.body;
 
       if (tokenAddresses.length !== amounts.length) {
         res.status(400).json({ success: false, error: 'tokenAddresses and amounts must have the same length' });
@@ -84,13 +98,33 @@ router.post(
       }
 
       const resolvedRecipientInfo = await resolveRecipientInfo(recipientInfo);
+      const resolvedRef = resolveReferral(ref);
+      const orderId = crypto.randomUUID();
 
       const txData = await hinkalInitializerService.withHinkalForAddress(
         res.locals.address,
         chainId,
         async (hinkal) => {
-          return hinkal.depositForOther(validated.tokens, amounts.map(BigInt), resolvedRecipientInfo, false, true);
+          return hinkal.depositForOther(
+            validated.tokens,
+            amounts.map(BigInt),
+            resolvedRecipientInfo,
+            false,
+            true,
+            undefined,
+            orderId,
+          );
         },
+      );
+
+      await createPendingDepositConfirmation(
+        orderId,
+        chainId,
+        AdminTransactionType.ApiDepositForOther,
+        res.locals.address,
+        tokenAddresses,
+        amounts,
+        resolvedRef,
       );
 
       res.status(200).json(toJsonSafe({ success: true, txData }) as DepositResponse);
@@ -108,7 +142,7 @@ router.post(
     res: Response<SolanaDepositResponse>,
   ) => {
     try {
-      const { chainId, tokenAddresses, amounts, recipientInfo } = req.body;
+      const { chainId, tokenAddresses, amounts, recipientInfo, ref } = req.body;
       const tokenAddress = tokenAddresses?.[0];
       const amount = amounts?.[0];
 
@@ -119,13 +153,33 @@ router.post(
       }
 
       const resolvedRecipientInfo = await resolveRecipientInfo(recipientInfo);
+      const resolvedRef = resolveReferral(ref);
+      const orderId = crypto.randomUUID();
 
       const txData = await hinkalInitializerService.withHinkalForAddress(
         res.locals.address,
         chainId,
         async (hinkal) => {
-          return hinkal.depositSolanaForOther(BigInt(amount), token, resolvedRecipientInfo, true);
+          return hinkal.depositSolanaForOther(
+            BigInt(amount),
+            token,
+            resolvedRecipientInfo,
+            true,
+            undefined,
+            undefined,
+            orderId,
+          );
         },
+      );
+
+      await createPendingDepositConfirmation(
+        orderId,
+        chainId,
+        AdminTransactionType.ApiDepositSolanaForOther,
+        res.locals.address,
+        [tokenAddress],
+        [amount],
+        resolvedRef,
       );
 
       res.status(200).json({ success: true, txData });
@@ -144,7 +198,7 @@ router.post(
     res: Response<ProoflessDepositResponse>,
   ) => {
     try {
-      const { chainId, tokenAddresses, amounts } = req.body;
+      const { chainId, tokenAddresses, amounts, ref } = req.body;
 
       if (isTronLike(chainId)) {
         res.status(400).json({ success: false, error: 'Proofless deposit is not supported on Tron' });
@@ -166,12 +220,15 @@ router.post(
         return;
       }
 
+      const resolvedRef = resolveReferral(ref);
+      const orderId = crypto.randomUUID();
+
       const result = await hinkalInitializerService.withHinkalForAddress(
         res.locals.address,
         chainId,
         async (hinkal) => {
           if (isSolanaLike(chainId)) {
-            return hinkal.depositSolana(BigInt(amounts[0]), validated.tokens[0], true);
+            return hinkal.depositSolana(BigInt(amounts[0]), validated.tokens[0], true, orderId);
           }
           return hinkal.prooflessDeposit(
             validated.tokens,
@@ -180,12 +237,22 @@ router.post(
             undefined,
             undefined,
             undefined,
-            undefined,
+            orderId,
             undefined,
             undefined,
             true,
           );
         },
+      );
+
+      await createPendingDepositConfirmation(
+        orderId,
+        chainId,
+        AdminTransactionType.ApiProoflessDeposit,
+        res.locals.address,
+        tokenAddresses,
+        amounts,
+        resolvedRef,
       );
 
       res.status(200).json(toJsonSafe({ success: true, txData: result }) as ProoflessDepositResponse);
