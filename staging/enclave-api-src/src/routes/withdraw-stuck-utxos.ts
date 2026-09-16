@@ -4,6 +4,7 @@ import { verifyWithdrawStuckUtxosSignatureMiddleware } from '../middleware';
 import { WithdrawStuckUtxosRequest } from '../types';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { getERC20Token } from '@hinkal/erc20-registry';
+import { WHITELISTED_REFERRALS } from '@hinkal/backend-common';
 
 const router = Router();
 
@@ -12,7 +13,12 @@ router.post(
   verifyWithdrawStuckUtxosSignatureMiddleware,
   async (req: Request<object, unknown, WithdrawStuckUtxosRequest>, res: Response) => {
     try {
-      const { chainId, tokenAddress, recipientAddress } = req.body;
+      const { chainId, tokenAddress, recipientAddress, ref } = req.body;
+
+      if (ref !== undefined && !WHITELISTED_REFERRALS.includes(ref)) {
+        res.status(400).json({ success: false, error: `Invalid ref: '${ref}' is not a whitelisted referral` });
+        return;
+      }
 
       const token = getERC20Token(tokenAddress, chainId);
       if (!token) {
@@ -24,7 +30,7 @@ router.post(
         res.locals.address,
         chainId,
         async (hinkal) => {
-          return hinkal.withdrawStuckUtxos(token, recipientAddress);
+          return hinkal.withdrawStuckUtxos(token, recipientAddress, ref);
         },
       );
 

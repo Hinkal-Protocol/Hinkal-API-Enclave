@@ -46,6 +46,7 @@ export type WithdrawStuckUtxosRequest = {
   chainId: number;
   tokenAddress: string;
   recipientAddress: string;
+  ref?: string;
 };
 
 export type SolanaDepositResponse =
