@@ -21,8 +21,10 @@ import {
 import { getContract, getRpcProvider, Web3Contracts } from '@hinkal/backend-common';
 import { PAL_EVENTS_INITIAL_BLOCK_BY_CHAIN } from '../constants/palInitialBlocks';
 import { PalOrderWatermarkModel } from '../models/PalOrderWatermarkSchema';
+import { PendingReceiveVaultRecoveryModel } from '../models/PendingReceiveVaultRecoverySchema';
 import { enclaveDepositDispatcherService } from './EnclaveWithdrawDispatcherService';
 import { confirmPendingDeposit } from './DepositReferralConfirmationService';
+import { confirmPendingReceiveVaultRecovery } from './ReceiveVaultRecoveryConfirmationService';
 
 type EvmCallTrace = {
   to?: string;
@@ -221,6 +223,8 @@ class EnclaveDepositListenerService {
     const connection = this.solanaConnection;
     if (!connection) throw new Error(`[EnclaveDepositListenerService] Solana connection not initialized`);
 
+    await this.confirmSolanaReceiveVaultRecoveries(chainId, events);
+
     const commitmentEvents = events.filter((e) => e.eventName === 'NewCommitment');
 
     if (commitmentEvents.length === 0) {
@@ -233,6 +237,40 @@ class EnclaveDepositListenerService {
     const signatures = [...new Set(commitmentEvents.map((e) => e.transactionHash))];
     const results = await Promise.all(signatures.map((sig) => this.processSolanaTransaction(chainId, connection, sig)));
     return results.filter(Boolean).length;
+  }
+
+  // evm and tron is handled in ReceiveVaultRecoveryListenerService
+  private async confirmSolanaReceiveVaultRecoveries(chainId: number, events: BlockchainEvent[]): Promise<void> {
+    const recoveredEvents = events.filter((event) => event.eventName === 'ReceiveVaultRecovered');
+
+    await Promise.all(
+      recoveredEvents.map(async (event) => {
+        try {
+          const vault = event.getArg<string>('vault');
+          const mint = event.getArg<string>('mint');
+          const rawAmount = event.getArg<string>('amount');
+          if (!vault || !mint || !rawAmount) return;
+
+          const doc = await PendingReceiveVaultRecoveryModel.findOne({
+            chainId,
+            vaultAddress: vault,
+            tokenAddress: mint,
+          }).lean();
+
+          if (!doc || event.blockNumber < doc.createdAtBlock) return;
+
+          await confirmPendingReceiveVaultRecovery(
+            chainId,
+            vault,
+            mint,
+            event.transactionHash,
+            BigInt(`0x${rawAmount}`),
+          );
+        } catch (error) {
+          Logger.error(`[EnclaveDepositListenerService] confirmPendingReceiveVaultRecovery failed:`, error);
+        }
+      }),
+    );
   }
 
   private async processSolanaTransaction(chainId: number, connection: Connection, signature: string): Promise<boolean> {

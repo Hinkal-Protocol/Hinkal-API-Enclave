@@ -30,6 +30,7 @@ export type ReceiveVaultRecoverAuthFields = BaseAuthFields & {
   vaultAddress: string;
   tokenAddress: string;
   recipientAddress: string;
+  ref?: string;
 };
 
 export const buildSortedTokenPairs = (

@@ -6,6 +6,7 @@ export const PAL_EVENTS_INITIAL_BLOCK_BY_CHAIN: Partial<Record<number, number>> 
   [chainIds.polygon]: 86781000,
   [chainIds.arbMainnet]: 462119000,
   [chainIds.tempo]: 32553168,
+  [chainIds.robinhood]: 63459900,
   [chainIds.arcTestnet]: 54555576,
   [chainIds.optimism]: 151503000,
   [chainIds.base]: 45908000,

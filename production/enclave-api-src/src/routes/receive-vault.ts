@@ -6,7 +6,6 @@ import {
   receiveVaultNetworkOf,
   toJsonSafe,
 } from '@hinkal/common';
-import { WHITELISTED_REFERRALS } from '@hinkal/backend-common';
 import { Request, Response, Router } from 'express';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import {
@@ -14,6 +13,9 @@ import {
   verifyReceiveVaultRecoverSignatureMiddleware,
   verifySignatureMiddleware,
 } from '../middleware';
+import { getCurrentBlockMarker } from '../utils/getCurrentBlockMarker';
+import { rejectNonWhitelistedRef } from '../utils/referralWhitelist';
+import { createPendingReceiveVaultRecovery } from '../utils/pendingReceiveVaultRecovery';
 import {
   ReceiveAddressRequest,
   ReceiveAddressResponse,
@@ -39,10 +41,7 @@ router.post(
         return;
       }
 
-      if (ref !== undefined && !WHITELISTED_REFERRALS.includes(ref)) {
-        res.status(400).json({ success: false, error: `Invalid ref: '${ref}' is not a whitelisted referral` });
-        return;
-      }
+      if (rejectNonWhitelistedRef(res, ref)) return;
 
       const network = receiveVaultNetworkOf(chainId);
       const record = await hinkalInitializerService.withHinkalForAddress(res.locals.address, chainId, async (hinkal) =>
@@ -97,7 +96,9 @@ router.post(
     res: Response<ReceiveVaultRecoverResponse>,
   ) => {
     try {
-      const { chainId, vaultAddress, tokenAddress, recipientAddress } = req.body;
+      const { chainId, vaultAddress, tokenAddress, recipientAddress, ref } = req.body;
+
+      if (rejectNonWhitelistedRef(res, ref)) return;
 
       const txData = await hinkalInitializerService.withHinkalForAddress(
         res.locals.address,
@@ -109,7 +110,37 @@ router.post(
           );
           if (!record) throw new Error(`Receive address ${vaultAddress} does not belong to this account`);
 
-          return hinkal.recoverReceiveVault(record, tokenAddress, chainId, recipientAddress, true);
+          const recovery = await hinkal.recoverReceiveVault(record, tokenAddress, chainId, recipientAddress, true);
+
+          if (ref !== undefined) {
+            try {
+              const expectedAmount =
+                blockedFunds.find(
+                  ({ record: entryRecord, token }) =>
+                    token.chainId === chainId &&
+                    addressEqual(chainId, entryRecord.vaultAddress, record.vaultAddress) &&
+                    addressEqual(chainId, token.erc20TokenAddress, tokenAddress),
+                )?.amount ?? 0n;
+
+              const createdAtBlock = await getCurrentBlockMarker(chainId, hinkal);
+              await createPendingReceiveVaultRecovery(
+                chainId,
+                record.vaultAddress,
+                tokenAddress,
+                recipientAddress,
+                expectedAmount,
+                createdAtBlock,
+                ref,
+              );
+            } catch (error) {
+              Logger.error(
+                `[/receive-vault-recover] create pending receive vault recovery failed for ${chainId}-${record.vaultAddress}-${tokenAddress}-${recipientAddress}-${ref}:`,
+                error,
+              );
+            }
+          }
+
+          return recovery;
         },
       );
 

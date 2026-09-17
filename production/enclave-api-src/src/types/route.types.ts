@@ -193,6 +193,7 @@ export type ReceiveVaultRecoverRequest = {
   vaultAddress: string;
   tokenAddress: string;
   recipientAddress: string;
+  ref?: string;
 };
 
 export type ReceiveVaultRecoverResponse =

@@ -21,6 +21,7 @@ import { enclaveDepositListenerService } from './services/EnclaveDepositListener
 import { generateProof } from './utils/generateProof';
 import { decryptUtxosDirect } from './utils/decryptUtxosDirect';
 import { provisionUtxoServerKey } from './utils/provisionUtxoServerKey';
+import { receiveVaultRecoveryListenerService } from './services/ReceiveVaultRecoveryListenerService';
 
 applyPaidRpcUrlOverrides();
 
@@ -61,6 +62,7 @@ const startServer = async () => {
     await mongoose.connect(dbUri, MONGO_CONNECTION_OPTIONS);
     await liveChainStateService.warmup();
     await enclaveDepositListenerService.init();
+    await receiveVaultRecoveryListenerService.init();
     const server = app.listen(PORT, () => {
       Logger.log('DEPLOYMENT_MODE:', process.env.DEPLOYMENT_MODE);
       Logger.log('enclave-api service running on port:', PORT);

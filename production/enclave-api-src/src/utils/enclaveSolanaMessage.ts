@@ -73,9 +73,10 @@ export const buildSolanaWithdrawStuckUtxosMessage = (
   `\nRecipient: ${params.recipientAddress}`;
 
 export const buildSolanaReceiveVaultRecoverMessage = (
-  params: BaseAuthFields & { vaultAddress: string; tokenAddress: string; recipientAddress: string },
+  params: BaseAuthFields & { vaultAddress: string; tokenAddress: string; recipientAddress: string; ref?: string },
 ): string =>
   `${buildHeader('ReceiveVaultRecover', params.nonce, params.sessionId, params.chainId)}` +
   `\nVault Address: ${params.vaultAddress}` +
   `\nToken Address: ${params.tokenAddress}` +
-  `\nRecipient: ${params.recipientAddress}`;
+  `\nRecipient: ${params.recipientAddress}` +
+  `${params.ref !== undefined ? `\nRef: ${params.ref}` : ''}`;
