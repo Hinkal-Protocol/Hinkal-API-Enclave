@@ -2,24 +2,21 @@ import {
   getErrorMessage,
   Logger,
   preProcessing,
+  setCustomMerkleSiblingsProvider,
   setCustomProofGenerator,
-  setCustomUtxoDecryptor,
+  setCustomUtxoProvider,
 } from '@hinkal/common';
-import {
-  applyPaidRpcUrlOverrides,
-  liveChainStateService,
-  MONGO_CONNECTION_OPTIONS,
-  setServerSettings,
-} from '@hinkal/backend-common';
+import { applyPaidRpcUrlOverrides, MONGO_CONNECTION_OPTIONS, setServerSettings } from '@hinkal/backend-common';
 import cors from 'cors';
 import express, { json } from 'express';
 import mongoose from 'mongoose';
-import { DB_URI_ENCRYPTED, DEPLOYMENT_MODE, HEADER_ENCLAVE_SIGNATURE, PORT } from './constants';
+import { DB_URI_ENCRYPTED, DEPLOYMENT_MODE, HEADER_ENCLAVE_SIGNATURE, isLocalCryptoMode, PORT } from './constants';
 import { cryptoHelper } from './crypto';
 import { loadRoutes } from './loaders/routeLoader';
 import { enclaveDepositListenerService } from './services/EnclaveDepositListenerService';
 import { generateProof } from './utils/generateProof';
-import { decryptUtxosDirect } from './utils/decryptUtxosDirect';
+import { getUtxosFromUtxoServer } from './utils/utxoServerBalance';
+import { getMerkleSiblingsFromUtxoServer } from './utils/utxoServerMerkleSiblings';
 import { provisionUtxoServerKey } from './utils/provisionUtxoServerKey';
 import { receiveVaultRecoveryListenerService } from './services/ReceiveVaultRecoveryListenerService';
 
@@ -43,11 +40,13 @@ loadRoutes(app);
 
 if (DEPLOYMENT_MODE !== 'development') {
   setCustomProofGenerator(generateProof);
-  setCustomUtxoDecryptor(decryptUtxosDirect);
+  setCustomUtxoProvider(getUtxosFromUtxoServer);
+  setCustomMerkleSiblingsProvider(getMerkleSiblingsFromUtxoServer);
   provisionUtxoServerKey().catch((err) => Logger.error('provisionUtxoServerKey failed', getErrorMessage(err), err));
 }
 
 const resolveDbUri = async (): Promise<string> => {
+  if (isLocalCryptoMode) return DB_URI_ENCRYPTED;
   const decrypted = await cryptoHelper.decrypt(Buffer.from(DB_URI_ENCRYPTED, 'base64'));
   return decrypted.toString('utf8');
 };
@@ -60,7 +59,6 @@ const startServer = async () => {
     mongoose.set('strictQuery', true);
     mongoose.set('sanitizeFilter', true);
     await mongoose.connect(dbUri, MONGO_CONNECTION_OPTIONS);
-    await liveChainStateService.warmup();
     await enclaveDepositListenerService.init();
     await receiveVaultRecoveryListenerService.init();
     const server = app.listen(PORT, () => {

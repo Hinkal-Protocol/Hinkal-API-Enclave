@@ -29,7 +29,6 @@ export const executePrivateBridgeSwap = async (
         inToken.erc20TokenAddress,
         undefined,
       ),
-    false,
   );
 
   return { txHash: sourceTxHash, sourceTxHash, destTxHash, destinationTokenAmount };
