@@ -13,8 +13,9 @@ import {
   verifyReceiveVaultRecoverSignatureMiddleware,
   verifySignatureMiddleware,
 } from '../middleware';
+import { getCurrentBlockMarker } from '../utils/getCurrentBlockMarker';
 import { rejectNonWhitelistedRef } from '../utils/referralWhitelist';
-import { trackReceiveVaultRecovery } from '../utils/trackReceiveVaultRecovery';
+import { createPendingReceiveVaultRecovery } from '../utils/pendingReceiveVaultRecovery';
 import {
   ReceiveAddressRequest,
   ReceiveAddressResponse,
@@ -112,7 +113,31 @@ router.post(
           const recovery = await hinkal.recoverReceiveVault(record, tokenAddress, chainId, recipientAddress, true);
 
           if (ref !== undefined) {
-            trackReceiveVaultRecovery(hinkal, ref, chainId, record, tokenAddress, recipientAddress, blockedFunds);
+            try {
+              const expectedAmount =
+                blockedFunds.find(
+                  ({ record: entryRecord, token }) =>
+                    token.chainId === chainId &&
+                    addressEqual(chainId, entryRecord.vaultAddress, record.vaultAddress) &&
+                    addressEqual(chainId, token.erc20TokenAddress, tokenAddress),
+                )?.amount ?? 0n;
+
+              const createdAtBlock = await getCurrentBlockMarker(chainId, hinkal);
+              await createPendingReceiveVaultRecovery(
+                chainId,
+                record.vaultAddress,
+                tokenAddress,
+                recipientAddress,
+                expectedAmount,
+                createdAtBlock,
+                ref,
+              );
+            } catch (error) {
+              Logger.error(
+                `[/receive-vault-recover] create pending receive vault recovery failed for ${chainId}-${record.vaultAddress}-${tokenAddress}-${recipientAddress}-${ref}:`,
+                error,
+              );
+            }
           }
 
           return recovery;

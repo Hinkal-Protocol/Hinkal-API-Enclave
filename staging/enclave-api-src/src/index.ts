@@ -42,7 +42,7 @@ if (DEPLOYMENT_MODE !== 'development') {
   setCustomProofGenerator(generateProof);
   setCustomUtxoProvider(getUtxosFromUtxoServer);
   setCustomMerkleSiblingsProvider(getMerkleSiblingsFromUtxoServer);
-  provisionUtxoServerKey().catch((err) => Logger.error('provisionUtxoServerKey failed', getErrorMessage(err), err));
+  provisionUtxoServerKey().catch((err) => Logger.error('provisionUtxoServerKey failed:', getErrorMessage(err), err));
 }
 
 const resolveDbUri = async (): Promise<string> => {
@@ -67,7 +67,7 @@ const startServer = async () => {
     });
     setServerSettings(server);
   } catch (err) {
-    Logger.error('enclave-api failed to start:', getErrorMessage(err), err);
+    Logger.error('enclave-api service failed to start:', getErrorMessage(err), err);
   }
 };
 
