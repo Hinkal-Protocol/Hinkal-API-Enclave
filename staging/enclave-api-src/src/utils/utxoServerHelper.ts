@@ -10,7 +10,10 @@ export enum UtxoOpcode {
 export const sendRawToUtxoServer = (opcode: UtxoOpcode, body: Buffer): Promise<Buffer> =>
   new Promise((resolve, reject) => {
     const socket = net.createConnection({ host: UTXO_SERVER_HOST, port: UTXO_SERVER_PORT });
-    let buf = Buffer.alloc(0);
+    // Chunks accumulate here instead of via repeated Buffer.concat, to avoid recopying
+    // everything received so far on every single TCP chunk.
+    const chunks: Buffer[] = [];
+    let received = 0;
     let bodyLen = -1;
 
     socket.once('connect', () => {
@@ -21,15 +24,26 @@ export const sendRawToUtxoServer = (opcode: UtxoOpcode, body: Buffer): Promise<B
     });
 
     socket.on('data', (chunk: Buffer) => {
-      buf = Buffer.concat([buf, chunk]);
+      chunks.push(chunk);
+      received += chunk.length;
       try {
-        if (bodyLen === -1 && buf.length >= 4) {
-          bodyLen = buf.readUInt32BE(0);
-          buf = buf.subarray(4);
+        if (bodyLen === -1 && received >= 4) {
+          if (chunks.length === 1) {
+            bodyLen = chunks[0].readUInt32BE(0);
+            chunks[0] = chunks[0].subarray(4);
+            received -= 4;
+          } else {
+            const merged = Buffer.concat(chunks, received);
+            bodyLen = merged.readUInt32BE(0);
+            chunks.length = 0;
+            chunks.push(merged.subarray(4));
+            received = merged.length - 4;
+          }
         }
-        if (bodyLen !== -1 && buf.length >= bodyLen) {
+        if (bodyLen !== -1 && received >= bodyLen) {
           socket.destroy();
-          resolve(buf.subarray(0, bodyLen));
+          const full = chunks.length === 1 ? chunks[0] : Buffer.concat(chunks, received);
+          resolve(full.subarray(0, bodyLen));
         }
       } catch (err) {
         socket.destroy();
@@ -42,8 +56,7 @@ export const sendRawToUtxoServer = (opcode: UtxoOpcode, body: Buffer): Promise<B
       reject(err);
     });
     socket.once('close', () => {
-      if (bodyLen === -1 || buf.length < bodyLen)
-        reject(new Error('utxo-server closed connection before full response'));
+      if (bodyLen === -1 || received < bodyLen) reject(new Error('utxo-server closed connection before full response'));
     });
   });
 
