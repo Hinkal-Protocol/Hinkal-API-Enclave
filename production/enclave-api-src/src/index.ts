@@ -42,7 +42,7 @@ if (DEPLOYMENT_MODE !== 'development') {
   setCustomProofGenerator(generateProof);
   setCustomUtxoProvider(getUtxosFromUtxoServer);
   setCustomMerkleSiblingsProvider(getMerkleSiblingsFromUtxoServer);
-  provisionUtxoServerKey().catch((err) => Logger.error('provisionUtxoServerKey failed:', getErrorMessage(err), err));
+  provisionUtxoServerKey().catch((err) => Logger.error('provisionUtxoServerKey failed', getErrorMessage(err), err));
 }
 
 const resolveDbUri = async (): Promise<string> => {
