@@ -8,13 +8,13 @@ import {
 } from '@hinkal/common';
 import { userKeysService } from './userKeysService';
 import { buildVoidProviderAdapter } from '../utils/initVoidProviderAdapter';
-import { liveChainStateService } from '@hinkal/backend-common';
 import { TronProviderAdapter } from '@hinkal/common/providers/TronProviderAdapter';
 import { SolanaProviderAdapter } from '@hinkal/common/providers/SolanaProviderAdapter';
 import { EthersProviderAdapter } from '@hinkal/common/providers/EthersProviderAdapter';
 import { ethers } from 'ethers';
 import { SolanaLocalSigner, TronLocalSigner } from '../data-structures';
 import { walletSecretsService } from './walletSecretsService';
+import { isLocalCryptoMode } from '../constants';
 
 class HinkalInitializerService {
   async withHinkalForAddress<T>(
@@ -37,16 +37,8 @@ class HinkalInitializerService {
     fromAddress: string,
     chainId: number,
     callback: (hinkal: Hinkal<unknown>) => Promise<T>,
-    skipMerkleTreeInit = false,
   ): Promise<T> {
-    const hinkal = await this.initHinkalForOrganization(
-      organizationId,
-      userId,
-      signerPublicKey,
-      fromAddress,
-      chainId,
-      skipMerkleTreeInit,
-    );
+    const hinkal = await this.initHinkalForOrganization(organizationId, userId, signerPublicKey, fromAddress, chainId);
     try {
       return await callback(hinkal);
     } finally {
@@ -60,21 +52,17 @@ class HinkalInitializerService {
     providerAdapter: IProviderAdapter<unknown>,
     chainId: number,
     loginSignature: string,
-    skipMerkleTreeInit = false,
   ): Promise<void> => {
     await hinkal.initProviderAdapter(wallet, providerAdapter);
     hinkal.initUserKeysWithSignature(loginSignature);
     await hinkal.switchNetwork(networkRegistry[chainId]);
-    if (!skipMerkleTreeInit) {
-      await liveChainStateService.prepareHinkal(chainId, hinkal);
-    }
   };
 
   private async initalizeHinkalForAddress(ethereumAddress: string, chainId: number) {
     const userKey = await userKeysService.findOrCreatePrivateKey(ethereumAddress);
     const hinkal = new Hinkal<unknown>({
       useFileCache: true,
-      generateProofRemotely: false,
+      generateProofRemotely: isLocalCryptoMode,
       allowParallelBalanceLocalDecryption: true,
     });
     const { wallet, providerAdapter } = buildVoidProviderAdapter(chainId, ethereumAddress);
@@ -88,11 +76,10 @@ class HinkalInitializerService {
     signerPublicKey: string,
     fromAddress: string,
     chainId: number,
-    skipMerkleTreeInit = false,
   ): Promise<Hinkal<unknown>> {
     const hinkal = new Hinkal({
       useFileCache: true,
-      generateProofRemotely: false,
+      generateProofRemotely: isLocalCryptoMode,
       allowParallelBalanceLocalDecryption: true,
     });
 
@@ -111,20 +98,13 @@ class HinkalInitializerService {
       };
       const tronAdapter = new TronProviderAdapter(chainId);
       tronAdapter.initConnector(tronWallet);
-      await this.finalizeHinkalInit(hinkal, tronWallet, tronAdapter, chainId, seedHashHex, skipMerkleTreeInit);
+      await this.finalizeHinkalInit(hinkal, tronWallet, tronAdapter, chainId, seedHashHex);
       return hinkal;
     }
 
     if (isSolanaLike(chainId)) {
       const solanaWallet = new SolanaLocalSigner(childWallet.solana.secretKey, childWallet.solana.publicKey);
-      await this.finalizeHinkalInit(
-        hinkal,
-        solanaWallet,
-        new SolanaProviderAdapter(chainId),
-        chainId,
-        seedHashHex,
-        skipMerkleTreeInit,
-      );
+      await this.finalizeHinkalInit(hinkal, solanaWallet, new SolanaProviderAdapter(chainId), chainId, seedHashHex);
       return hinkal;
     }
 
@@ -133,7 +113,7 @@ class HinkalInitializerService {
     const providerAdapter = new EthersProviderAdapter();
     providerAdapter.initSigner?.(signer);
 
-    await this.finalizeHinkalInit(hinkal, undefined, providerAdapter, chainId, seedHashHex, skipMerkleTreeInit);
+    await this.finalizeHinkalInit(hinkal, undefined, providerAdapter, chainId, seedHashHex);
     return hinkal;
   }
 }

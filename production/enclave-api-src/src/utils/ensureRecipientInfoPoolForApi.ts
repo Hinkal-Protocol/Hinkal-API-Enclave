@@ -15,7 +15,6 @@ export const ensureRecipientInfoPoolForApi = async (
     walletAddress,
     chainId,
     async (hinkal) => ensureRecipientInfoPool(hinkal, walletAddress),
-    true,
   );
 };
 

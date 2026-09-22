@@ -1,17 +1,15 @@
 import net from 'net';
-
-const HOST = '127.0.0.1';
-const PORT = 7000;
+import { UTXO_SERVER_HOST, UTXO_SERVER_PORT } from '../constants';
 
 export enum UtxoOpcode {
-  DECRYPT_UTXO = 0,
-  GET_BALANCE = 1,
-  SET_UTXO_KEY = 2,
+  GET_BALANCE = 0,
+  SET_UTXO_KEY = 1,
+  GET_MERKLE_SIBLINGS = 2,
 }
 
 export const sendRawToUtxoServer = (opcode: UtxoOpcode, body: Buffer): Promise<Buffer> =>
   new Promise((resolve, reject) => {
-    const socket = net.createConnection({ host: HOST, port: PORT });
+    const socket = net.createConnection({ host: UTXO_SERVER_HOST, port: UTXO_SERVER_PORT });
     let buf = Buffer.alloc(0);
     let bodyLen = -1;
 
