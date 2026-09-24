@@ -122,17 +122,14 @@ export const recoverTemporaryWalletFunds = async (
 
         let entries: TemporaryWalletNonceEntry[];
         try {
-          const { nonces, nonceEntries } = await API.getTemporaryWalletNonces(chainId, hashedEthereumAddress);
-          entries =
-            nonceEntries ??
-            nonces.map((nonce) => ({ nonce, recoveryDestination: TemporaryWalletRecoveryDestination.Public }));
+          ({ nonceEntries: entries } = await API.getTemporaryWalletNonces(chainId, hashedEthereumAddress));
         } catch (error) {
           Logger.error(`Failed to fetch temporary wallet nonces for chain ${chainId}`, error);
           continue;
         }
 
-        for (const { nonce, recoveryDestination } of entries) {
-          const { privateKey, address: ethAddress } = deriveTempWallet(hinkal, chainId, BigInt(nonce));
+        for (const { nonce, recoveryDestination, isLegacy } of entries) {
+          const { privateKey, address: ethAddress } = deriveTempWallet(hinkal, chainId, BigInt(nonce), isLegacy);
 
           const balances = (await getPublicBalancesOfTokens(chainId, ethAddress)).filter(
             ({ token, balance }) => balance > 0n && !isNFTToken(token),
