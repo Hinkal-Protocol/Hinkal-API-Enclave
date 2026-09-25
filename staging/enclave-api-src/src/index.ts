@@ -42,7 +42,7 @@ if (DEPLOYMENT_MODE !== 'development') {
   setCustomProofGenerator(generateProof);
   setCustomUtxoProvider(getUtxosFromUtxoServer);
   setCustomMerkleSiblingsProvider(getMerkleSiblingsFromUtxoServer);
-  provisionUtxoServerKey().catch((err) => Logger.error('provisionUtxoServerKey failed:', getErrorMessage(err), err));
+  provisionUtxoServerKey().catch((err) => Logger.error('provisionUtxoServerKey failed :', getErrorMessage(err), err));
 }
 
 const resolveDbUri = async (): Promise<string> => {
@@ -52,8 +52,6 @@ const resolveDbUri = async (): Promise<string> => {
 };
 
 const startServer = async () => {
-  console.log('ENCLAVE_HMAC_ENCRYPTED_SEED', process.env.ENCLAVE_HMAC_ENCRYPTED_SEED);
-  console.log('ENCLAVE_UTXO_PRIVATE_KEY_ENCRYPTED', process.env.ENCLAVE_UTXO_PRIVATE_KEY_ENCRYPTED);
   try {
     await preProcessing();
 
