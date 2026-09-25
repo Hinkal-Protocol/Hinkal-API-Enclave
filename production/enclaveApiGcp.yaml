@@ -42,7 +42,7 @@ jobs:
             exit 0
           fi
           if git diff --name-only HEAD^ HEAD | grep -qE \
-              '^(apps/enclave-api/|libs/shared/common/|libs/shared/backend-common/|docker/enclave-api|terraform/gcp-enclave-api/|\.github/workflows/enclaveApiGcp\.yaml$|\.github/actions/(build-docker-image-gcp|deploy-enclave-api-tf)/|package\.json$|yarn\.lock$|nx\.json$|tsconfig\.base\.json$)'; then
+              '^(apps/enclave-api/|libs/shared/common/|libs/shared/backend-common/|libs/shared/erc20-registry/|docker/enclave-api|terraform/gcp-enclave-api/|\.github/workflows/enclaveApiGcp\.yaml$|\.github/actions/(build-docker-image-gcp|deploy-enclave-api-tf)/|package\.json$|yarn\.lock$|nx\.json$|tsconfig\.base\.json$)'; then
             echo "changed=true" >> $GITHUB_OUTPUT
           else
             echo "changed=false" >> $GITHUB_OUTPUT
