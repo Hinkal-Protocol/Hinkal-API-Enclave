@@ -52,6 +52,8 @@ const resolveDbUri = async (): Promise<string> => {
 };
 
 const startServer = async () => {
+  console.log('ENCLAVE_HMAC_ENCRYPTED_SEED', process.env.ENCLAVE_HMAC_ENCRYPTED_SEED);
+  console.log('ENCLAVE_UTXO_PRIVATE_KEY_ENCRYPTED', process.env.ENCLAVE_UTXO_PRIVATE_KEY_ENCRYPTED);
   try {
     await preProcessing();
 
