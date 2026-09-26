@@ -1,5 +1,6 @@
 import { PendingReceiveVaultRecoveryModel } from '../models/PendingReceiveVaultRecoverySchema';
 import { sealDocument } from './documentSigning';
+import { DEPLOYMENT_MODE } from '../constants';
 
 export const createPendingReceiveVaultRecovery = async (
   chainId: number,
@@ -18,6 +19,7 @@ export const createPendingReceiveVaultRecovery = async (
     expectedAmount: expectedAmount.toString(),
     createdAtBlock,
     createdAt: new Date(),
+    deploymentMode: DEPLOYMENT_MODE,
     ...(ref !== undefined && { ref }),
   });
 

@@ -9,6 +9,7 @@ export interface PendingDepositConfirmation {
   tokenAddresses: string[];
   amounts: string[];
   ref?: string;
+  deploymentMode?: string;
   enclaveHmac?: object;
 }
 
@@ -20,6 +21,7 @@ const PendingDepositConfirmationSchema = new Schema<PendingDepositConfirmation>(
   tokenAddresses: { type: [String], required: true },
   amounts: { type: [String], required: true },
   ref: { type: String },
+  deploymentMode: { type: String },
   enclaveHmac: { type: Object },
 });
 

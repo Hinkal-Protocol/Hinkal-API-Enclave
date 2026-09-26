@@ -20,6 +20,7 @@ import {
 } from '@hinkal/common';
 import { getContract, getRpcProvider, Web3Contracts } from '@hinkal/backend-common';
 import { PAL_EVENTS_INITIAL_BLOCK_BY_CHAIN } from '../constants/palInitialBlocks';
+import { OWN_DEPLOYMENT_MATCH } from '../constants';
 import { PalOrderWatermarkModel } from '../models/PalOrderWatermarkSchema';
 import { PendingReceiveVaultRecoveryModel } from '../models/PendingReceiveVaultRecoverySchema';
 import { enclaveDepositDispatcherService } from './EnclaveWithdrawDispatcherService';
@@ -255,6 +256,7 @@ class EnclaveDepositListenerService {
             chainId,
             vaultAddress: vault,
             tokenAddress: mint,
+            ...OWN_DEPLOYMENT_MATCH,
           }).lean();
 
           if (!doc || event.blockNumber < doc.createdAtBlock) return;
