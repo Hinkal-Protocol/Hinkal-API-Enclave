@@ -3,11 +3,16 @@ import { constructAdminData, emitTxPublicData, ERC20Token, Logger } from '@hinka
 import { PendingDepositConfirmation, PendingDepositConfirmationModel } from '../models/PendingDepositReferralSchema';
 import { emitReferralVolume } from '../utils/emitReferralVolume';
 import { verifyRawDoc } from '../utils/documentSigning';
+import { OWN_DEPLOYMENT_MATCH } from '../constants';
 
 const LABEL = 'pending deposit confirmation';
 
 export const confirmPendingDeposit = async (orderId: string, chainId: number, txHash: string): Promise<void> => {
-  const raw = await PendingDepositConfirmationModel.findOneAndDelete({ orderId, chainId }).lean();
+  const raw = await PendingDepositConfirmationModel.findOneAndDelete({
+    orderId,
+    chainId,
+    ...OWN_DEPLOYMENT_MATCH,
+  }).lean();
   if (!raw) return;
 
   let pending: PendingDepositConfirmation;

@@ -10,6 +10,8 @@ export const MONGO_DUPLICATE_KEY_ERROR = 11000;
 
 export const DEPLOYMENT_MODE = requireEnv('DEPLOYMENT_MODE');
 
+export const OWN_DEPLOYMENT_MATCH = { $or: [{ deploymentMode: DEPLOYMENT_MODE }, { deploymentMode: null }] };
+
 const CRYPTO_MODE_BY_DEPLOYMENT: Record<string, CryptoMode> = {
   development: 'local',
   staging: 'kms',

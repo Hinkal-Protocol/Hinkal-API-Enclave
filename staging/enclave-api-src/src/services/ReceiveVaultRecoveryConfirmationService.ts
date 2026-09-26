@@ -5,6 +5,7 @@ import {
 } from '../models/PendingReceiveVaultRecoverySchema';
 import { emitReferralVolume } from '../utils/emitReferralVolume';
 import { verifyRawDoc } from '../utils/documentSigning';
+import { OWN_DEPLOYMENT_MATCH } from '../constants';
 
 const LABEL = 'pending receive vault recovery';
 
@@ -15,7 +16,12 @@ export const confirmPendingReceiveVaultRecovery = async (
   txHash: string,
   amount: bigint,
 ): Promise<void> => {
-  const raw = await PendingReceiveVaultRecoveryModel.findOneAndDelete({ chainId, vaultAddress, tokenAddress }).lean();
+  const raw = await PendingReceiveVaultRecoveryModel.findOneAndDelete({
+    chainId,
+    vaultAddress,
+    tokenAddress,
+    ...OWN_DEPLOYMENT_MATCH,
+  }).lean();
   if (!raw) return;
 
   let pending: PendingReceiveVaultRecovery;

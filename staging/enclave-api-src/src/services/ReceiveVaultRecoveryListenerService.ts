@@ -11,6 +11,7 @@ import { getRpcProvider } from '@hinkal/backend-common';
 import { PendingReceiveVaultRecoveryModel } from '../models/PendingReceiveVaultRecoverySchema';
 import { ReceiveVaultRecoveryWatermarkModel } from '../models/ReceiveVaultRecoveryWatermarkSchema';
 import { confirmPendingReceiveVaultRecovery } from './ReceiveVaultRecoveryConfirmationService';
+import { OWN_DEPLOYMENT_MATCH } from '../constants';
 
 const RECOVERED_EVENT_TOPIC = ethers.id('ReceiveVaultRecovered(address,address,address,uint256)');
 const RECOVERED_ABI_CODER = ethers.AbiCoder.defaultAbiCoder();
@@ -48,7 +49,7 @@ class ReceiveVaultRecoveryListenerService {
       const factoryAddress = getReceiveVaultFactoryAddress(chainId);
       if (!factoryAddress) return;
 
-      const pending = await PendingReceiveVaultRecoveryModel.find({ chainId }).lean();
+      const pending = await PendingReceiveVaultRecoveryModel.find({ chainId, ...OWN_DEPLOYMENT_MATCH }).lean();
       if (pending.length === 0) return;
 
       const vaultTopics = pending.map((doc) =>
