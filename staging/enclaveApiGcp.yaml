@@ -48,21 +48,6 @@ jobs:
             echo "changed=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Extract encrypted HMAC seed (TEMPORARY)
-        id: seed
-        if: steps.check.outputs.changed == 'true' && env.DEPLOYMENT_MODE == 'staging'
-        shell: bash
-        env:
-          SECRETS_BLOB: ${{ secrets.STAGING_ENCLAVE_API_SECRETS }}
-        run: |
-          value=$(printf '%s' "$SECRETS_BLOB" | jq -r '.ENCLAVE_HMAC_ENCRYPTED_SEED')
-          if [ -z "$value" ] || [ "$value" = "null" ]; then
-            echo "ENCLAVE_HMAC_ENCRYPTED_SEED not found in STAGING_ENCLAVE_API_SECRETS" >&2
-            exit 1
-          fi
-          echo "::add-mask::$value"
-          echo "value=$value" >> "$GITHUB_OUTPUT"
-
       - name: Build and push image
         id: build
         if: steps.check.outputs.changed == 'true'
@@ -77,7 +62,6 @@ jobs:
             MODE_SHORT=${{ env.MODE_SHORT }}
             GCP_PROJECT_ID=${{ env.GCP_PROJECT }}
             GCP_REGION=${{ env.GCP_REGION }}
-            ENCLAVE_HMAC_ENCRYPTED_SEED=${{ steps.seed.outputs.value }}
           gcp-project: ${{ env.GCP_PROJECT }}
           gcp-region: ${{ env.ARTIFACT_REGISTRY_REGION }}
           gcp-workload-identity-provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}

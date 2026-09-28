@@ -8,8 +8,8 @@ const INTEGRITY_ALGORITHM = 'HMAC_SHA256';
 /** Fields stored by MongoDB/Mongoose but not part of the signed payload. */
 const UNSIGNED_FIELDS = new Set(['_id', '__v', INTEGRITY_FIELD]);
 
-const HMAC_SEED = Buffer.from(ENCLAVE_API_HMAC_SEED.replace(/^0x/, ''), 'hex');
-if (HMAC_SEED.length !== 32) throw new Error('ENCLAVE_API_HMAC_SEED must be 32 bytes of hex');
+if (!/^[0-9a-f]{64}$/i.test(ENCLAVE_API_HMAC_SEED)) throw new Error('ENCLAVE_API_HMAC_SEED must be 64 hex characters');
+const HMAC_SEED = Buffer.from(ENCLAVE_API_HMAC_SEED, 'utf8');
 
 const HMAC_KEY = createHash('sha256')
   .update(Buffer.concat([Buffer.from('enclave-db-hmac-v1:'), HMAC_SEED]))
