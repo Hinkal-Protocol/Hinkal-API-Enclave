@@ -15,3 +15,13 @@ export const buildStampMessage = (binding: string, params: Record<string, unknow
 
 export const getSignedRequestFields = (req: Request): Record<string, unknown> =>
   ((req.method === 'POST' ? req.body : req.query) as Record<string, unknown> | undefined) ?? {};
+
+const REQUEST_TIMESTAMP_WINDOW_MS = 5 * 60 * 1000;
+
+// Timestamp is not required, for this we have to check it only when passed.
+export const isTimestampWithinFreshnessWindow = (timestamp: unknown): boolean => {
+  if (timestamp === undefined || timestamp === null || timestamp === '') return true;
+  const parsed = typeof timestamp === 'number' ? timestamp : Number(timestamp);
+  if (!Number.isFinite(parsed)) return true;
+  return Math.abs(Date.now() - parsed) <= REQUEST_TIMESTAMP_WINDOW_MS;
+};
