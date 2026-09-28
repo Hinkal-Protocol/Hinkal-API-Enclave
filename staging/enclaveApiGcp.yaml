@@ -20,7 +20,7 @@ env:
   UTXO_BASE_IMAGE: us-central1-docker.pkg.dev/henclave-project/enclave/utxo-base:${{ github.ref_name == 'production-api-v1' && 'production' || 'staging' }}
   GCP_WORKLOAD_IDENTITY_PROVIDER: projects/737134066291/locations/global/workloadIdentityPools/github-pool/providers/github-provider
   GCP_SERVICE_ACCOUNT: henclave-github-sa@henclave-project.iam.gserviceaccount.com
-concurrency: ci-${{ github.repository }}-enclave-api
+concurrency: ci-${{ github.repository }}-enclave-api-${{ github.ref_name }}
 jobs:
   build-enclave-api:
     runs-on: ubuntu-latest
@@ -30,40 +30,23 @@ jobs:
       changed: ${{ steps.check.outputs.changed }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-        with:
-          fetch-depth: 2
 
       - name: Detect enclave-api changes
         id: check
         shell: bash
+        env:
+          BEFORE: ${{ github.event.before }}
         run: |
-          if ! git rev-parse HEAD^ >/dev/null 2>&1; then
+          if ! git fetch --no-tags --depth=1 origin "$BEFORE" 2>/dev/null; then
             echo "changed=true" >> $GITHUB_OUTPUT
             exit 0
           fi
-          if git diff --name-only HEAD^ HEAD | grep -qE \
+          if git diff --name-only "$BEFORE" HEAD | grep -qE \
               '^(apps/enclave-api/|libs/shared/common/|libs/shared/backend-common/|libs/shared/erc20-registry/|docker/enclave-api|terraform/gcp-enclave-api/|\.github/workflows/enclaveApiGcp\.yaml$|\.github/actions/(build-docker-image-gcp|deploy-enclave-api-tf)/|package\.json$|yarn\.lock$|nx\.json$|tsconfig\.base\.json$)'; then
             echo "changed=true" >> $GITHUB_OUTPUT
           else
             echo "changed=false" >> $GITHUB_OUTPUT
           fi
-
-      - name: Extract enclave-api secrets
-        id: secrets
-        if: steps.check.outputs.changed == 'true'
-        shell: bash
-        env:
-          SECRETS_BLOB: ${{ env.DEPLOYMENT_MODE == 'production' && secrets.PROD_ENCLAVE_API_SECRETS || secrets.STAGING_ENCLAVE_API_SECRETS }}
-        run: |
-          for field in DB_URI_ENCRYPTED ENCLAVE_HMAC_ENCRYPTED_SEED ENCLAVE_UTXO_PRIVATE_KEY_ENCRYPTED; do
-            value=$(printf '%s' "$SECRETS_BLOB" | jq -r --arg f "$field" '.[$f]')
-            if [ -z "$value" ] || [ "$value" = "null" ]; then
-              echo "$field not found in enclave-api secrets blob" >&2
-              exit 1
-            fi
-            echo "::add-mask::$value"
-            echo "${field,,}=$value" >> "$GITHUB_OUTPUT"
-          done
 
       - name: Build and push image
         id: build
@@ -72,15 +55,13 @@ jobs:
         with:
           service: enclave-api
           tag-prefix: ${{ env.DEPLOYMENT_MODE }}
+          nx-cache: true
           build-args: |
             UTXO_BASE_IMAGE=${{ env.UTXO_BASE_IMAGE }}
             DEPLOYMENT_MODE=${{ env.DEPLOYMENT_MODE }}
             MODE_SHORT=${{ env.MODE_SHORT }}
             GCP_PROJECT_ID=${{ env.GCP_PROJECT }}
             GCP_REGION=${{ env.GCP_REGION }}
-            DB_URI_ENCRYPTED=${{ steps.secrets.outputs.db_uri_encrypted }}
-            ENCLAVE_HMAC_ENCRYPTED_SEED=${{ steps.secrets.outputs.enclave_hmac_encrypted_seed }}
-            ENCLAVE_UTXO_PRIVATE_KEY_ENCRYPTED=${{ steps.secrets.outputs.enclave_utxo_private_key_encrypted }}
           gcp-project: ${{ env.GCP_PROJECT }}
           gcp-region: ${{ env.ARTIFACT_REGISTRY_REGION }}
           gcp-workload-identity-provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
@@ -131,7 +112,11 @@ jobs:
           git config user.name "Hinkal CI"
           git add .
           git commit -m "deploy: ${{ env.DEPLOYMENT_MODE }} ${{ github.sha }}"
-          git push
+          for attempt in 1 2 3; do
+            git pull --rebase && git push && exit 0
+            sleep 5
+          done
+          exit 1
 
       - name: Create GitHub release (production)
         if: env.DEPLOYMENT_MODE == 'production'
@@ -148,9 +133,14 @@ jobs:
 
   deploy-enclave-api:
     needs: build-enclave-api
+    if: needs.build-enclave-api.outputs.changed == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          sparse-checkout: |
+            .github/actions
+            terraform/gcp-enclave-api
 
       - name: Deploy via terraform
         uses: ./.github/actions/deploy-enclave-api-tf

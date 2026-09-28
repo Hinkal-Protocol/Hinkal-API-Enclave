@@ -1,7 +1,6 @@
 import { createHash, createHmac, timingSafeEqual } from 'crypto';
 import mongoose from 'mongoose';
-import { requireEnv } from '@hinkal/common/functions/utils/requireEnv';
-import { cryptoHelper } from '../crypto';
+import { ENCLAVE_API_HMAC_SEED } from '../constants';
 
 const INTEGRITY_FIELD = 'enclaveHmac';
 const INTEGRITY_ALGORITHM = 'HMAC_SHA256';
@@ -9,17 +8,12 @@ const INTEGRITY_ALGORITHM = 'HMAC_SHA256';
 /** Fields stored by MongoDB/Mongoose but not part of the signed payload. */
 const UNSIGNED_FIELDS = new Set(['_id', '__v', INTEGRITY_FIELD]);
 
-let hmacKeyCache: Buffer | null = null;
+const HMAC_SEED = Buffer.from(ENCLAVE_API_HMAC_SEED.replace(/^0x/, ''), 'hex');
+if (HMAC_SEED.length !== 32) throw new Error('ENCLAVE_API_HMAC_SEED must be 32 bytes of hex');
 
-const getHmacKey = async (): Promise<Buffer> => {
-  if (hmacKeyCache) return hmacKeyCache;
-  const encryptedSeed = Buffer.from(requireEnv('ENCLAVE_HMAC_ENCRYPTED_SEED'), 'base64');
-  const seed = await cryptoHelper.decrypt(encryptedSeed);
-  hmacKeyCache = createHash('sha256')
-    .update(Buffer.concat([Buffer.from('enclave-db-hmac-v1:'), seed]))
-    .digest();
-  return hmacKeyCache;
-};
+const HMAC_KEY = createHash('sha256')
+  .update(Buffer.concat([Buffer.from('enclave-db-hmac-v1:'), HMAC_SEED]))
+  .digest();
 
 const canonicalPayload = (doc: Record<string, unknown>): string => {
   const filtered = Object.entries(doc)
@@ -40,8 +34,7 @@ const canonicalPayload = (doc: Record<string, unknown>): string => {
 };
 
 const computeSignature = async (doc: Record<string, unknown>): Promise<string> => {
-  const key = await getHmacKey();
-  return createHmac('sha256', key).update(canonicalPayload(doc)).digest('base64');
+  return createHmac('sha256', HMAC_KEY).update(canonicalPayload(doc)).digest('base64');
 };
 
 export const sealDocument = async (doc: Record<string, unknown>): Promise<Record<string, unknown>> => {
