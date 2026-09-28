@@ -13,6 +13,7 @@ import mongoose from 'mongoose';
 import { DB_URI_ENCRYPTED, DEPLOYMENT_MODE, HEADER_ENCLAVE_SIGNATURE, isLocalCryptoMode, PORT } from './constants';
 import { cryptoHelper } from './crypto';
 import { loadRoutes } from './loaders/routeLoader';
+import { dropLegacyEnclaveSessionTtlIndex } from './migrations/dropLegacyEnclaveSessionTtlIndex';
 import { enclaveDepositListenerService } from './services/EnclaveDepositListenerService';
 import { generateProof } from './utils/generateProof';
 import { getUtxosFromUtxoServer } from './utils/utxoServerBalance';
@@ -59,6 +60,9 @@ const startServer = async () => {
     mongoose.set('strictQuery', true);
     mongoose.set('sanitizeFilter', true);
     await mongoose.connect(dbUri, MONGO_CONNECTION_OPTIONS);
+    if (DEPLOYMENT_MODE === 'production') {
+      await dropLegacyEnclaveSessionTtlIndex();
+    }
     await enclaveDepositListenerService.init();
     await receiveVaultRecoveryListenerService.init();
     const server = app.listen(PORT, () => {
