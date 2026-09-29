@@ -7,3 +7,4 @@ export * from './enclaveTypedData.types';
 export * from './signatureMiddleware.types';
 export * from './recovery.types';
 export * from './partner.types';
+export * from './deposit.types';

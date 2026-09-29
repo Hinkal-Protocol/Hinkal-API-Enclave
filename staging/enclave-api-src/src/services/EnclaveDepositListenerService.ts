@@ -1,14 +1,17 @@
 import { ethers } from 'ethers';
+import { BorshCoder } from '@coral-xyz/anchor';
 import {
   AddressLookupTableAccount,
   Connection,
   Message,
   type MessageAccountKeys,
+  type MessageCompiledInstruction,
   MessageV0,
   PublicKey,
 } from '@solana/web3.js';
 import {
   BlockchainEvent,
+  caseInsensitiveEqual,
   extractOrderIdFromMemos,
   getChainBalanceFetchingMutex,
   HINKAL_SUPPORTED_CHAINS,
@@ -17,6 +20,7 @@ import {
   networkRegistry,
   PollingBlockchainEventEmitter,
   PollingSolanaBlockchainEventEmitter,
+  solanaNativeAddress,
 } from '@hinkal/common';
 import { getContract, getRpcProvider, Web3Contracts } from '@hinkal/backend-common';
 import { PAL_EVENTS_INITIAL_BLOCK_BY_CHAIN } from '../constants/palInitialBlocks';
@@ -26,6 +30,7 @@ import { PendingReceiveVaultRecoveryModel } from '../models/PendingReceiveVaultR
 import { enclaveDepositDispatcherService } from './EnclaveWithdrawDispatcherService';
 import { confirmPendingDeposit } from './DepositReferralConfirmationService';
 import { confirmPendingReceiveVaultRecovery } from './ReceiveVaultRecoveryConfirmationService';
+import { DecodedDeposit, DecodedOrder } from '../types';
 
 type EvmCallTrace = {
   to?: string;
@@ -111,13 +116,14 @@ class EnclaveDepositListenerService {
     const tx = (await provider.send('eth_getTransactionByHash', [txHash])) as RawTransaction | null;
     if (!tx) return false;
 
-    const orderId = await this.extractEvmOrderId(hinkalContract, tx, provider);
-    if (!orderId) return false;
+    const decoded = await this.extractEvmOrderId(hinkalContract, tx, provider);
+    if (!decoded) return false;
+    const { orderId, deposit } = decoded;
 
     const blockNumber = tx.blockNumber ? parseInt(tx.blockNumber, 16) : 0;
     setImmediate(() => {
       enclaveDepositDispatcherService
-        .handleDeposit({ chainId, txHash, fromAddress: tx.from, orderId })
+        .handleDeposit({ chainId, txHash, fromAddress: tx.from, orderId, deposit })
         .then(async () => {
           const current = this.maxCompletedOrderBlockByChain.get(chainId) ?? 0;
           if (blockNumber > current) {
@@ -138,7 +144,7 @@ class EnclaveDepositListenerService {
     hinkalContract: ethers.Contract,
     tx: RawTransaction,
     provider: ethers.JsonRpcProvider,
-  ): Promise<string | null> {
+  ): Promise<DecodedOrder | null> {
     const direct = this.decodeOrderId(hinkalContract, tx.input);
     if (direct) return direct;
 
@@ -151,7 +157,7 @@ class EnclaveDepositListenerService {
       const hinkalAddress = (await hinkalContract.getAddress()).toLowerCase();
       return this.flattenTrace(trace)
         .filter((call) => call.to?.toLowerCase() === hinkalAddress && call.input)
-        .reduce<string | null>(
+        .reduce<DecodedOrder | null>(
           (found, call) => found ?? this.decodeOrderId(hinkalContract, call.input as string),
           null,
         );
@@ -164,31 +170,86 @@ class EnclaveDepositListenerService {
     return [trace, ...(trace.calls ?? []).flatMap((c) => this.flattenTrace(c))];
   }
 
-  private decodeOrderId(hinkalContract: ethers.Contract, data: string): string | null {
+  private decodeOrderId(hinkalContract: ethers.Contract, data: string): DecodedOrder | null {
     try {
       const decoded = hinkalContract.interface.parseTransaction({ data });
       if (!decoded) return null;
 
       if (decoded.name === 'prooflessDeposit') {
         const orderId: string | undefined = decoded.args.orderId;
-        return orderId || null;
+        if (!orderId) return null;
+        const erc20Addresses: string[] = decoded.args.erc20Addresses ?? [];
+        const amounts: bigint[] = decoded.args.amounts ?? [];
+        return {
+          orderId,
+          deposit: { erc20Addresses, amounts: amounts.map((a) => a.toString()) },
+        };
       }
 
       if (decoded.name === 'transact') {
         const extraData: string | undefined = decoded.args.circomData?.extraData;
         if (!extraData || extraData === '0x') return null;
+        let orderId: string;
         try {
-          const orderId = ethers.toUtf8String(extraData);
-          return orderId || null;
+          orderId = ethers.toUtf8String(extraData);
         } catch {
           return null;
         }
+        if (!orderId) return null;
+
+        const erc20TokenAddresses: string[] = decoded.args.circomData?.erc20TokenAddresses ?? [];
+        const amountChanges: bigint[] = decoded.args.circomData?.amountChanges ?? [];
+        const deposits = erc20TokenAddresses
+          .map((erc20Address, i) => ({ erc20Address, amount: amountChanges[i] ?? 0n }))
+          .filter((d) => d.amount > 0n);
+
+        return {
+          orderId,
+          deposit: {
+            erc20Addresses: deposits.map((d) => d.erc20Address),
+            amounts: deposits.map((d) => d.amount.toString()),
+          },
+        };
       }
 
       return null;
     } catch {
       return null;
     }
+  }
+
+  private decodeSolanaDeposit(
+    chainId: number,
+    instructions: readonly MessageCompiledInstruction[],
+    accountKeys: MessageAccountKeys,
+  ): DecodedDeposit | null {
+    const { hinkalAddress, hinkalIdl } = networkRegistry[chainId].contractData;
+    if (!hinkalAddress || !hinkalIdl) return null;
+
+    const depositIx = instructions.find((ix) => accountKeys.get(ix.programIdIndex)?.toBase58() === hinkalAddress);
+    if (!depositIx) return null;
+
+    let decoded: { name: string; data: { amounts?: { toString(): string }[] } } | null;
+    try {
+      decoded = new BorshCoder(hinkalIdl).instruction.decode(Buffer.from(depositIx.data)) as typeof decoded;
+    } catch {
+      return null;
+    }
+    if (!decoded || !caseInsensitiveEqual(decoded.name, 'proofless_deposit')) return null;
+
+    const idlAccounts = hinkalIdl.instructions.find((ix) =>
+      caseInsensitiveEqual(ix.name, 'proofless_deposit'),
+    )?.accounts;
+    const mintSlot = idlAccounts?.findIndex((a) => a.name === 'mint') ?? -1;
+    const mintKeyIndex = mintSlot >= 0 ? depositIx.accountKeyIndexes[mintSlot] : undefined;
+    const mintPubkey = mintKeyIndex !== undefined ? accountKeys.get(mintKeyIndex) : null;
+    // Anchor substitutes the program's own id for a missing optional account (`mint: null`
+    // for a native SOL deposit); anything else is the actual SPL mint.
+    const tokenAddress =
+      !mintPubkey || mintPubkey.toBase58() === hinkalAddress ? solanaNativeAddress : mintPubkey.toBase58();
+
+    const amounts = (decoded.data.amounts ?? []).map((a) => a.toString());
+    return { erc20Addresses: amounts.map(() => tokenAddress), amounts };
   }
 
   private async initSolanaChain(chainId: number, fromSlot: number): Promise<void> {
@@ -288,12 +349,14 @@ class EnclaveDepositListenerService {
     const orderId = extractOrderIdFromMemos(message.compiledInstructions, accountKeys);
     if (!orderId) return false;
 
+    const deposit = this.decodeSolanaDeposit(chainId, message.compiledInstructions, accountKeys);
+
     const fromAddress = message.staticAccountKeys[0].toBase58();
     const { slot } = tx;
 
     setImmediate(() => {
       enclaveDepositDispatcherService
-        .handleDeposit({ chainId, txHash: signature, fromAddress, orderId })
+        .handleDeposit({ chainId, txHash: signature, fromAddress, orderId, deposit })
         .then(async () => {
           const current = this.maxCompletedOrderBlockByChain.get(chainId) ?? 0;
           if (slot > current) {
