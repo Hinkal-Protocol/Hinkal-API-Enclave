@@ -48,6 +48,7 @@ export const KMS_KEY_ID = requireEnvWhenKms('KMS_KEY_NAME');
 export const KMS_KEY_VERSION = process.env.KMS_KEY_VERSION ?? '1';
 export const WIF_AUDIENCE = requireEnvWhenKms('WIF_AUDIENCE');
 export const ENCLAVE_UTXO_PRIVATE_KEY = requireEnvWhenKms('ENCLAVE_UTXO_PRIVATE_KEY');
+export const DATA_SERVER_SERVICE_KEY = process.env.DATA_SERVER_SERVICE_KEY ?? '';
 export const UTXO_SERVER_HOST = process.env.UTXO_SERVER_HOST ?? '127.0.0.1';
 export const UTXO_SERVER_PORT = Number(process.env.UTXO_SERVER_PORT ?? 7000);
 

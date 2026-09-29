@@ -5,12 +5,13 @@ import {
   setCustomMerkleSiblingsProvider,
   setCustomProofGenerator,
   setCustomUtxoProvider,
+  setDataServerServiceKey,
 } from '@hinkal/common';
 import { applyPaidRpcUrlOverrides, MONGO_CONNECTION_OPTIONS, setServerSettings } from '@hinkal/backend-common';
 import cors from 'cors';
 import express, { json } from 'express';
 import mongoose from 'mongoose';
-import { DEPLOYMENT_MODE, HEADER_ENCLAVE_SIGNATURE, MONGODB_URL, PORT } from './constants';
+import { DATA_SERVER_SERVICE_KEY, DEPLOYMENT_MODE, HEADER_ENCLAVE_SIGNATURE, MONGODB_URL, PORT } from './constants';
 import { loadRoutes } from './loaders/routeLoader';
 import { dropLegacyEnclaveSessionTtlIndex } from './migrations/dropLegacyEnclaveSessionTtlIndex';
 import { enclaveDepositListenerService } from './services/EnclaveDepositListenerService';
@@ -50,6 +51,10 @@ const startServer = async () => {
   try {
     await preProcessing();
 
+    if (!DATA_SERVER_SERVICE_KEY) {
+      Logger.error('DATA_SERVER_SERVICE_KEY is not set; data-server will reject emits from this service');
+    }
+    setDataServerServiceKey(DATA_SERVER_SERVICE_KEY);
     mongoose.set('strictQuery', true);
     mongoose.set('sanitizeFilter', true);
     await mongoose.connect(MONGODB_URL, MONGO_CONNECTION_OPTIONS);
