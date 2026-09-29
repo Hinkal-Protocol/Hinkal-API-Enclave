@@ -1,6 +1,7 @@
 import { AdminTransactionType } from '@hinkal/common';
 import { WHITELISTED_REFERRALS } from '@hinkal/backend-common';
 import { PendingDepositConfirmationModel } from '../models/PendingDepositReferralSchema';
+import { ReferralAttribution } from '../types';
 import { sealDocument } from './documentSigning';
 import { DEPLOYMENT_MODE } from '../constants';
 
@@ -14,13 +15,14 @@ export const createPendingDepositConfirmation = async (
   ethereumAddress: string,
   tokenAddresses: string[],
   amounts: string[],
-  ref: string | undefined,
+  { ref, keyId }: ReferralAttribution,
 ): Promise<void> => {
   const sealed = await sealDocument({
     orderId,
     chainId,
     action,
     ...(ref !== undefined && { ref }),
+    ...(keyId !== undefined && { keyId }),
     ethereumAddress,
     tokenAddresses,
     amounts,

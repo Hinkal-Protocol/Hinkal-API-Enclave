@@ -3,7 +3,14 @@ import {
   dispatchSolanaWithdrawForOrder,
   dispatchTronWithdrawForOrder,
 } from './dispatchWithdrawForOrder';
-import { extractMessage, isSolanaLike, isTronLike } from '@hinkal/common';
+import {
+  caseInsensitiveEqual,
+  extractMessage,
+  getErrorMessage,
+  isSolanaLike,
+  isTronLike,
+  Logger,
+} from '@hinkal/common';
 import mongoose from 'mongoose';
 import {
   DepositAndWithdrawOrder,
@@ -14,6 +21,8 @@ import { hinkalInitializerService } from './hinkalInitializerService';
 import { publicDoc, replaceSignedDoc, verifyRawDoc } from '../utils/documentSigning';
 import { assertUuid } from '../utils/queryGuards';
 import { DEPLOYMENT_MODE } from '../constants';
+import { createPendingPrivateSendVolume } from '../utils/pendingPrivateSendVolume';
+import { DecodedDeposit } from '../types';
 
 const ORDER_LABEL = 'deposit-and-withdraw order';
 
@@ -21,6 +30,17 @@ type RawOrder = Record<string, unknown> & { _id: mongoose.Types.ObjectId };
 
 const toRaw = (order: DepositAndWithdrawOrder & { _id: mongoose.Types.ObjectId }): RawOrder =>
   order as unknown as RawOrder;
+
+const trackKeyedPrivateSendVolume = async (order: DepositAndWithdrawOrder, scheduleId: string) => {
+  try {
+    await createPendingPrivateSendVolume(order, scheduleId);
+  } catch (err) {
+    Logger.error(
+      `[EnclaveWithdrawDispatcherService] failed to track private send volume for ${order.orderId}:`,
+      getErrorMessage(err),
+    );
+  }
+};
 
 class EnclaveWithdrawDispatcherService {
   async dispatchWithdraw(order: DepositAndWithdrawOrder & { _id: mongoose.Types.ObjectId }): Promise<void> {
@@ -41,6 +61,8 @@ class EnclaveWithdrawDispatcherService {
       },
     );
 
+    await trackKeyedPrivateSendVolume(order, scheduleId);
+
     await replaceSignedDoc(
       DepositAndWithdrawOrderModel.collection,
       toRaw(order),
@@ -49,7 +71,20 @@ class EnclaveWithdrawDispatcherService {
     );
   }
 
-  async handleDeposit(event: { chainId: number; txHash: string; fromAddress: string; orderId: string }): Promise<void> {
+  async handleDeposit(event: {
+    chainId: number;
+    txHash: string;
+    fromAddress: string;
+    orderId: string;
+    deposit: DecodedDeposit | null;
+  }): Promise<void> {
+    if (!event.deposit) {
+      Logger.error(
+        `[EnclaveWithdrawDispatcherService] no verifiable deposit amount for orderId=${event.orderId} txHash=${event.txHash}, ignoring`,
+      );
+      return;
+    }
+
     const raw = await DepositAndWithdrawOrderModel.findOne({
       orderId: event.orderId,
       chainId: event.chainId,
@@ -61,6 +96,13 @@ class EnclaveWithdrawDispatcherService {
     if (!claimed) return;
 
     const order = claimed as unknown as DepositAndWithdrawOrder & { _id: mongoose.Types.ObjectId };
+
+    if (!this.depositMatchesOrder(order, event.deposit)) {
+      Logger.error(
+        `[EnclaveWithdrawDispatcherService] deposit amount mismatch for orderId=${event.orderId} txHash=${event.txHash}, ignoring`,
+      );
+      return;
+    }
 
     const confirmed = await replaceSignedDoc(
       DepositAndWithdrawOrderModel.collection,
@@ -91,6 +133,16 @@ class EnclaveWithdrawDispatcherService {
         { status: DepositAndWithdrawOrderStatus.DepositConfirmed },
       );
     }
+  }
+
+  private depositMatchesOrder(order: DepositAndWithdrawOrder, deposit: DecodedDeposit): boolean {
+    const expected = order.utxoAmounts.reduce((sum, a) => sum + BigInt(a), 0n);
+    const deposited = deposit.erc20Addresses.reduce(
+      (sum, addr, i) => (caseInsensitiveEqual(addr, order.tokenAddress) ? sum + BigInt(deposit.amounts[i]) : sum),
+      0n,
+    );
+
+    return deposited === expected;
   }
 
   async getOrder(orderId: string): Promise<DepositAndWithdrawOrder | null> {

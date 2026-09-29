@@ -5,6 +5,7 @@ import {
   GetSwapDataResponse,
   isSolanaLike,
   Logger,
+  PartnerTransactionType,
   TxHashResponse,
 } from '@hinkal/common';
 import { Request, Response, Router } from 'express';
@@ -13,7 +14,14 @@ import { getBestSwapQuote } from '../services/getBestSwapQuote';
 import { GetSwapDataRequest, SwapRequest } from '../types/route.types';
 import { parseFeeStructure } from '../utils/parseFeeStructure';
 import { emitReferralVolume } from '../utils/emitReferralVolume';
-import { verifyReadOnlySignatureMiddleware, verifySwapSignatureMiddleware } from '../middleware';
+import { adjustSwapOutputForPartnerFee } from '../utils/partnerFee.utils';
+import {
+  getPartnerFeeBps,
+  getRequestAttribution,
+  partnerKeyMiddleware,
+  verifyReadOnlySignatureMiddleware,
+  verifySwapSignatureMiddleware,
+} from '../middleware';
 import { getERC20Token } from '@hinkal/erc20-registry';
 import { WHITELISTED_REFERRALS } from '@hinkal/backend-common';
 
@@ -22,6 +30,7 @@ const router = Router();
 router.post(
   '/swap',
   verifySwapSignatureMiddleware,
+  partnerKeyMiddleware,
   async (req: Request<object, TxHashResponse, SwapRequest>, res: Response<TxHashResponse>) => {
     try {
       const { chainId, tokenAddresses, amounts, externalActionId, swapData, feeToken, feeAmount, ref } =
@@ -54,32 +63,37 @@ router.post(
 
       const resolvedFeeToken = isSolanaLike(chainId) ? tokenAddresses[1] : feeToken;
 
-      const resolvedFeeStructure = parseFeeStructure(resolvedFeeToken, feeAmount, ENCLAVE_SWAP_VARIABLE_RATE);
+      const partnerFeeBps = getPartnerFeeBps(res);
+      const variableRate = ENCLAVE_SWAP_VARIABLE_RATE + partnerFeeBps;
+      const resolvedFeeStructure = parseFeeStructure(resolvedFeeToken, feeAmount, variableRate);
+      const deltaAmounts = adjustSwapOutputForPartnerFee(amounts.map(BigInt), chainId, partnerFeeBps);
       const txHash = await hinkalInitializerService.withHinkalForAddress(
         res.locals.address,
         chainId,
         async (hinkal) => {
           return hinkal.swap(
             erc20Tokens,
-            amounts.map(BigInt),
+            deltaAmounts,
             externalActionId,
             swapData,
             resolvedFeeToken,
             resolvedFeeStructure,
             undefined,
             AdminTransactionType.ApiSwap,
+            variableRate,
           );
         },
       );
 
       // Fee is taken from the output token
       emitReferralVolume(
-        ref,
+        getRequestAttribution(res, ref),
         chainId,
         txHash,
         [erc20Tokens[1]],
         [amounts[1]],
-        resolvedFeeStructure?.variableRate ?? ENCLAVE_SWAP_VARIABLE_RATE,
+        variableRate,
+        PartnerTransactionType.Swap,
       );
 
       res.status(200).json({ success: true, txHash });

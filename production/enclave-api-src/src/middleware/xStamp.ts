@@ -54,6 +54,11 @@ export const xStampMiddleware = async (req: Request, res: Response, next: NextFu
     }
 
     const params = req.method === 'GET' ? req.query : req.body;
+    if (typeof params !== 'object' || params === null) {
+      res.status(400).send({ status: 'error', message: 'Invalid request body' });
+      return;
+    }
+
     if (!verifyStamp(buildStampMessage(binding, params), parsed)) {
       res.status(401).send({ status: 'error', message: 'Invalid stamp signature' });
       return;

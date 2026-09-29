@@ -20,6 +20,8 @@ export interface DepositAndWithdrawOrder {
   utxoAmounts: string[];
   txCompletionTime?: number;
   ref?: string;
+  keyId?: string;
+  partnerFeeBps?: number;
   status: DepositAndWithdrawOrderStatus;
   txHash?: string;
   scheduleId?: string;
@@ -41,6 +43,8 @@ const DepositAndWithdrawOrderSchema = new Schema<DepositAndWithdrawOrder>(
     utxoAmounts: { type: [String], required: true, default: [] },
     txCompletionTime: { type: Number },
     ref: { type: String },
+    keyId: { type: String },
+    partnerFeeBps: { type: Number },
     status: { type: String, enum: Object.values(DepositAndWithdrawOrderStatus), required: true },
     txHash: { type: String },
     scheduleId: { type: String },

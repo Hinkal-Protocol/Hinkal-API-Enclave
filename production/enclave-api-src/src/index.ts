@@ -10,15 +10,16 @@ import { applyPaidRpcUrlOverrides, MONGO_CONNECTION_OPTIONS, setServerSettings }
 import cors from 'cors';
 import express, { json } from 'express';
 import mongoose from 'mongoose';
-import { DB_URI_ENCRYPTED, DEPLOYMENT_MODE, HEADER_ENCLAVE_SIGNATURE, isLocalCryptoMode, PORT } from './constants';
-import { cryptoHelper } from './crypto';
+import { DEPLOYMENT_MODE, HEADER_ENCLAVE_SIGNATURE, MONGODB_URL, PORT } from './constants';
 import { loadRoutes } from './loaders/routeLoader';
+import { dropLegacyEnclaveSessionTtlIndex } from './migrations/dropLegacyEnclaveSessionTtlIndex';
 import { enclaveDepositListenerService } from './services/EnclaveDepositListenerService';
 import { generateProof } from './utils/generateProof';
 import { getUtxosFromUtxoServer } from './utils/utxoServerBalance';
 import { getMerkleSiblingsFromUtxoServer } from './utils/utxoServerMerkleSiblings';
 import { provisionUtxoServerKey } from './utils/provisionUtxoServerKey';
 import { receiveVaultRecoveryListenerService } from './services/ReceiveVaultRecoveryListenerService';
+import { privateSendVolumeService } from './services/PrivateSendVolumeService';
 
 applyPaidRpcUrlOverrides();
 
@@ -45,22 +46,19 @@ if (DEPLOYMENT_MODE !== 'development') {
   provisionUtxoServerKey().catch((err) => Logger.error('provisionUtxoServerKey failed :', getErrorMessage(err), err));
 }
 
-const resolveDbUri = async (): Promise<string> => {
-  if (isLocalCryptoMode) return DB_URI_ENCRYPTED;
-  const decrypted = await cryptoHelper.decrypt(Buffer.from(DB_URI_ENCRYPTED, 'base64'));
-  return decrypted.toString('utf8');
-};
-
 const startServer = async () => {
   try {
     await preProcessing();
 
-    const dbUri = await resolveDbUri();
     mongoose.set('strictQuery', true);
     mongoose.set('sanitizeFilter', true);
-    await mongoose.connect(dbUri, MONGO_CONNECTION_OPTIONS);
+    await mongoose.connect(MONGODB_URL, MONGO_CONNECTION_OPTIONS);
+    if (DEPLOYMENT_MODE === 'production') {
+      await dropLegacyEnclaveSessionTtlIndex();
+    }
     await enclaveDepositListenerService.init();
     await receiveVaultRecoveryListenerService.init();
+    privateSendVolumeService.init();
     const server = app.listen(PORT, () => {
       Logger.log('DEPLOYMENT_MODE:', process.env.DEPLOYMENT_MODE);
       Logger.log('enclave-api service running on port:', PORT);

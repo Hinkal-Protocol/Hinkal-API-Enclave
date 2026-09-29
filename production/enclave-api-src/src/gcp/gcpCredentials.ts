@@ -5,13 +5,12 @@ const ATTESTATION_TOKEN_PATH = '/run/container_launcher/attestation_verifier_cla
 const USABLE_TIMEOUT_MS = 5 * 60 * 1000;
 const USABLE_POLL_DELAY_MS = 5 * 1000;
 
-const buildEnclaveCredentials = (enclaveSaEmail: string, wifAudience: string): BaseExternalAccountClient => {
+const buildEnclaveCredentials = (wifAudience: string): BaseExternalAccountClient => {
   const client = ExternalAccountClient.fromJSON({
     type: 'external_account',
     audience: wifAudience,
     subject_token_type: 'urn:ietf:params:oauth:token-type:jwt',
     token_url: 'https://sts.googleapis.com/v1/token',
-    service_account_impersonation_url: `https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${enclaveSaEmail}:generateAccessToken`,
     credential_source: { file: ATTESTATION_TOKEN_PATH },
     scopes: [CLOUD_PLATFORM_SCOPE],
   });
@@ -40,11 +39,8 @@ const waitUntilUsable = async (client: BaseExternalAccountClient): Promise<void>
   }
 };
 
-export const getEnclaveCredentials = async (
-  enclaveSaEmail: string,
-  wifAudience: string,
-): Promise<BaseExternalAccountClient> => {
-  const client = buildEnclaveCredentials(enclaveSaEmail, wifAudience);
+export const getEnclaveCredentials = async (wifAudience: string): Promise<BaseExternalAccountClient> => {
+  const client = buildEnclaveCredentials(wifAudience);
   await waitUntilUsable(client);
   return client;
 };

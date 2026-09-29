@@ -1,4 +1,5 @@
 import { PendingReceiveVaultRecoveryModel } from '../models/PendingReceiveVaultRecoverySchema';
+import { ReferralAttribution } from '../types';
 import { sealDocument } from './documentSigning';
 import { DEPLOYMENT_MODE } from '../constants';
 
@@ -9,7 +10,7 @@ export const createPendingReceiveVaultRecovery = async (
   recipientAddress: string,
   expectedAmount: bigint,
   createdAtBlock: number,
-  ref: string | undefined,
+  { ref, keyId }: ReferralAttribution,
 ): Promise<void> => {
   const sealed = await sealDocument({
     chainId,
@@ -21,9 +22,10 @@ export const createPendingReceiveVaultRecovery = async (
     createdAt: new Date(),
     deploymentMode: DEPLOYMENT_MODE,
     ...(ref !== undefined && { ref }),
+    ...(keyId !== undefined && { keyId }),
   });
 
-  await PendingReceiveVaultRecoveryModel.findOneAndUpdate({ chainId, vaultAddress, tokenAddress }, sealed, {
+  await PendingReceiveVaultRecoveryModel.findOneAndReplace({ chainId, vaultAddress, tokenAddress }, sealed, {
     upsert: true,
   });
 };

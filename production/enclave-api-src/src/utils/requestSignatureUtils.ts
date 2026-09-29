@@ -4,7 +4,7 @@ import { createHash } from 'crypto';
 import { Request, Response } from 'express';
 import { validate as validateUuid } from 'uuid';
 import { EnclaveSession, getEnclaveSession, isEnclaveSessionActive } from '../models/EnclaveSessionSchema';
-import { getRequestActionBinding, getSignedRequestFields } from './requestBinding';
+import { getRequestActionBinding, getSignedRequestFields, isTimestampWithinFreshnessWindow } from './requestBinding';
 
 const sha256Bytes = (payload: string): Uint8Array => new Uint8Array(createHash('sha256').update(payload).digest());
 
@@ -36,7 +36,7 @@ export const verifyRequestSignatureSession = async (
   requireNormalAuthMode: boolean,
   payload: string,
 ): Promise<EnclaveSession | null> => {
-  const { sessionId, nonce } = getSignedRequestFields(req);
+  const { sessionId, nonce, timestamp } = getSignedRequestFields(req);
 
   if (typeof sessionId !== 'string' || !sessionId || !validateUuid(sessionId)) {
     res.status(400).json({ error: 'Missing or invalid sessionId' });
@@ -45,6 +45,11 @@ export const verifyRequestSignatureSession = async (
 
   if (typeof nonce !== 'string' || !nonce || !validateUuid(nonce)) {
     res.status(400).json({ error: 'Missing or invalid nonce' });
+    return null;
+  }
+
+  if (!isTimestampWithinFreshnessWindow(timestamp)) {
+    res.status(401).json({ error: 'Request timestamp expired' });
     return null;
   }
 

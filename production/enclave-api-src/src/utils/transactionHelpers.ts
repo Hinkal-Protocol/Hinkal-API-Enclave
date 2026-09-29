@@ -44,7 +44,7 @@ export const resolvePrivateRecipient = async (to: string): Promise<string> => {
     throw new HttpError(400, 'Recipient must not be the native token placeholder address');
   }
 
-  const [allocation] = await allocateRecipientInfos([to], true);
+  const [allocation] = await allocateRecipientInfos([to]);
 
   const existing = allocation?.recipientInfo;
   if (existing && isValidPrivateAddress(existing)) return existing;

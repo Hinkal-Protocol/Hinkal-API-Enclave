@@ -20,8 +20,6 @@ const EnclaveSessionSchema = new Schema({
   enclaveHmac: { type: EnclaveHmacSchema, required: true },
 });
 
-EnclaveSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-
 const EnclaveSessionModel = mongoose.model('EnclaveSession', EnclaveSessionSchema);
 
 export enum EnclaveSessionValidationResult {

@@ -1,15 +1,29 @@
-import { generateHashFromSeedPhrases, WalletManager } from '@hinkal/common';
+import { extractMessage, generateHashFromSeedPhrases, isValidTronAddress, Logger, WalletManager } from '@hinkal/common';
+import { evmHexToTronBase58Address } from '@hinkal/common/functions/utils/tron.utils';
 import { getAddress, isAddress } from 'ethers';
 import { MONGO_DUPLICATE_KEY_ERROR } from '../constants';
 import { UserKeysModel } from '../models/UserKeysSchema';
 import { cryptoHelper } from '../crypto';
 import { assertString } from '../utils/queryGuards';
-import { sealDocument, toRecord, verifyRawDoc } from '../utils/documentSigning';
+import { replaceSignedDoc, sealDocument, toRecord, verifyRawDoc } from '../utils/documentSigning';
 
 const USER_KEYS_INTEGRITY_LABEL = 'user-keys';
 
-// EVM auth is case-insensitive, so the store key must be canonical. Tron/Solana are case-sensitive: leave untouched.
-const canonicalAddressKey = (address: string): string => (isAddress(address) ? getAddress(address) : address);
+export type AddressKeyMigrationSummary = {
+  scanned: number;
+  stale: number;
+  normalized: number;
+  failed: number;
+  collisions: string[];
+};
+
+// EVM auth is case-insensitive, so the store key must be canonical. Tron sessions only authenticate the base58 form,
+// so 41-prefixed hex collapses onto it. Solana is case-sensitive: leave untouched.
+const canonicalAddressKey = (address: string): string => {
+  if (isAddress(address)) return getAddress(address);
+  if (isValidTronAddress(address)) return evmHexToTronBase58Address(address);
+  return address;
+};
 
 class UserKeysService {
   public async findByEthereumAddress(ethereumAddress: string) {
@@ -40,6 +54,42 @@ class UserKeysService {
     await UserKeysModel.create(sealed);
 
     return signature;
+  }
+
+  /** Re-keys pre-normalization records onto their canonical address. Idempotent. */
+  public async normalizeStoredAddressKeys(): Promise<AddressKeyMigrationSummary> {
+    const records = await UserKeysModel.find({}).lean();
+    const stale = records.filter((record) => canonicalAddressKey(record.ethereumAddress) !== record.ethereumAddress);
+    const collisions: string[] = [];
+    if (stale.length === 0) return { scanned: records.length, stale: 0, normalized: 0, failed: 0, collisions };
+
+    const normalized = await stale.reduce<Promise<number>>(async (running, record) => {
+      const count = await running;
+      const canonical = canonicalAddressKey(record.ethereumAddress);
+      try {
+        await verifyRawDoc(toRecord(record), USER_KEYS_INTEGRITY_LABEL);
+        await replaceSignedDoc(UserKeysModel.collection, record, { ethereumAddress: canonical });
+        return count + 1;
+      } catch (err) {
+        if ((err as { code?: number })?.code === MONGO_DUPLICATE_KEY_ERROR) {
+          const owner = await UserKeysModel.findOne({ ethereumAddress: canonical }).select('_id').lean();
+          collisions.push(record.ethereumAddress);
+          Logger.error(
+            `[userKeys] address collision: doc ${record._id} (${record.ethereumAddress}) cannot normalize to ` +
+              `${canonical} — already owned by doc ${owner?._id ?? 'unknown'}. Left un-normalized; needs manual reconciliation.`,
+          );
+        } else {
+          Logger.error(
+            `[userKeys] failed to normalize doc ${record._id} (${record.ethereumAddress}):`,
+            extractMessage(err) ?? err,
+          );
+        }
+        return count;
+      }
+    }, Promise.resolve(0));
+
+    Logger.log(`[userKeys] normalized ${normalized} of ${stale.length} address keys`);
+    return { scanned: records.length, stale: stale.length, normalized, failed: stale.length - normalized, collisions };
   }
 
   public async findOrCreatePrivateKey(ethereumAddress: string) {

@@ -35,7 +35,7 @@ import {
 } from '../utils/enclaveTypedDataAuthBody';
 import { consumeRequestNonceOrRespond, parseSignatureRequest } from './signatureMiddlewareUtils';
 import { verifyRequestSignatureSession } from '../utils/requestSignatureUtils';
-import { getSignedRequestFields } from '../utils/requestBinding';
+import { getSignedRequestFields, isTimestampWithinFreshnessWindow } from '../utils/requestBinding';
 import { getEnclaveSession, isEnclaveSessionActive } from '../models/EnclaveSessionSchema';
 import { EnclaveTypedDataPayload, ParsedSignatureRequest, ParseResult } from '../types';
 
@@ -94,6 +94,11 @@ export const createVerifyTypedDataSignatureMiddleware = (
 
       const parsedRequest = parsed.value;
       const { sessionId } = parsedRequest;
+
+      if (!isTimestampWithinFreshnessWindow(parsedRequest.timestamp)) {
+        res.status(401).json({ error: 'Request timestamp expired' });
+        return;
+      }
 
       const session = await getEnclaveSession(sessionId);
       if (!session) {

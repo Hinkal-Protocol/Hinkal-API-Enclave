@@ -9,7 +9,7 @@ const randomAddress = () => ethers.Wallet.createRandom().address;
 
 beforeAll(async () => {
   await preProcessing();
-  await mongoose.connect(process.env.DB_URI!);
+  await mongoose.connect(process.env.MONGODB_URL!);
 });
 
 afterAll(async () => {

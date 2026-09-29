@@ -4,3 +4,4 @@ export * from './verifyTxSignatureMiddleware';
 export * from './walletOwnershipMiddleware';
 export * from './xStamp';
 export * from './signResponseMiddleware';
+export * from './partnerKeyMiddleware';

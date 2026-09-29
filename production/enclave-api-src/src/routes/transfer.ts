@@ -3,6 +3,7 @@ import {
   ENCLAVE_PRIVATE_SEND_VARIABLE_RATE,
   getErrorMessage,
   isSolanaLike,
+  PartnerTransactionType,
   TxHashResponse,
 } from '@hinkal/common';
 import { Request, Response, Router } from 'express';
@@ -11,7 +12,12 @@ import { TransferRequest } from '../types/route.types';
 import { parseFeeStructure } from '../utils/parseFeeStructure';
 import { resolveRecipientInfo } from '../utils/transactionHelpers';
 import { emitReferralVolume } from '../utils/emitReferralVolume';
-import { verifyTransferSignatureMiddleware } from '../middleware';
+import {
+  getPartnerFeeBps,
+  getRequestAttribution,
+  partnerKeyMiddleware,
+  verifyTransferSignatureMiddleware,
+} from '../middleware';
 import { getERC20Token } from '@hinkal/erc20-registry';
 import { WHITELISTED_REFERRALS } from '@hinkal/backend-common';
 
@@ -20,6 +26,7 @@ const router = Router();
 router.post(
   '/transfer',
   verifyTransferSignatureMiddleware,
+  partnerKeyMiddleware,
   async (req: Request<object, TxHashResponse, TransferRequest>, res: Response<TxHashResponse>) => {
     try {
       const { chainId, tokenAddresses, amounts, recipientAddress, feeToken, feeAmount, ref } =
@@ -46,7 +53,8 @@ router.post(
       const resolvedRecipientInfo = await resolveRecipientInfo(recipientAddress);
       const resolvedFeeToken = isSolanaLike(chainId) ? tokenAddresses[0] : feeToken;
 
-      const resolvedFeeStructure = parseFeeStructure(resolvedFeeToken, feeAmount, ENCLAVE_PRIVATE_SEND_VARIABLE_RATE);
+      const variableRate = ENCLAVE_PRIVATE_SEND_VARIABLE_RATE + getPartnerFeeBps(res);
+      const resolvedFeeStructure = parseFeeStructure(resolvedFeeToken, feeAmount, variableRate);
 
       const txHash = await hinkalInitializerService.withHinkalForAddress(
         res.locals.address,
@@ -59,17 +67,19 @@ router.post(
             resolvedFeeToken,
             resolvedFeeStructure,
             AdminTransactionType.ApiTransfer,
+            variableRate,
           );
         },
       );
 
       emitReferralVolume(
-        ref,
+        getRequestAttribution(res, ref),
         chainId,
         txHash,
         erc20Tokens,
         amounts,
-        resolvedFeeStructure?.variableRate ?? ENCLAVE_PRIVATE_SEND_VARIABLE_RATE,
+        variableRate,
+        PartnerTransactionType.Transfer,
       );
 
       res.status(200).json({ success: true, txHash });
