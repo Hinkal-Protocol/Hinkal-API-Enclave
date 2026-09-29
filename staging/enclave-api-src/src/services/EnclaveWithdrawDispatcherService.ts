@@ -3,7 +3,7 @@ import {
   dispatchSolanaWithdrawForOrder,
   dispatchTronWithdrawForOrder,
 } from './dispatchWithdrawForOrder';
-import { extractMessage, isSolanaLike, isTronLike } from '@hinkal/common';
+import { extractMessage, getErrorMessage, isSolanaLike, isTronLike, Logger } from '@hinkal/common';
 import mongoose from 'mongoose';
 import {
   DepositAndWithdrawOrder,
@@ -14,6 +14,7 @@ import { hinkalInitializerService } from './hinkalInitializerService';
 import { publicDoc, replaceSignedDoc, verifyRawDoc } from '../utils/documentSigning';
 import { assertUuid } from '../utils/queryGuards';
 import { DEPLOYMENT_MODE } from '../constants';
+import { createPendingPrivateSendVolume } from '../utils/pendingPrivateSendVolume';
 
 const ORDER_LABEL = 'deposit-and-withdraw order';
 
@@ -21,6 +22,17 @@ type RawOrder = Record<string, unknown> & { _id: mongoose.Types.ObjectId };
 
 const toRaw = (order: DepositAndWithdrawOrder & { _id: mongoose.Types.ObjectId }): RawOrder =>
   order as unknown as RawOrder;
+
+const trackKeyedPrivateSendVolume = async (order: DepositAndWithdrawOrder, scheduleId: string) => {
+  try {
+    await createPendingPrivateSendVolume(order, scheduleId);
+  } catch (err) {
+    Logger.error(
+      `[EnclaveWithdrawDispatcherService] failed to track private send volume for ${order.orderId}:`,
+      getErrorMessage(err),
+    );
+  }
+};
 
 class EnclaveWithdrawDispatcherService {
   async dispatchWithdraw(order: DepositAndWithdrawOrder & { _id: mongoose.Types.ObjectId }): Promise<void> {
@@ -40,6 +52,8 @@ class EnclaveWithdrawDispatcherService {
         return dispatchEvmWithdrawForOrder(hinkal, { ...order, txHash });
       },
     );
+
+    await trackKeyedPrivateSendVolume(order, scheduleId);
 
     await replaceSignedDoc(
       DepositAndWithdrawOrderModel.collection,

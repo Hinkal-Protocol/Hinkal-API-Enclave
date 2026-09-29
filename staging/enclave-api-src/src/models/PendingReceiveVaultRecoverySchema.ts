@@ -11,6 +11,7 @@ export interface PendingReceiveVaultRecovery {
   createdAtBlock: number;
   createdAt: Date;
   ref?: string;
+  keyId?: string;
   deploymentMode?: string;
   enclaveHmac?: object;
 }
@@ -24,6 +25,7 @@ const PendingReceiveVaultRecoverySchema = new Schema<PendingReceiveVaultRecovery
   createdAtBlock: { type: Number, required: true },
   createdAt: { type: Date, required: true, expires: PENDING_RECEIVE_VAULT_RECOVERY_TTL_SECONDS },
   ref: { type: String },
+  keyId: { type: String },
   deploymentMode: { type: String },
   enclaveHmac: { type: Object },
 });

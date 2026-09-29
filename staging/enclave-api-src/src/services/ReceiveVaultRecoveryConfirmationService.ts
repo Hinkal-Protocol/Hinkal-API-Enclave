@@ -1,4 +1,4 @@
-import { getErc20TokenFromAPI, Logger } from '@hinkal/common';
+import { getErc20TokenFromAPI, Logger, PartnerTransactionType } from '@hinkal/common';
 import {
   PendingReceiveVaultRecovery,
   PendingReceiveVaultRecoveryModel,
@@ -43,5 +43,13 @@ export const confirmPendingReceiveVaultRecovery = async (
     return;
   }
 
-  emitReferralVolume(pending.ref, chainId, txHash, [token], [amount.toString()], 0n);
+  emitReferralVolume(
+    { ref: pending.ref, keyId: pending.keyId },
+    chainId,
+    txHash,
+    [token],
+    [amount.toString()],
+    0n,
+    PartnerTransactionType.Recover,
+  );
 };

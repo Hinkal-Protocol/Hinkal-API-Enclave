@@ -37,11 +37,13 @@ import withdrawStuckUtxos from '../routes/withdraw-stuck-utxos';
 import attestation from '../routes/attestation';
 import info from '../routes/info';
 import maintenance from '../routes/maintenance';
+import scheduledPayoutFinished from '../routes/scheduled-payout-finished';
 
 export const loadRoutes = (app: Express) => {
   app.use(BASE_URL, ping);
   app.use(signResponseMiddleware);
   app.use(BASE_URL, maintenance); // TEMPORARY
+  app.use(BASE_URL, scheduledPayoutFinished);
 
   const hinkalAPIRouter = Router();
   hinkalAPIRouter.use(attestation);

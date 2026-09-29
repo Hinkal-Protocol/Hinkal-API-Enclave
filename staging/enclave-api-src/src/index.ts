@@ -19,6 +19,7 @@ import { getUtxosFromUtxoServer } from './utils/utxoServerBalance';
 import { getMerkleSiblingsFromUtxoServer } from './utils/utxoServerMerkleSiblings';
 import { provisionUtxoServerKey } from './utils/provisionUtxoServerKey';
 import { receiveVaultRecoveryListenerService } from './services/ReceiveVaultRecoveryListenerService';
+import { privateSendVolumeService } from './services/PrivateSendVolumeService';
 
 applyPaidRpcUrlOverrides();
 
@@ -57,6 +58,7 @@ const startServer = async () => {
     }
     await enclaveDepositListenerService.init();
     await receiveVaultRecoveryListenerService.init();
+    privateSendVolumeService.init();
     const server = app.listen(PORT, () => {
       Logger.log('DEPLOYMENT_MODE:', process.env.DEPLOYMENT_MODE);
       Logger.log('enclave-api service running on port:', PORT);

@@ -1,5 +1,5 @@
 import { getERC20Token } from '@hinkal/erc20-registry';
-import { constructAdminData, emitTxPublicData, ERC20Token, Logger } from '@hinkal/common';
+import { constructAdminData, emitTxPublicData, ERC20Token, Logger, PartnerTransactionType } from '@hinkal/common';
 import { PendingDepositConfirmation, PendingDepositConfirmationModel } from '../models/PendingDepositReferralSchema';
 import { emitReferralVolume } from '../utils/emitReferralVolume';
 import { verifyRawDoc } from '../utils/documentSigning';
@@ -42,5 +42,13 @@ export const confirmPendingDeposit = async (orderId: string, chainId: number, tx
   );
   emitTxPublicData(adminData);
 
-  emitReferralVolume(pending.ref, chainId, txHash, tokens as ERC20Token[], pending.amounts, 0n);
+  emitReferralVolume(
+    { ref: pending.ref, keyId: pending.keyId },
+    chainId,
+    txHash,
+    tokens as ERC20Token[],
+    pending.amounts,
+    0n,
+    PartnerTransactionType.Deposit,
+  );
 };

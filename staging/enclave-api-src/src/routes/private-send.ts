@@ -15,7 +15,13 @@ import {
   networkRegistry,
 } from '@hinkal/common';
 import { Request, Response, Router } from 'express';
-import { verifyDepositAndWithdrawSignatureMiddleware, verifyReadOnlySignatureMiddleware } from '../middleware';
+import {
+  getPartnerFeeBps,
+  getRequestAttribution,
+  partnerKeyMiddleware,
+  verifyDepositAndWithdrawSignatureMiddleware,
+  verifyReadOnlySignatureMiddleware,
+} from '../middleware';
 import { DepositAndWithdrawRequest } from '../types';
 import { WHITELISTED_REFERRALS } from '@hinkal/backend-common';
 import { ethers } from 'ethers';
@@ -33,6 +39,7 @@ const router = Router();
 router.post(
   '/private-send',
   verifyDepositAndWithdrawSignatureMiddleware,
+  partnerKeyMiddleware,
   async (
     req: Request<object, DepositAndWithdrawResponse, DepositAndWithdrawRequest>,
     res: Response<DepositAndWithdrawResponse>,
@@ -77,7 +84,7 @@ router.post(
         [token.erc20TokenAddress],
         ExternalActionId.Transact,
         [],
-        ENCLAVE_PUBLIC_SEND_VARIABLE_RATE,
+        ENCLAVE_PUBLIC_SEND_VARIABLE_RATE + getPartnerFeeBps(res),
         isSolanaLike(chainId)
           ? { mintTo: token.erc20TokenAddress, recipient: recipients[0].address, nullifierCount: recipients.length }
           : undefined,
@@ -125,6 +132,7 @@ router.post(
       const totalAmount = utxoAmounts.reduce((sum, a) => sum + a, 0n);
       const fee = totalAmount - totalRecipientAmount;
 
+      const attribution = getRequestAttribution(res, ref);
       const sealed = await sealDocument({
         orderId,
         deploymentMode: DEPLOYMENT_MODE,
@@ -137,7 +145,9 @@ router.post(
         variableRate: feeStructure.variableRate.toString(),
         utxoAmounts: utxoAmounts.map((a) => a.toString()),
         ...(txCompletionTime !== undefined && { txCompletionTime }),
-        ...(ref !== undefined && { ref }),
+        ...(attribution.ref !== undefined && { ref: attribution.ref }),
+        ...(attribution.keyId !== undefined && { keyId: attribution.keyId }),
+        ...(attribution.partnerFeeBps !== undefined && { partnerFeeBps: attribution.partnerFeeBps }),
         status: DepositAndWithdrawOrderStatus.AwaitingDeposit,
         preparedAt: new Date(),
       });

@@ -13,6 +13,8 @@ import {
 import { validateTokens } from '../utils';
 import { resolveRecipientInfo } from '../utils/transactionHelpers';
 import {
+  getRequestAttribution,
+  partnerKeyMiddleware,
   verifyDepositForOtherSignatureMiddleware,
   verifyDepositSignatureMiddleware,
   verifyProoflessDepositSignatureMiddleware,
@@ -26,6 +28,7 @@ const router = Router();
 router.post(
   '/deposit',
   verifyDepositSignatureMiddleware,
+  partnerKeyMiddleware,
   async (
     req: Request<object, DepositResponse | SolanaDepositResponse, DepositRequest>,
     res: Response<DepositResponse | SolanaDepositResponse>,
@@ -50,7 +53,7 @@ router.post(
         return;
       }
 
-      const resolvedRef = resolveReferral(ref);
+      const attribution = getRequestAttribution(res, resolveReferral(ref));
       const orderId = crypto.randomUUID();
 
       const txData = await hinkalInitializerService.withHinkalForAddress(
@@ -71,7 +74,7 @@ router.post(
         res.locals.address,
         tokenAddresses,
         amounts,
-        resolvedRef,
+        attribution,
       );
 
       res.status(200).json(toJsonSafe({ success: true, txData }) as DepositResponse);
@@ -85,6 +88,7 @@ router.post(
 router.post(
   '/deposit-for-other',
   verifyDepositForOtherSignatureMiddleware,
+  partnerKeyMiddleware,
   async (req: Request<object, DepositResponse, DepositForOtherRequest>, res: Response<DepositResponse>) => {
     try {
       const { chainId, tokenAddresses, amounts, recipientInfo, ref } = req.body;
@@ -103,7 +107,7 @@ router.post(
       }
 
       const resolvedRecipientInfo = await resolveRecipientInfo(recipientInfo);
-      const resolvedRef = resolveReferral(ref);
+      const attribution = getRequestAttribution(res, resolveReferral(ref));
       const orderId = crypto.randomUUID();
 
       const txData = await hinkalInitializerService.withHinkalForAddress(
@@ -129,7 +133,7 @@ router.post(
         res.locals.address,
         tokenAddresses,
         amounts,
-        resolvedRef,
+        attribution,
       );
 
       res.status(200).json(toJsonSafe({ success: true, txData }) as DepositResponse);
@@ -142,6 +146,7 @@ router.post(
 router.post(
   '/deposit-solana-for-other',
   verifyDepositForOtherSignatureMiddleware,
+  partnerKeyMiddleware,
   async (
     req: Request<object, SolanaDepositResponse, SolanaDepositForOtherRequest>,
     res: Response<SolanaDepositResponse>,
@@ -160,7 +165,7 @@ router.post(
       }
 
       const resolvedRecipientInfo = await resolveRecipientInfo(recipientInfo);
-      const resolvedRef = resolveReferral(ref);
+      const attribution = getRequestAttribution(res, resolveReferral(ref));
       const orderId = crypto.randomUUID();
 
       const txData = await hinkalInitializerService.withHinkalForAddress(
@@ -186,7 +191,7 @@ router.post(
         res.locals.address,
         [tokenAddress],
         [amount],
-        resolvedRef,
+        attribution,
       );
 
       res.status(200).json({ success: true, txData });
@@ -200,6 +205,7 @@ router.post(
 router.post(
   '/proofless-deposit',
   verifyProoflessDepositSignatureMiddleware,
+  partnerKeyMiddleware,
   async (
     req: Request<object, ProoflessDepositResponse, ProoflessDepositRequest>,
     res: Response<ProoflessDepositResponse>,
@@ -229,7 +235,7 @@ router.post(
         return;
       }
 
-      const resolvedRef = resolveReferral(ref);
+      const attribution = getRequestAttribution(res, resolveReferral(ref));
       const orderId = crypto.randomUUID();
 
       const result = await hinkalInitializerService.withHinkalForAddress(
@@ -261,7 +267,7 @@ router.post(
         res.locals.address,
         tokenAddresses,
         amounts,
-        resolvedRef,
+        attribution,
       );
 
       res.status(200).json(toJsonSafe({ success: true, txData: result }) as ProoflessDepositResponse);

@@ -9,6 +9,8 @@ import {
 import { Request, Response, Router } from 'express';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import {
+  getRequestAttribution,
+  partnerKeyMiddleware,
   verifyReadOnlySignatureMiddleware,
   verifyReceiveVaultRecoverSignatureMiddleware,
   verifySignatureMiddleware,
@@ -91,6 +93,7 @@ router.get(
 router.post(
   '/receive-vault-recover',
   verifyReceiveVaultRecoverSignatureMiddleware,
+  partnerKeyMiddleware,
   async (
     req: Request<object, ReceiveVaultRecoverResponse, ReceiveVaultRecoverRequest>,
     res: Response<ReceiveVaultRecoverResponse>,
@@ -112,7 +115,8 @@ router.post(
 
           const recovery = await hinkal.recoverReceiveVault(record, tokenAddress, chainId, recipientAddress, true);
 
-          if (ref !== undefined) {
+          const attribution = getRequestAttribution(res, ref);
+          if (attribution.ref !== undefined) {
             try {
               const expectedAmount =
                 blockedFunds.find(
@@ -130,11 +134,11 @@ router.post(
                 recipientAddress,
                 expectedAmount,
                 createdAtBlock,
-                ref,
+                attribution,
               );
             } catch (error) {
               Logger.error(
-                `[/receive-vault-recover] create pending receive vault recovery failed for ${chainId}-${record.vaultAddress}-${tokenAddress}-${recipientAddress}-${ref}:`,
+                `[/receive-vault-recover] create pending receive vault recovery failed for ${chainId}-${record.vaultAddress}-${tokenAddress}-${recipientAddress}-${attribution.ref}:`,
                 error,
               );
             }

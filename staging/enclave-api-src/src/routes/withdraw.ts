@@ -4,6 +4,7 @@ import {
   getErrorMessage,
   isNativePlaceholderAddress,
   isSolanaLike,
+  PartnerTransactionType,
   TxHashResponse,
 } from '@hinkal/common';
 import { createHash } from 'crypto';
@@ -12,7 +13,12 @@ import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { WithdrawRequest } from '../types/route.types';
 import { parseFeeStructure } from '../utils/parseFeeStructure';
 import { emitReferralVolume } from '../utils/emitReferralVolume';
-import { verifyWithdrawSignatureMiddleware } from '../middleware';
+import {
+  getPartnerFeeBps,
+  getRequestAttribution,
+  partnerKeyMiddleware,
+  verifyWithdrawSignatureMiddleware,
+} from '../middleware';
 import { getERC20Token } from '@hinkal/erc20-registry';
 import { WHITELISTED_REFERRALS } from '@hinkal/backend-common';
 import { WITHDRAW_REF_HASH_VARIABLE_RATE_BPS } from '../constants/withdrawRefVariableRates';
@@ -22,6 +28,7 @@ const router = Router();
 router.post(
   '/withdraw',
   verifyWithdrawSignatureMiddleware,
+  partnerKeyMiddleware,
   async (req: Request<object, TxHashResponse, WithdrawRequest>, res: Response<TxHashResponse>) => {
     try {
       const { chainId, tokenAddresses, amounts, recipientAddress, feeToken, feeAmount, ref } =
@@ -56,7 +63,8 @@ router.post(
       const refHash = createHash('sha256')
         .update(ref ?? '')
         .digest('hex');
-      const resolvedVariableRate = WITHDRAW_REF_HASH_VARIABLE_RATE_BPS[refHash] ?? ENCLAVE_UNSHIELD_VARIABLE_RATE;
+      const resolvedVariableRate =
+        (WITHDRAW_REF_HASH_VARIABLE_RATE_BPS[refHash] ?? ENCLAVE_UNSHIELD_VARIABLE_RATE) + getPartnerFeeBps(res);
       const feeStructureOverride = parseFeeStructure(resolvedFeeToken, feeAmount, resolvedVariableRate);
 
       const txData = await hinkalInitializerService.withHinkalForAddress(
@@ -78,7 +86,15 @@ router.post(
 
       const txHash = typeof txData === 'string' ? txData : txData.hash;
 
-      emitReferralVolume(ref, chainId, txHash, erc20Tokens, amounts, resolvedVariableRate);
+      emitReferralVolume(
+        getRequestAttribution(res, ref),
+        chainId,
+        txHash,
+        erc20Tokens,
+        amounts,
+        resolvedVariableRate,
+        PartnerTransactionType.Withdraw,
+      );
 
       res.status(200).json({ success: true, txHash });
     } catch (error) {
