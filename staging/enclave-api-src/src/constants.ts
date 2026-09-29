@@ -46,7 +46,6 @@ export const GCP_REGION = requireEnvWhenKms('GCP_REGION');
 export const KMS_KEY_RING_ID = requireEnvWhenKms('KMS_KEY_RING');
 export const KMS_KEY_ID = requireEnvWhenKms('KMS_KEY_NAME');
 export const KMS_KEY_VERSION = process.env.KMS_KEY_VERSION ?? '1';
-export const ENCLAVE_SA_EMAIL = requireEnvWhenKms('ENCLAVE_SA_EMAIL');
 export const WIF_AUDIENCE = requireEnvWhenKms('WIF_AUDIENCE');
 export const ENCLAVE_UTXO_PRIVATE_KEY = requireEnvWhenKms('ENCLAVE_UTXO_PRIVATE_KEY');
 export const UTXO_SERVER_HOST = process.env.UTXO_SERVER_HOST ?? '127.0.0.1';

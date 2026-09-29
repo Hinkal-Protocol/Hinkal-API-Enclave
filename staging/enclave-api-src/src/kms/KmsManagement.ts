@@ -1,13 +1,5 @@
 import { KeyManagementServiceClient } from '@google-cloud/kms';
-import {
-  ENCLAVE_SA_EMAIL,
-  GCP_PROJECT_ID,
-  GCP_REGION,
-  KMS_KEY_ID,
-  KMS_KEY_RING_ID,
-  KMS_KEY_VERSION,
-  WIF_AUDIENCE,
-} from '../constants';
+import { GCP_PROJECT_ID, GCP_REGION, KMS_KEY_ID, KMS_KEY_RING_ID, KMS_KEY_VERSION, WIF_AUDIENCE } from '../constants';
 import { getEnclaveCredentials } from '../gcp/gcpCredentials';
 
 export class KmsManagement {
@@ -31,7 +23,7 @@ export class KmsManagement {
   async init(): Promise<void> {
     if (this.kmsClient) return;
 
-    const credentials = await getEnclaveCredentials(ENCLAVE_SA_EMAIL, WIF_AUDIENCE);
+    const credentials = await getEnclaveCredentials(WIF_AUDIENCE);
     this.kmsClient = new KeyManagementServiceClient({ authClient: credentials });
   }
 

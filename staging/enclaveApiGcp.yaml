@@ -9,7 +9,6 @@ permissions:
   contents: read
 env:
   DEPLOYMENT_MODE: ${{ github.ref_name == 'production-api-v1' && 'production' || 'staging' }}
-  MODE_SHORT: ${{ github.ref_name == 'production-api-v1' && 'prod' || 'staging' }}
   FULL_DOMAIN_NAME: ${{ github.ref_name == 'production-api-v1' && 'api.hinkal.io' || 'api-staging.hinkal.io' }}
   DOMAIN_ZONE_NAME: hinkal-io-zone
   DNS_PROJECT: hinkal-backend
@@ -59,7 +58,6 @@ jobs:
           build-args: |
             UTXO_BASE_IMAGE=${{ env.UTXO_BASE_IMAGE }}
             DEPLOYMENT_MODE=${{ env.DEPLOYMENT_MODE }}
-            MODE_SHORT=${{ env.MODE_SHORT }}
             GCP_PROJECT_ID=${{ env.GCP_PROJECT }}
             GCP_REGION=${{ env.GCP_REGION }}
           gcp-project: ${{ env.GCP_PROJECT }}
