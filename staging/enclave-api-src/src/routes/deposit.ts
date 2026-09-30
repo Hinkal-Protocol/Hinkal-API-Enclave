@@ -67,7 +67,7 @@ router.post(
         },
       );
 
-      createPendingDepositConfirmation(
+      await createPendingDepositConfirmation(
         orderId,
         chainId,
         AdminTransactionType.ApiDeposit,
@@ -126,7 +126,7 @@ router.post(
         },
       );
 
-      createPendingDepositConfirmation(
+      await createPendingDepositConfirmation(
         orderId,
         chainId,
         AdminTransactionType.ApiDepositForOther,
@@ -184,7 +184,7 @@ router.post(
         },
       );
 
-      createPendingDepositConfirmation(
+      await createPendingDepositConfirmation(
         orderId,
         chainId,
         AdminTransactionType.ApiDepositSolanaForOther,
@@ -260,7 +260,7 @@ router.post(
         },
       );
 
-      createPendingDepositConfirmation(
+      await createPendingDepositConfirmation(
         orderId,
         chainId,
         AdminTransactionType.ApiProoflessDeposit,

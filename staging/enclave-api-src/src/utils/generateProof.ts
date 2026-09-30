@@ -41,11 +41,9 @@ const createCalldata = (
 };
 
 const generateSingleProof = async (input: any, circuitWasm: string, circuitZkey: string) => {
-  const [wasmPath, zkeyPath, tempDir] = await Promise.all([
-    locateCircuit(circuitWasm),
-    locateCircuit(circuitZkey),
-    fs.mkdtemp(path.join(os.tmpdir(), 'proof-')),
-  ]);
+  const wasmPath = await locateCircuit(circuitWasm);
+  const zkeyPath = await locateCircuit(circuitZkey);
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'proof-'));
   try {
     const inputPath = path.join(tempDir, 'input.json');
     const wtnsPath = path.join(tempDir, 'witness.wtns');
@@ -56,12 +54,8 @@ const generateSingleProof = async (input: any, circuitWasm: string, circuitZkey:
     await execFileAsync('snarkjs', ['wc', wasmPath, inputPath, wtnsPath]);
     await execFileAsync('prover', [zkeyPath, wtnsPath, proofPath, pubPath]);
 
-    const [proofRaw, publicSignalsRaw] = await Promise.all([
-      fs.readFile(proofPath, 'utf-8'),
-      fs.readFile(pubPath, 'utf-8'),
-    ]);
-    const proof = JSON.parse(proofRaw);
-    const publicSignals: string[] = JSON.parse(publicSignalsRaw);
+    const proof = JSON.parse(await fs.readFile(proofPath, 'utf-8'));
+    const publicSignals: string[] = JSON.parse(await fs.readFile(pubPath, 'utf-8'));
     return { proof, publicSignals, zkCallData: createCalldata(proof, publicSignals) };
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true });

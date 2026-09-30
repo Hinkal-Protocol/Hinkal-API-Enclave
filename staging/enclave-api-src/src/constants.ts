@@ -56,4 +56,5 @@ export const PARTNER_KEY_MARKER = 'hk_';
 export const PARTNER_KEY_CACHE_TTL_MS = 60 * 1000;
 export const PARTNER_KEY_CACHE_MAX_ENTRIES = 5000;
 export const DATA_SERVER_INTERNAL_TIMEOUT_MS = 5000;
+export const DATA_SERVER_REFERRAL_TX_TIMEOUT_MS = 4 * 60 * 1000;
 export const SCHEDULE_ID_PATTERN = /^[0-9a-f]{24}$/;

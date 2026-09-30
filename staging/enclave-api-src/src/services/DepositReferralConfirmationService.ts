@@ -40,7 +40,7 @@ export const confirmPendingDeposit = async (orderId: string, chainId: number, tx
     amountChanges,
     pending.ethereumAddress,
   );
-  emitTxPublicData(adminData);
+  emitTxPublicData(adminData, { txHash });
 
   emitReferralVolume(
     { ref: pending.ref, keyId: pending.keyId },
