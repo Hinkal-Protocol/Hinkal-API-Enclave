@@ -29,6 +29,7 @@ import { DepositAndWithdrawOrderModel, DepositAndWithdrawOrderStatus } from '../
 import { DEPLOYMENT_MODE } from '../constants';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { sealDocument } from '../utils/documentSigning';
+import { decryptField, encryptOrderFields } from '../utils/orderFieldEncryption';
 import { enclaveDepositDispatcherService } from '../services/EnclaveWithdrawDispatcherService';
 import { resolveDepositAndWithdrawScheduleStatus } from '../services/resolveDepositAndWithdrawScheduleStatus';
 import { resolveDepositAndWithdrawPublicStatus } from '../utils/resolveDepositAndWithdrawPublicStatus';
@@ -46,6 +47,7 @@ router.post(
   ) => {
     const { chainId, tokenAddress, recipients, feeToken, txCompletionTime, ref } =
       req.body as DepositAndWithdrawRequest;
+    const address = res.locals.address as string;
 
     if (!chainId || !tokenAddress || !recipients?.length) {
       res.status(400).json({
@@ -91,7 +93,7 @@ router.post(
       );
 
       const { serializedTx, utxoAmounts } = await hinkalInitializerService.withHinkalForAddress(
-        res.locals.address,
+        address,
         chainId,
         async (hinkal) => {
           if (isSolanaLike(chainId)) {
@@ -133,23 +135,27 @@ router.post(
       const fee = totalAmount - totalRecipientAmount;
 
       const attribution = getRequestAttribution(res, ref);
+
+      const encryptedFields = await encryptOrderFields({
+        senderAddress: address,
+        recipients,
+        utxoAmounts: utxoAmounts.map((a) => a.toString()),
+      });
+
       const sealed = await sealDocument({
         orderId,
         deploymentMode: DEPLOYMENT_MODE,
         chainId,
-        senderAddress: res.locals.address,
-        recipients,
+        ...encryptedFields,
         tokenAddress: token.erc20TokenAddress,
         feeToken: feeStructure.feeToken,
         flatFee: feeStructure.flatFee.toString(),
         variableRate: feeStructure.variableRate.toString(),
-        utxoAmounts: utxoAmounts.map((a) => a.toString()),
         ...(txCompletionTime !== undefined && { txCompletionTime }),
         ...(attribution.ref !== undefined && { ref: attribution.ref }),
         ...(attribution.keyId !== undefined && { keyId: attribution.keyId }),
         ...(attribution.partnerFeeBps !== undefined && { partnerFeeBps: attribution.partnerFeeBps }),
         status: DepositAndWithdrawOrderStatus.AwaitingDeposit,
-        preparedAt: new Date(),
       });
       await DepositAndWithdrawOrderModel.create(sealed);
 
@@ -178,7 +184,9 @@ router.get('/private-send/:orderId', verifyReadOnlySignatureMiddleware, async (r
     const { orderId } = req.params as { orderId: string };
     const order = await enclaveDepositDispatcherService.getOrder(orderId);
 
-    if (!order || !caseInsensitiveEqual(order.senderAddress, res.locals.address as string)) {
+    const decryptedSenderAddress = await decryptField(order?.senderAddress ?? '');
+
+    if (!order || !caseInsensitiveEqual(decryptedSenderAddress, res.locals.address as string)) {
       res.status(404).json({ success: false, error: `Order ${orderId} not found` });
       return;
     }

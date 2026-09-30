@@ -13,7 +13,6 @@ import express, { json } from 'express';
 import mongoose from 'mongoose';
 import { DATA_SERVER_SERVICE_KEY, DEPLOYMENT_MODE, HEADER_ENCLAVE_SIGNATURE, MONGODB_URL, PORT } from './constants';
 import { loadRoutes } from './loaders/routeLoader';
-import { dropLegacyEnclaveSessionTtlIndex } from './migrations/dropLegacyEnclaveSessionTtlIndex';
 import { enclaveDepositListenerService } from './services/EnclaveDepositListenerService';
 import { generateProof } from './utils/generateProof';
 import { getUtxosFromUtxoServer } from './utils/utxoServerBalance';
@@ -58,9 +57,6 @@ const startServer = async () => {
     mongoose.set('strictQuery', true);
     mongoose.set('sanitizeFilter', true);
     await mongoose.connect(MONGODB_URL, MONGO_CONNECTION_OPTIONS);
-    if (DEPLOYMENT_MODE === 'production') {
-      await dropLegacyEnclaveSessionTtlIndex();
-    }
     await enclaveDepositListenerService.init();
     await receiveVaultRecoveryListenerService.init();
     privateSendVolumeService.init();

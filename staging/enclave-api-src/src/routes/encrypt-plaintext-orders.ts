@@ -1,9 +1,9 @@
 import { Request, Response, Router } from 'express';
 import { getErrorMessage, Logger } from '@hinkal/common';
-import { encryptPlaintextOrders } from '../services/encryptPlaintextOrders';
+import { encryptPlaintextOrders } from '../migrations/encryptPlaintextOrders';
 
 const router = Router();
-
+// should be removed after we run this script once in the production
 router.post('/encrypt-plaintext-orders', async (_req: Request, res: Response) => {
   try {
     const counts = await encryptPlaintextOrders();
