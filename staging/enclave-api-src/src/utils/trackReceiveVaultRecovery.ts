@@ -1,13 +1,14 @@
 import { addressEqual, Hinkal, Logger, ReceiveVaultBlockedFund, ReceiveVaultRecord } from '@hinkal/common';
 import { getCurrentBlockMarker } from './getCurrentBlockMarker';
 import { createPendingReceiveVaultRecovery } from './pendingReceiveVaultRecovery';
+import { ReferralAttribution } from '../types';
 
 // Best-effort tracking for the deposit-confirmation listener; errors are only logged, so
 // the caller doesn't await this - it runs in the background instead of blocking the
 // recovery response on it.
 export const trackReceiveVaultRecovery = async (
   hinkal: Hinkal<unknown>,
-  ref: string,
+  attribution: ReferralAttribution,
   chainId: number,
   record: ReceiveVaultRecord,
   tokenAddress: string,
@@ -31,11 +32,11 @@ export const trackReceiveVaultRecovery = async (
       recipientAddress,
       expectedAmount,
       createdAtBlock,
-      ref,
+      attribution,
     );
   } catch (error) {
     Logger.error(
-      `[/receive-vault-recover] create pending receive vault recovery failed for ${chainId}-${record.vaultAddress}-${tokenAddress}-${recipientAddress}-${ref}:`,
+      `[/receive-vault-recover] create pending receive vault recovery failed for ${chainId}-${record.vaultAddress}-${tokenAddress}-${recipientAddress}-${attribution.ref}:`,
       error,
     );
   }
