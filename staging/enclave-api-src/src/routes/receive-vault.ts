@@ -15,9 +15,8 @@ import {
   verifyReceiveVaultRecoverSignatureMiddleware,
   verifySignatureMiddleware,
 } from '../middleware';
-import { getCurrentBlockMarker } from '../utils/getCurrentBlockMarker';
 import { rejectNonWhitelistedRef } from '../utils/referralWhitelist';
-import { createPendingReceiveVaultRecovery } from '../utils/pendingReceiveVaultRecovery';
+import { trackReceiveVaultRecovery } from '../utils/trackReceiveVaultRecovery';
 import {
   ReceiveAddressRequest,
   ReceiveAddressResponse,
@@ -117,31 +116,15 @@ router.post(
 
           const attribution = getRequestAttribution(res, ref);
           if (attribution.ref !== undefined) {
-            try {
-              const expectedAmount =
-                blockedFunds.find(
-                  ({ record: entryRecord, token }) =>
-                    token.chainId === chainId &&
-                    addressEqual(chainId, entryRecord.vaultAddress, record.vaultAddress) &&
-                    addressEqual(chainId, token.erc20TokenAddress, tokenAddress),
-                )?.amount ?? 0n;
-
-              const createdAtBlock = await getCurrentBlockMarker(chainId, hinkal);
-              await createPendingReceiveVaultRecovery(
-                chainId,
-                record.vaultAddress,
-                tokenAddress,
-                recipientAddress,
-                expectedAmount,
-                createdAtBlock,
-                attribution,
-              );
-            } catch (error) {
-              Logger.error(
-                `[/receive-vault-recover] create pending receive vault recovery failed for ${chainId}-${record.vaultAddress}-${tokenAddress}-${recipientAddress}-${attribution.ref}:`,
-                error,
-              );
-            }
+            trackReceiveVaultRecovery(
+              hinkal,
+              attribution,
+              chainId,
+              record,
+              tokenAddress,
+              recipientAddress,
+              blockedFunds,
+            );
           }
 
           return recovery;
