@@ -17,9 +17,11 @@ import { DEPLOYMENT_MODE } from '../constants';
 import { createPendingPrivateSendVolume } from '../utils/pendingPrivateSendVolume';
 import { DecodedDeposit } from '../types';
 import { timed } from '../utils/timing';
+import { requestUtxoServerSync } from '../utils/requestUtxoServerSync';
 import {
   caseInsensitiveEqual,
   extractMessage,
+  getCustomMerkleSiblingsProvider,
   getErrorMessage,
   isSolanaLike,
   isTronLike,
@@ -99,6 +101,7 @@ class EnclaveWithdrawDispatcherService {
 
     const claimed = await verifyRawDoc(raw as unknown as RawOrder | null, ORDER_LABEL);
     if (!claimed) return;
+    if (getCustomMerkleSiblingsProvider()) requestUtxoServerSync(event.chainId);
 
     const encryptedOrder = claimed as unknown as DepositAndWithdrawOrder & { _id: mongoose.Types.ObjectId };
     const decryptedOrder = {
