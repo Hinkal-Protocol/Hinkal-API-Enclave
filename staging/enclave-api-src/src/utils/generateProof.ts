@@ -5,6 +5,7 @@ import path from 'path';
 import { promisify } from 'util';
 import { safeJsonStringify } from '@hinkal/common/functions/utils/serialize.utils';
 import { NewZkCallDataType, ProofGeneratorFn } from '@hinkal/common';
+import { timed } from './timing';
 
 const execFileAsync = promisify(execFile);
 const CIRCUITS_DIR = '/app/circuits';
@@ -52,9 +53,10 @@ const generateSingleProof = async (input: any, circuitWasm: string, circuitZkey:
     const proofPath = path.join(tempDir, 'proof.json');
     const pubPath = path.join(tempDir, 'public.json');
 
+    const circuit = path.basename(wasmPath, '.wasm');
     await fs.writeFile(inputPath, safeJsonStringify(input));
-    await execFileAsync('snarkjs', ['wc', wasmPath, inputPath, wtnsPath]);
-    await execFileAsync('prover', [zkeyPath, wtnsPath, proofPath, pubPath]);
+    await timed(`proof:wc:${circuit}`, () => execFileAsync('snarkjs', ['wc', wasmPath, inputPath, wtnsPath]));
+    await timed(`proof:prover:${circuit}`, () => execFileAsync('prover', [zkeyPath, wtnsPath, proofPath, pubPath]));
 
     const [proofRaw, publicSignalsRaw] = await Promise.all([
       fs.readFile(proofPath, 'utf-8'),

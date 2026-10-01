@@ -1,6 +1,7 @@
 import { KeyManagementServiceClient } from '@google-cloud/kms';
 import { GCP_PROJECT_ID, GCP_REGION, KMS_KEY_ID, KMS_KEY_RING_ID, KMS_KEY_VERSION, WIF_AUDIENCE } from '../constants';
 import { getEnclaveCredentials } from '../gcp/gcpCredentials';
+import { timed } from '../utils/timing';
 
 export class KmsManagement {
   private kmsClient: KeyManagementServiceClient | null = null;
@@ -39,10 +40,12 @@ export class KmsManagement {
 
   async asymmetricDecrypt(ciphertext: Buffer): Promise<Buffer> {
     await this.init();
-    const [response] = await this.client.asymmetricDecrypt({
-      name: this.keyVersionName,
-      ciphertext,
-    });
+    const [response] = await timed('kms:decrypt', () =>
+      this.client.asymmetricDecrypt({
+        name: this.keyVersionName,
+        ciphertext,
+      }),
+    );
 
     if (!response.plaintext) {
       throw new Error('KMS asymmetricDecrypt returned empty plaintext');

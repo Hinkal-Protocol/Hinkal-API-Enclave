@@ -19,6 +19,7 @@ import {
   waitForEthereumTransactionConfirmation,
 } from '@hinkal/common';
 import { getERC20Token } from '@hinkal/erc20-registry';
+import { timed } from '../utils/timing';
 
 export interface DepositAndWithdrawOrderBase {
   orderId: string;
@@ -69,18 +70,22 @@ const dispatchEvmLikeWithdrawForOrder = async (
   const userDepositedUtxos = matchDepositedUtxos(order, depositedUtxos);
   const feeStructure = buildOrderFeeStructure(order);
 
-  await waitForDepositedUtxosInMerkleTree(hinkal, order.chainId, userDepositedUtxos);
+  await timed('dispatch:merkle-wait', () =>
+    waitForDepositedUtxosInMerkleTree(hinkal, order.chainId, userDepositedUtxos),
+  );
 
-  return hinkalWithdrawBatch(
-    hinkal,
-    order.chainId,
-    token,
-    userDepositedUtxos,
-    feeStructure,
-    hashEthereumAddress(order.senderAddress),
-    order.txCompletionTime,
-    order.ref,
-    AdminTransactionType.ApiPrivateSend,
+  return timed('dispatch:withdraw-batch', () =>
+    hinkalWithdrawBatch(
+      hinkal,
+      order.chainId,
+      token,
+      userDepositedUtxos,
+      feeStructure,
+      hashEthereumAddress(order.senderAddress),
+      order.txCompletionTime,
+      order.ref,
+      AdminTransactionType.ApiPrivateSend,
+    ),
   );
 };
 
@@ -89,7 +94,9 @@ export const dispatchEvmWithdrawForOrder = async (
   order: DepositAndWithdrawOrderBase,
 ): Promise<string> => {
   const token = resolveOrderToken(order);
-  const receipt = await waitForEthereumTransactionConfirmation(order.chainId, order.txHash);
+  const receipt = await timed('dispatch:tx-confirmation', () =>
+    waitForEthereumTransactionConfirmation(order.chainId, order.txHash),
+  );
   const depositedUtxos = getOnChainUtxosFromReceipt(receipt, hinkal, order.chainId, token.erc20TokenAddress);
   return dispatchEvmLikeWithdrawForOrder(hinkal, order, token, depositedUtxos);
 };
@@ -99,7 +106,9 @@ export const dispatchTronWithdrawForOrder = async (
   order: DepositAndWithdrawOrderBase,
 ): Promise<string> => {
   const token = resolveOrderToken(order);
-  const receipt = await waitForEthereumTransactionConfirmation(order.chainId, order.txHash);
+  const receipt = await timed('dispatch:tx-confirmation', () =>
+    waitForEthereumTransactionConfirmation(order.chainId, order.txHash),
+  );
 
   const depositedUtxos = getUtxosFromReceipt(
     receipt,
@@ -121,7 +130,9 @@ export const dispatchSolanaWithdrawForOrder = async (
   if (!hinkalIdl) throw new Error(`Missing Hinkal IDL for chain ${order.chainId}`);
 
   const connection = new Connection(rpcUrl, 'confirmed');
-  const tx = await fetchSolanaTransaction(connection, order.txHash, 'confirmed');
+  const tx = await timed('dispatch:tx-confirmation', () =>
+    fetchSolanaTransaction(connection, order.txHash, 'confirmed'),
+  );
   if (!tx) throw new Error(`Receipt not found for signature ${order.txHash}`);
 
   const program = hinkal.getSolanaProgram(hinkalIdl);
@@ -131,18 +142,22 @@ export const dispatchSolanaWithdrawForOrder = async (
   const userDepositedUtxos = matchDepositedUtxos(order, depositedUtxos);
   const recipientAmounts = order.recipients.map((r) => BigInt(r.amount));
 
-  await waitForDepositedUtxosInMerkleTree(hinkal, order.chainId, userDepositedUtxos);
+  await timed('dispatch:merkle-wait', () =>
+    waitForDepositedUtxosInMerkleTree(hinkal, order.chainId, userDepositedUtxos),
+  );
 
-  return hinkalSolanaWithdrawBatch(
-    hinkal,
-    order.chainId,
-    token,
-    userDepositedUtxos,
-    buildOrderFeeStructure(order),
-    hashEthereumAddress(order.senderAddress),
-    recipientAmounts,
-    order.txCompletionTime,
-    order.ref,
-    AdminTransactionType.ApiPrivateSend,
+  return timed('dispatch:withdraw-batch', () =>
+    hinkalSolanaWithdrawBatch(
+      hinkal,
+      order.chainId,
+      token,
+      userDepositedUtxos,
+      buildOrderFeeStructure(order),
+      hashEthereumAddress(order.senderAddress),
+      recipientAmounts,
+      order.txCompletionTime,
+      order.ref,
+      AdminTransactionType.ApiPrivateSend,
+    ),
   );
 };

@@ -31,6 +31,7 @@ import { enclaveDepositDispatcherService } from './EnclaveWithdrawDispatcherServ
 import { confirmPendingDeposit } from './DepositReferralConfirmationService';
 import { confirmPendingReceiveVaultRecovery } from './ReceiveVaultRecoveryConfirmationService';
 import { DecodedDeposit, DecodedOrder } from '../types';
+import { logTiming, runInFlow, timed } from '../utils/timing';
 
 type EvmCallTrace = {
   to?: string;
@@ -122,8 +123,17 @@ class EnclaveDepositListenerService {
 
     const blockNumber = tx.blockNumber ? parseInt(tx.blockNumber, 16) : 0;
     setImmediate(() => {
-      enclaveDepositDispatcherService
-        .handleDeposit({ chainId, txHash, fromAddress: tx.from, orderId, deposit })
+      runInFlow('dispatch', () => {
+        if (blockNumber) {
+          provider
+            .getBlock(blockNumber)
+            .then((block) => block && logTiming('dispatch:detect-lag', 'ok', Date.now() - block.timestamp * 1000))
+            .catch(() => undefined);
+        }
+        return timed('dispatch:total', () =>
+          enclaveDepositDispatcherService.handleDeposit({ chainId, txHash, fromAddress: tx.from, orderId, deposit }),
+        );
+      })
         .then(async () => {
           const current = this.maxCompletedOrderBlockByChain.get(chainId) ?? 0;
           if (blockNumber > current) {
@@ -352,11 +362,15 @@ class EnclaveDepositListenerService {
     const deposit = this.decodeSolanaDeposit(chainId, message.compiledInstructions, accountKeys);
 
     const fromAddress = message.staticAccountKeys[0].toBase58();
-    const { slot } = tx;
+    const { slot, blockTime } = tx;
 
     setImmediate(() => {
-      enclaveDepositDispatcherService
-        .handleDeposit({ chainId, txHash: signature, fromAddress, orderId, deposit })
+      runInFlow('dispatch', () => {
+        if (blockTime) logTiming('dispatch:detect-lag', 'ok', Date.now() - blockTime * 1000);
+        return timed('dispatch:total', () =>
+          enclaveDepositDispatcherService.handleDeposit({ chainId, txHash: signature, fromAddress, orderId, deposit }),
+        );
+      })
         .then(async () => {
           const current = this.maxCompletedOrderBlockByChain.get(chainId) ?? 0;
           if (slot > current) {

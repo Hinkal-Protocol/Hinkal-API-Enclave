@@ -2,7 +2,7 @@ name: Deploy Enclave-API GCP
 on:
   push:
     branches:
-      - remove-henclave-public-hop
+      - enclave-api-speedup
       - production-api-v1
 permissions:
   id-token: write

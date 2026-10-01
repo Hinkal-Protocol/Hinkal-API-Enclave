@@ -16,16 +16,34 @@ import { DATA_SERVER_SERVICE_KEY, DEPLOYMENT_MODE, HEADER_ENCLAVE_SIGNATURE, MON
 import { loadRoutes } from './loaders/routeLoader';
 import { enclaveDepositListenerService } from './services/EnclaveDepositListenerService';
 import { generateProof } from './utils/generateProof';
-import { henclaveHttpClient } from './utils/henclaveHttpClient';
 import { getUtxosFromUtxoServer } from './utils/utxoServerBalance';
 import { getMerkleSiblingsFromUtxoServer } from './utils/utxoServerMerkleSiblings';
 import { provisionUtxoServerKey } from './utils/provisionUtxoServerKey';
 import { receiveVaultRecoveryListenerService } from './services/ReceiveVaultRecoveryListenerService';
 import { privateSendVolumeService } from './services/PrivateSendVolumeService';
+import { currentFlow, logTiming, runInFlow, withTiming } from './utils/timing';
+import { timedHttpClient } from './utils/timedHttpClient';
 
 applyPaidRpcUrlOverrides();
+httpClient.setHttpClient(timedHttpClient);
 
 const app = express();
+
+app.use((req, res, next) => {
+  runInFlow('req', () => {
+    const start = performance.now();
+    const flow = currentFlow();
+    res.on('finish', () =>
+      logTiming(
+        `req:${req.method}:${req.route ? `${req.baseUrl}${req.route.path}` : 'unmatched'}`,
+        String(res.statusCode),
+        performance.now() - start,
+        flow,
+      ),
+    );
+    next();
+  });
+});
 
 app.use(
   json({
@@ -42,10 +60,9 @@ app.use(express.text({ type: '*/*', limit: '50mb' }));
 loadRoutes(app);
 
 if (DEPLOYMENT_MODE !== 'development') {
-  httpClient.setHttpClient(henclaveHttpClient);
-  setCustomProofGenerator(generateProof);
-  setCustomUtxoProvider(getUtxosFromUtxoServer);
-  setCustomMerkleSiblingsProvider(getMerkleSiblingsFromUtxoServer);
+  setCustomProofGenerator(withTiming('proof:generate', generateProof));
+  setCustomUtxoProvider(withTiming('utxo-server:utxos', getUtxosFromUtxoServer));
+  setCustomMerkleSiblingsProvider(withTiming('utxo-server:siblings', getMerkleSiblingsFromUtxoServer));
   provisionUtxoServerKey().catch((err) => Logger.error('provisionUtxoServerKey failed :', getErrorMessage(err), err));
 }
 

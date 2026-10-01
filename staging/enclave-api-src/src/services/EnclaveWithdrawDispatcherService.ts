@@ -16,6 +16,7 @@ import { assertUuid } from '../utils/queryGuards';
 import { DEPLOYMENT_MODE } from '../constants';
 import { createPendingPrivateSendVolume } from '../utils/pendingPrivateSendVolume';
 import { DecodedDeposit } from '../types';
+import { timed } from '../utils/timing';
 import {
   caseInsensitiveEqual,
   extractMessage,
@@ -100,7 +101,10 @@ class EnclaveWithdrawDispatcherService {
     if (!claimed) return;
 
     const encryptedOrder = claimed as unknown as DepositAndWithdrawOrder & { _id: mongoose.Types.ObjectId };
-    const decryptedOrder = { ...encryptedOrder, ...(await decryptOrderFields(encryptedOrder)) };
+    const decryptedOrder = {
+      ...encryptedOrder,
+      ...(await timed('dispatch:decrypt-order', () => decryptOrderFields(encryptedOrder))),
+    };
 
     if (!this.depositMatchesOrder(decryptedOrder, event.deposit)) {
       Logger.error(
