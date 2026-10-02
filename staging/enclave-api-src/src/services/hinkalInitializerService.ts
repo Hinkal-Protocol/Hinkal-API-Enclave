@@ -15,7 +15,6 @@ import { ethers } from 'ethers';
 import { SolanaLocalSigner, TronLocalSigner } from '../data-structures';
 import { walletSecretsService } from './walletSecretsService';
 import { isLocalCryptoMode } from '../constants';
-import { timed } from '../utils/timing';
 
 class HinkalInitializerService {
   async withHinkalForAddress<T>(
@@ -53,15 +52,14 @@ class HinkalInitializerService {
     providerAdapter: IProviderAdapter<unknown>,
     chainId: number,
     loginSignature: string,
-  ): Promise<void> =>
-    timed('init:hinkal', async () => {
-      await hinkal.initProviderAdapter(wallet, providerAdapter);
-      hinkal.initUserKeysWithSignature(loginSignature);
-      await hinkal.switchNetwork(networkRegistry[chainId]);
-    });
+  ): Promise<void> => {
+    await hinkal.initProviderAdapter(wallet, providerAdapter);
+    hinkal.initUserKeysWithSignature(loginSignature);
+    await hinkal.switchNetwork(networkRegistry[chainId]);
+  };
 
   private async initalizeHinkalForAddress(ethereumAddress: string, chainId: number) {
-    const userKey = await timed('init:user-keys', () => userKeysService.findOrCreatePrivateKey(ethereumAddress));
+    const userKey = await userKeysService.findOrCreatePrivateKey(ethereumAddress);
     const hinkal = new Hinkal<unknown>({
       useFileCache: true,
       generateProofRemotely: isLocalCryptoMode,
@@ -85,8 +83,11 @@ class HinkalInitializerService {
       allowParallelBalanceLocalDecryption: true,
     });
 
-    const { seedHash, childWallet } = await timed('init:wallet-secrets', () =>
-      walletSecretsService.getSeedHashAndChildWallet(organizationId, userId, signerPublicKey, fromAddress),
+    const { seedHash, childWallet } = await walletSecretsService.getSeedHashAndChildWallet(
+      organizationId,
+      userId,
+      signerPublicKey,
+      fromAddress,
     );
     const seedHashHex = seedHash.startsWith('0x') ? seedHash : `0x${seedHash}`;
 

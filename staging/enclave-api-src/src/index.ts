@@ -1,6 +1,5 @@
 import {
   getErrorMessage,
-  httpClient,
   Logger,
   preProcessing,
   setCustomMerkleSiblingsProvider,
@@ -21,29 +20,10 @@ import { getMerkleSiblingsFromUtxoServer } from './utils/utxoServerMerkleSibling
 import { provisionUtxoServerKey } from './utils/provisionUtxoServerKey';
 import { receiveVaultRecoveryListenerService } from './services/ReceiveVaultRecoveryListenerService';
 import { privateSendVolumeService } from './services/PrivateSendVolumeService';
-import { currentFlow, logTiming, runInFlow, withTiming } from './utils/timing';
-import { timedHttpClient } from './utils/timedHttpClient';
 
 applyPaidRpcUrlOverrides();
-httpClient.setHttpClient(timedHttpClient);
 
 const app = express();
-
-app.use((req, res, next) => {
-  runInFlow('req', () => {
-    const start = performance.now();
-    const flow = currentFlow();
-    res.on('finish', () =>
-      logTiming(
-        `req:${req.method}:${req.route ? `${req.baseUrl}${req.route.path}` : 'unmatched'}`,
-        String(res.statusCode),
-        performance.now() - start,
-        flow,
-      ),
-    );
-    next();
-  });
-});
 
 app.use(
   json({
@@ -60,9 +40,9 @@ app.use(express.text({ type: '*/*', limit: '50mb' }));
 loadRoutes(app);
 
 if (DEPLOYMENT_MODE !== 'development') {
-  setCustomProofGenerator(withTiming('proof:generate', generateProof));
-  setCustomUtxoProvider(withTiming('utxo-server:utxos', getUtxosFromUtxoServer));
-  setCustomMerkleSiblingsProvider(withTiming('utxo-server:siblings', getMerkleSiblingsFromUtxoServer));
+  setCustomProofGenerator(generateProof);
+  setCustomUtxoProvider(getUtxosFromUtxoServer);
+  setCustomMerkleSiblingsProvider(getMerkleSiblingsFromUtxoServer);
   provisionUtxoServerKey().catch((err) => Logger.error('provisionUtxoServerKey failed :', getErrorMessage(err), err));
 }
 
