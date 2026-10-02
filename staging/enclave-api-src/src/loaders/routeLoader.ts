@@ -4,7 +4,6 @@ import { signResponseMiddleware } from '../middleware';
 import handshake from '../routes/handshake';
 import createSession from '../routes/create-session';
 import ping from '../routes/ping';
-import encryptPlaintextOrders from '../routes/encrypt-plaintext-orders';
 // import palOrder from '../routes/pal/pal-order';
 // import palQuote from '../routes/pal/pal-quote';
 // import palStatus from '../routes/pal/pal-status';
@@ -42,7 +41,6 @@ import scheduledPayoutFinished from '../routes/scheduled-payout-finished';
 
 export const loadRoutes = (app: Express) => {
   app.use(BASE_URL, ping);
-  app.use(BASE_URL, encryptPlaintextOrders); // should be removed after we run this script once in the production
   app.use(signResponseMiddleware);
   app.use(BASE_URL, maintenance); // TEMPORARY
   app.use(BASE_URL, scheduledPayoutFinished);
