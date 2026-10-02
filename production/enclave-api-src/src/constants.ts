@@ -48,6 +48,7 @@ export const KMS_KEY_ID = requireEnvWhenKms('KMS_KEY_NAME');
 export const KMS_KEY_VERSION = process.env.KMS_KEY_VERSION ?? '1';
 export const WIF_AUDIENCE = requireEnvWhenKms('WIF_AUDIENCE');
 export const ENCLAVE_UTXO_PRIVATE_KEY = requireEnvWhenKms('ENCLAVE_UTXO_PRIVATE_KEY');
+export const DATA_SERVER_SERVICE_KEY = process.env.DATA_SERVER_SERVICE_KEY ?? '';
 export const UTXO_SERVER_HOST = process.env.UTXO_SERVER_HOST ?? '127.0.0.1';
 export const UTXO_SERVER_PORT = Number(process.env.UTXO_SERVER_PORT ?? 7000);
 
@@ -55,4 +56,5 @@ export const PARTNER_KEY_MARKER = 'hk_';
 export const PARTNER_KEY_CACHE_TTL_MS = 60 * 1000;
 export const PARTNER_KEY_CACHE_MAX_ENTRIES = 5000;
 export const DATA_SERVER_INTERNAL_TIMEOUT_MS = 5000;
+export const DATA_SERVER_REFERRAL_TX_TIMEOUT_MS = 4 * 60 * 1000;
 export const SCHEDULE_ID_PATTERN = /^[0-9a-f]{24}$/;

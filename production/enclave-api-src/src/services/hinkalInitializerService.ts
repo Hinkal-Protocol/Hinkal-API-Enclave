@@ -26,7 +26,7 @@ class HinkalInitializerService {
     try {
       return await callback(hinkal);
     } finally {
-      await hinkal.destroy();
+      hinkal.destroy();
     }
   }
 
@@ -42,7 +42,7 @@ class HinkalInitializerService {
     try {
       return await callback(hinkal);
     } finally {
-      await hinkal.destroy();
+      hinkal.destroy();
     }
   }
 
