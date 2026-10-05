@@ -80,7 +80,7 @@ router.post(
       const totalRecipientAmount = recipientAmounts.reduce((sum, a) => sum + a, 0n);
       const orderId = crypto.randomUUID();
 
-      const feeStructure = await getFeeStructure(
+      const feeStructurePromise = getFeeStructure(
         chainId,
         feeToken ?? token.erc20TokenAddress,
         [token.erc20TokenAddress],
@@ -91,11 +91,13 @@ router.post(
           ? { mintTo: token.erc20TokenAddress, recipient: recipients[0].address, nullifierCount: recipients.length }
           : undefined,
       );
+      feeStructurePromise.catch(() => undefined);
 
       const { serializedTx, utxoAmounts } = await hinkalInitializerService.withHinkalForAddress(
         address,
         chainId,
         async (hinkal) => {
+          const feeStructure = await feeStructurePromise;
           if (isSolanaLike(chainId)) {
             const result = await hinkalPalSolanaDepositPrepare(
               hinkal,
@@ -131,6 +133,7 @@ router.post(
         },
       );
 
+      const feeStructure = await feeStructurePromise;
       const totalAmount = utxoAmounts.reduce((sum, a) => sum + a, 0n);
       const fee = totalAmount - totalRecipientAmount;
 

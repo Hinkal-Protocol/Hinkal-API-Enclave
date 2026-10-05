@@ -5,6 +5,7 @@ export enum UtxoOpcode {
   GET_BALANCE = 0,
   SET_UTXO_KEY = 1,
   GET_MERKLE_SIBLINGS = 2,
+  REQUEST_SYNC = 4,
 }
 
 export const sendRawToUtxoServer = (opcode: UtxoOpcode, body: Buffer): Promise<Buffer> =>
