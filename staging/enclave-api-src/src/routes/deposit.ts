@@ -61,9 +61,9 @@ router.post(
         chainId,
         async (hinkal) => {
           if (isSolanaLike(chainId)) {
-            return hinkal.depositSolana(BigInt(amounts[0]), validated.tokens[0], true, orderId);
+            return hinkal.depositSolana(BigInt(amounts[0]), validated.tokens[0], true, undefined, orderId);
           }
-          return hinkal.deposit(validated.tokens, amounts.map(BigInt), false, true, orderId);
+          return hinkal.deposit(validated.tokens, amounts.map(BigInt), false, true, undefined, orderId);
         },
       );
 
@@ -243,7 +243,7 @@ router.post(
         chainId,
         async (hinkal) => {
           if (isSolanaLike(chainId)) {
-            return hinkal.depositSolana(BigInt(amounts[0]), validated.tokens[0], true, orderId);
+            return hinkal.depositSolana(BigInt(amounts[0]), validated.tokens[0], true, undefined, orderId);
           }
           return hinkal.prooflessDeposit(
             validated.tokens,
