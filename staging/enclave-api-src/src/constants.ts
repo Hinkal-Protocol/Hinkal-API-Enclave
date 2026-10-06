@@ -4,6 +4,7 @@ import type { CryptoMode } from './types';
 export const PORT = requireEnv('PORT');
 export const MONGODB_URL = requireEnv('MONGODB_URL');
 export const ENCLAVE_API_HMAC_SEED = requireEnv('ENCLAVE_API_HMAC_SEED');
+export const HENCLAVE_HMAC_SEED = requireEnv('HENCLAVE_HMAC_SEED');
 export const PARTNER_INTERNAL_KEY = requireEnv('PARTNER_INTERNAL_KEY');
 
 export const HEADER_ENCLAVE_SIGNATURE = 'x-hinkal-response-signature';

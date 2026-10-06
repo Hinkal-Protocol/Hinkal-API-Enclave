@@ -1,5 +1,6 @@
-import { ensureRecipientInfoPool, getErrorMessage, Logger } from '@hinkal/common';
+import { getErrorMessage, Logger } from '@hinkal/common';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
+import { storeWaasRecipientInfos } from './waasRecipientInfoPool';
 
 export const ensureRecipientInfoPoolForApi = async (
   organizationId: string,
@@ -14,7 +15,8 @@ export const ensureRecipientInfoPoolForApi = async (
     signerPublicKey,
     walletAddress,
     chainId,
-    async (hinkal) => ensureRecipientInfoPool(hinkal, walletAddress),
+    async (hinkal) =>
+      storeWaasRecipientInfos(walletAddress, (count) => Array.from({ length: count }, () => hinkal.getRecipientInfo())),
   );
 };
 
