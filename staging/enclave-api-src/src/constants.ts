@@ -52,6 +52,7 @@ export const ENCLAVE_UTXO_PRIVATE_KEY = requireEnvWhenKms('ENCLAVE_UTXO_PRIVATE_
 export const DATA_SERVER_SERVICE_KEY = process.env.DATA_SERVER_SERVICE_KEY ?? '';
 export const UTXO_SERVER_HOST = process.env.UTXO_SERVER_HOST ?? '127.0.0.1';
 export const UTXO_SERVER_PORT = Number(process.env.UTXO_SERVER_PORT ?? 7000);
+export const UTXO_SYNC_TIMEOUT_MS = 5 * 60 * 1000;
 
 export const PARTNER_KEY_MARKER = 'hk_';
 export const PARTNER_KEY_CACHE_TTL_MS = 60 * 1000;

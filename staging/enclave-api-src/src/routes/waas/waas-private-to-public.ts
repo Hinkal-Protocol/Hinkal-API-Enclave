@@ -3,6 +3,7 @@ import { isSolanaLike } from '@hinkal/common/constants/chains.constants';
 import { ENCLAVE_PRIVATE_SEND_VARIABLE_RATE } from '@hinkal/common/constants/protocol.constants';
 import { getFeeStructure } from '@hinkal/common/functions/pre-transaction/getFeeStructure';
 import { getAmountInWei } from '@hinkal/common/functions/web3/etherFunctions';
+import { toTxHash } from '@hinkal/common/functions/utils/tx-confirmation.utils';
 import { calculateSolanaNullifierCount } from '@hinkal/common/functions/pre-transaction/calculateSolanaNullifierCount';
 import { ExternalActionId } from '@hinkal/common/types/external-action.types';
 import { parseChainId, resolveToken } from '../../utils/transactionHelpers';
@@ -45,7 +46,7 @@ router.post('/waas/private-to-public', xStampMiddleware, async (req: Request, re
 
     const amountWei = getAmountInWei(token, String(amount));
 
-    const tx = await hinkalInitializerService.withHinkalForOrganization(
+    const tx = await hinkalInitializerService.withShieldedSpendForOrganization(
       organizationId,
       userId,
       signerPublicKey,
@@ -80,13 +81,14 @@ router.post('/waas/private-to-public', xStampMiddleware, async (req: Request, re
           feeStructureOverride,
         );
       },
+      (result) => [toTxHash(result)],
     );
 
     ensureRecipientInfoPoolForApiInBackground(organizationId, userId, fromAddress, signerPublicKey, parsedChainId);
 
     res.status(200).send({
       status: 'success',
-      data: { txHash: typeof tx === 'string' ? tx : tx.hash },
+      data: { txHash: toTxHash(tx) },
     });
   } catch (err) {
     sendError(res, err);

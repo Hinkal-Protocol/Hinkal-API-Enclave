@@ -13,6 +13,8 @@ import { ERC20Token } from '@hinkal/common/types/token.types';
 import { HttpError } from '@hinkal/common/error-handling/customErrors/HttpError';
 import { getAmountInWei } from '@hinkal/common/functions/web3/etherFunctions';
 import { caseInsensitiveEqual } from '@hinkal/common/functions/utils/caseInsensitive.utils';
+import { waitForTransactionConfirmation } from '@hinkal/common/functions/utils/tx-confirmation.utils';
+import { getErrorMessage } from '@hinkal/common/error-handling/get-error.message';
 import {
   BRIDGE_SUPPORTED_CHAINS,
   CONFIDENTIAL_BRIDGE_CHAINS,
@@ -26,6 +28,17 @@ import { userKeysService } from '../services/userKeysService';
 import { WalletAddresses } from '../models';
 import { MAX_SLIPPAGE_PERCENTAGE } from '../constants/swap.constants';
 import { SwapRequestBody, ValidatedNearBridgeRequest, ValidatedSwapRequest } from '../types/swap.types';
+
+export const confirmBroadcastTransaction = async (chainId: number, txHash: string): Promise<void> => {
+  try {
+    await waitForTransactionConfirmation(chainId, txHash);
+  } catch (err) {
+    throw new HttpError(
+      502,
+      `Transaction ${txHash} was broadcast but did not succeed on-chain: ${getErrorMessage(err)}`,
+    );
+  }
+};
 
 export const parseChainId = (chainId: unknown): number => {
   const parsed = Number(chainId);

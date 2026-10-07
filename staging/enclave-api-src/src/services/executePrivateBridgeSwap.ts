@@ -12,24 +12,26 @@ export const executePrivateBridgeSwap = async (
 
   const bridgeSlippage = (await resolveBridgeSlippagePercent(inToken, amount, parsedSlippage)) * PERCENT_TO_DECIMAL;
 
-  const { sourceTxHash, destTxHash, destinationTokenAmount } = await hinkalInitializerService.withHinkalForOrganization(
-    organizationId,
-    userId,
-    signerPublicKey,
-    fromAddress,
-    chainId,
-    (hinkal) =>
-      hinkalBridgePrivateToPrivate(
-        hinkal,
-        inToken,
-        outToken,
-        amount,
-        { recipientInfo: hinkal.getRecipientInfo() },
-        bridgeSlippage,
-        inToken.erc20TokenAddress,
-        undefined,
-      ),
-  );
+  const { sourceTxHash, destTxHash, destinationTokenAmount } =
+    await hinkalInitializerService.withShieldedSpendForOrganization(
+      organizationId,
+      userId,
+      signerPublicKey,
+      fromAddress,
+      chainId,
+      (hinkal) =>
+        hinkalBridgePrivateToPrivate(
+          hinkal,
+          inToken,
+          outToken,
+          amount,
+          { recipientInfo: hinkal.getRecipientInfo() },
+          bridgeSlippage,
+          inToken.erc20TokenAddress,
+          undefined,
+        ),
+      (result) => [result.sourceTxHash],
+    );
 
   return { txHash: sourceTxHash, sourceTxHash, destTxHash, destinationTokenAmount };
 };

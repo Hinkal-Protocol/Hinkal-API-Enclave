@@ -21,7 +21,7 @@ export const executePrivateSwap = async (params: PrivateSwapExecutionParams): Pr
   } = params;
   const isSolana = isSolanaLike(chainId);
 
-  return hinkalInitializerService.withHinkalForOrganization(
+  return hinkalInitializerService.withShieldedSpendForOrganization(
     organizationId,
     userId,
     signerPublicKey,
@@ -65,5 +65,6 @@ export const executePrivateSwap = async (params: PrivateSwapExecutionParams): Pr
         parsedSlippage,
       );
     },
+    (result) => [result],
   );
 };
