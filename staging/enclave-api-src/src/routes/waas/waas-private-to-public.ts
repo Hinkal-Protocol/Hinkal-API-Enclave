@@ -1,11 +1,7 @@
 import { Request, Response, Router } from 'express';
-import { isSolanaLike } from '@hinkal/common/constants/chains.constants';
-import { ENCLAVE_PRIVATE_SEND_VARIABLE_RATE } from '@hinkal/common/constants/protocol.constants';
-import { getFeeStructure } from '@hinkal/common/functions/pre-transaction/getFeeStructure';
+import { ENCLAVE_UNSHIELD_VARIABLE_RATE } from '@hinkal/common/constants/protocol.constants';
 import { getAmountInWei } from '@hinkal/common/functions/web3/etherFunctions';
 import { toTxHash } from '@hinkal/common/functions/utils/tx-confirmation.utils';
-import { calculateSolanaNullifierCount } from '@hinkal/common/functions/pre-transaction/calculateSolanaNullifierCount';
-import { ExternalActionId } from '@hinkal/common/types/external-action.types';
 import { parseChainId, resolveToken } from '../../utils/transactionHelpers';
 import { sendError } from '../../utils/routeError';
 import { ensureRecipientInfoPoolForApiInBackground } from '../../utils/ensureRecipientInfoPoolForApi';
@@ -52,35 +48,16 @@ router.post('/waas/private-to-public', xStampMiddleware, async (req: Request, re
       signerPublicKey,
       fromAddress,
       parsedChainId,
-      async (hinkal) => {
-        let feeStructureOverride: Awaited<ReturnType<typeof getFeeStructure>> | undefined;
-        if (isSolanaLike(parsedChainId)) {
-          const nullifierCount = await calculateSolanaNullifierCount(
-            hinkal,
-            parsedChainId,
-            [token.erc20TokenAddress],
-            [-amountWei],
-          );
-          feeStructureOverride = await getFeeStructure(
-            parsedChainId,
-            token.erc20TokenAddress,
-            [token.erc20TokenAddress],
-            ExternalActionId.Transact,
-            [],
-            ENCLAVE_PRIVATE_SEND_VARIABLE_RATE,
-            { mintTo: token.erc20TokenAddress, recipient: String(to), nullifierCount },
-          );
-        }
-
-        return hinkal.withdraw(
+      (hinkal) =>
+        hinkal.withdraw(
           [token],
           [-amountWei],
           String(to),
           Boolean(isRelayerOff),
           token.erc20TokenAddress,
-          feeStructureOverride,
-        );
-      },
+          undefined,
+          ENCLAVE_UNSHIELD_VARIABLE_RATE,
+        ),
       (result) => [toTxHash(result)],
     );
 
