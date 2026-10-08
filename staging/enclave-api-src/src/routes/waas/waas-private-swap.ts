@@ -52,8 +52,8 @@ router.post('/waas/private-swap', xStampMiddleware, async (req: Request, res: Re
       return;
     }
 
-    const txHash = await executePrivateSwap(swapParams);
-    res.status(200).send({ status: 'success', data: { txHash } });
+    const { txHash, receivedAmount } = await executePrivateSwap(swapParams);
+    res.status(200).send({ status: 'success', data: { txHash, receivedAmount } });
   } catch (err) {
     sendError(res, err);
   }
