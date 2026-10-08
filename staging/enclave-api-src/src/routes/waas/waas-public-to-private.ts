@@ -2,7 +2,14 @@ import { Request, Response, Router } from 'express';
 import { isTronLike } from '@hinkal/common/constants/chains.constants';
 import { constructStealthAddressStructure } from '@hinkal/common/functions/utils/addresses';
 import { getAmountInWei } from '@hinkal/common/functions/web3/etherFunctions';
-import { parseChainId, resolvePrivateRecipient, resolveToken } from '../../utils/transactionHelpers';
+import { getSubmittedTxHash } from '@hinkal/common/functions/utils/tx-confirmation.utils';
+import { HttpError } from '@hinkal/common/error-handling/customErrors/HttpError';
+import {
+  confirmBroadcastTransaction,
+  parseChainId,
+  resolvePrivateRecipient,
+  resolveToken,
+} from '../../utils/transactionHelpers';
 import { sendError } from '../../utils/routeError';
 import { ensureRecipientInfoPoolForApiInBackground } from '../../utils/ensureRecipientInfoPoolForApi';
 import { hinkalInitializerService } from '../../services/hinkalInitializerService';
@@ -33,7 +40,7 @@ router.post('/waas/public-to-private', xStampMiddleware, async (req: Request, re
     const isTron = isTronLike(parsedChainId);
     const recipientInfo = await resolvePrivateRecipient(String(to));
     const amountWei = getAmountInWei(token, String(amount));
-    const txHash = await hinkalInitializerService.withHinkalForOrganization(
+    const tx = await hinkalInitializerService.withHinkalForOrganization(
       organizationId,
       userId,
       signerPublicKey,
@@ -52,6 +59,10 @@ router.post('/waas/public-to-private', xStampMiddleware, async (req: Request, re
         );
       },
     );
+
+    const txHash = getSubmittedTxHash(tx);
+    if (!txHash) throw new HttpError(500, 'Deposit was submitted but returned no transaction hash');
+    await confirmBroadcastTransaction(parsedChainId, txHash);
 
     ensureRecipientInfoPoolForApiInBackground(organizationId, userId, fromAddress, signerPublicKey, parsedChainId);
 
