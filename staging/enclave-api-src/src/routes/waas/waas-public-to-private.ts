@@ -5,6 +5,7 @@ import { getAmountInWei } from '@hinkal/common/functions/web3/etherFunctions';
 import { getSubmittedTxHash } from '@hinkal/common/functions/utils/tx-confirmation.utils';
 import { HttpError } from '@hinkal/common/error-handling/customErrors/HttpError';
 import {
+  assertEnoughGasForDeposit,
   confirmBroadcastTransaction,
   parseChainId,
   resolvePrivateRecipient,
@@ -40,6 +41,7 @@ router.post('/waas/public-to-private', xStampMiddleware, async (req: Request, re
     const isTron = isTronLike(parsedChainId);
     const recipientInfo = await resolvePrivateRecipient(String(to));
     const amountWei = getAmountInWei(token, String(amount));
+    await assertEnoughGasForDeposit(parsedChainId, String(fromAddress), token, amountWei);
     const tx = await hinkalInitializerService.withHinkalForOrganization(
       organizationId,
       userId,

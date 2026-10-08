@@ -11,7 +11,14 @@ import { UserKeys } from '@hinkal/common/data-structures/crypto-keys/keys';
 import { getERC20Token } from '@hinkal/erc20-registry';
 import { ERC20Token } from '@hinkal/common/types/token.types';
 import { HttpError } from '@hinkal/common/error-handling/customErrors/HttpError';
-import { getAmountInWei } from '@hinkal/common/functions/web3/etherFunctions';
+import { getAmountInToken, getAmountInWei } from '@hinkal/common/functions/web3/etherFunctions';
+import { getGasTokenAddress, isGasToken } from '@hinkal/common/functions/utils/gas-token.utils';
+import { normalizeTronAddr } from '@hinkal/common/functions/utils/tron.utils';
+import { getPublicBalanceByTokenAddress } from '@hinkal/common/functions/utils/publicBalance.utils';
+import { getSolanaRootRentExemption } from '@hinkal/common/functions/utils/solanaSendPreflight.utils';
+import { processGasEstimates } from '@hinkal/common/functions/pre-transaction/process-gas-estimates';
+import { ExternalActionId } from '@hinkal/common/types/external-action.types';
+import { Logger } from '@hinkal/common/error-handling/logger';
 import { caseInsensitiveEqual } from '@hinkal/common/functions/utils/caseInsensitive.utils';
 import { waitForTransactionConfirmation } from '@hinkal/common/functions/utils/tx-confirmation.utils';
 import { getErrorMessage } from '@hinkal/common/error-handling/get-error.message';
@@ -21,6 +28,7 @@ import {
   isConfidentialBridgeChain,
   isSolanaLike,
   isTronLike,
+  networkRegistry,
   usesNearIntentsBridge,
 } from '@hinkal/common/constants/chains.constants';
 import { isNearBridgeSupportedChain } from '@hinkal/common/constants/bridging.constants';
@@ -38,6 +46,42 @@ export const confirmBroadcastTransaction = async (chainId: number, txHash: strin
       `Transaction ${txHash} was broadcast but did not succeed on-chain: ${getErrorMessage(err)}`,
     );
   }
+};
+
+export const assertEnoughGasForDeposit = async (
+  chainId: number,
+  walletAddress: string,
+  token: ERC20Token,
+  amountWei: bigint,
+): Promise<void> => {
+  const gasToken = getERC20Token(getGasTokenAddress(chainId), chainId);
+  if (!gasToken) return;
+
+  const externalActionId = isTronLike(chainId) ? ExternalActionId.Transact : ExternalActionId.ProofLess;
+  const { priceOfTransactionInToken: gasCost } = await processGasEstimates(chainId, gasToken, externalActionId, 1);
+  if (gasCost === undefined) return;
+
+  let gasTokenBalance: bigint | null;
+  let reserve: bigint;
+  try {
+    [gasTokenBalance, reserve] = await Promise.all([
+      getPublicBalanceByTokenAddress(chainId, normalizeTronAddr(walletAddress), gasToken.erc20TokenAddress),
+      isSolanaLike(chainId) ? getSolanaRootRentExemption(chainId) : 0n,
+    ]);
+  } catch (err) {
+    Logger.error('assertEnoughGasForDeposit: failed to fetch gas token balance', err);
+    return;
+  }
+  if (gasTokenBalance === null) return;
+
+  const required = gasCost + reserve + (isGasToken(token) ? amountWei : 0n);
+  if (gasTokenBalance >= required) return;
+
+  const networkName = networkRegistry[chainId]?.name ?? `chain ${chainId}`;
+  throw new HttpError(
+    400,
+    `${gasToken.symbol} balance on ${networkName} is too low to cover network fees: need ~${getAmountInToken(gasToken, required)} ${gasToken.symbol}, have ${getAmountInToken(gasToken, gasTokenBalance)} ${gasToken.symbol}`,
+  );
 };
 
 export const parseChainId = (chainId: unknown): number => {
