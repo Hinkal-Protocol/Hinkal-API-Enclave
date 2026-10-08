@@ -3,11 +3,10 @@ import { BorshCoder } from '@coral-xyz/anchor';
 import {
   AddressLookupTableAccount,
   Connection,
-  Message,
   type MessageAccountKeys,
   type MessageCompiledInstruction,
-  MessageV0,
   PublicKey,
+  VersionedMessage,
 } from '@solana/web3.js';
 import {
   BlockchainEvent,
@@ -20,6 +19,7 @@ import {
   networkRegistry,
   PollingBlockchainEventEmitter,
   PollingSolanaBlockchainEventEmitter,
+  SOLANA_MAX_SUPPORTED_TX_VERSION,
   solanaNativeAddress,
 } from '@hinkal/common';
 import { getContract, getRpcProvider, Web3Contracts } from '@hinkal/backend-common';
@@ -339,7 +339,7 @@ class EnclaveDepositListenerService {
   private async processSolanaTransaction(chainId: number, connection: Connection, signature: string): Promise<boolean> {
     const tx = await connection.getTransaction(signature, {
       commitment: 'confirmed',
-      maxSupportedTransactionVersion: 0,
+      maxSupportedTransactionVersion: SOLANA_MAX_SUPPORTED_TX_VERSION,
     });
     if (!tx || tx.meta?.err || !tx.transaction) return false;
 
@@ -373,7 +373,7 @@ class EnclaveDepositListenerService {
     return true;
   }
 
-  private async resolveAccountKeys(connection: Connection, message: Message | MessageV0): Promise<MessageAccountKeys> {
+  private async resolveAccountKeys(connection: Connection, message: VersionedMessage): Promise<MessageAccountKeys> {
     if (message.version === 0) {
       const lutRows = await Promise.all(
         message.addressTableLookups.map((l) => connection.getAddressLookupTable(l.accountKey)),
