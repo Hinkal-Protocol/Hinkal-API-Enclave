@@ -24,6 +24,7 @@ import privateToPublic from '../routes/waas/waas-private-to-public';
 import publicToPrivate from '../routes/waas/waas-public-to-private';
 import publicToPublic from '../routes/waas/waas-public-to-public';
 import waasPrivateSwap from '../routes/waas/waas-private-swap';
+import waasEstimateFee from '../routes/waas/waas-estimate-fee';
 import waasWithdrawStuckUtxos from '../routes/waas/withdraw-stuck-utxos';
 import waasRecoverTemporaryWallet from '../routes/waas/waas-recover-temporary-wallet';
 import waasScheduledTransaction from '../routes/waas/waas-scheduled-transaction';
@@ -78,6 +79,7 @@ export const loadRoutes = (app: Express) => {
   app.use(BASE_URL, privateToPublic);
   app.use(BASE_URL, privateToPrivate);
   app.use(BASE_URL, waasPrivateSwap);
+  app.use(BASE_URL, waasEstimateFee);
   app.use(BASE_URL, walletActions);
   app.use(BASE_URL, solanaWalletActions);
   app.use(BASE_URL, tronWalletActions);

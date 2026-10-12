@@ -4,7 +4,7 @@ import { ENCLAVE_PUBLIC_SEND_VARIABLE_RATE } from '@hinkal/common/constants/prot
 import { getFeeStructure } from '@hinkal/common/functions/pre-transaction/getFeeStructure';
 import { getAmountInWei } from '@hinkal/common/functions/web3/etherFunctions';
 import { ExternalActionId } from '@hinkal/common/types/external-action.types';
-import { parseChainId, resolveToken } from '../../utils/transactionHelpers';
+import { confirmBroadcastTransaction, parseChainId, resolveToken } from '../../utils/transactionHelpers';
 import { sendError } from '../../utils/routeError';
 import { ensureRecipientInfoPoolForApiInBackground } from '../../utils/ensureRecipientInfoPoolForApi';
 import { hinkalInitializerService } from '../../services/hinkalInitializerService';
@@ -60,6 +60,7 @@ router.post('/waas/public-to-public', xStampMiddleware, async (req: Request, res
         return hinkal.depositAndWithdraw(token, [recipientAmount], [String(to)], undefined, feeStructure);
       },
     );
+    await confirmBroadcastTransaction(parsedChainId, depositTxHash);
 
     ensureRecipientInfoPoolForApiInBackground(organizationId, userId, fromAddress, signerPublicKey, parsedChainId);
 

@@ -15,6 +15,7 @@ import { ethers } from 'ethers';
 import { SolanaLocalSigner, TronLocalSigner } from '../data-structures';
 import { walletSecretsService } from './walletSecretsService';
 import { isLocalCryptoMode } from '../constants';
+import { runShieldedSpend } from '../utils/shieldedSpendLock';
 
 class HinkalInitializerService {
   async withHinkalForAddress<T>(
@@ -44,6 +45,24 @@ class HinkalInitializerService {
     } finally {
       hinkal.destroy();
     }
+  }
+
+  async withShieldedSpendForOrganization<T>(
+    organizationId: string,
+    userId: string,
+    signerPublicKey: string,
+    fromAddress: string,
+    chainId: number,
+    callback: (hinkal: Hinkal<unknown>) => Promise<T>,
+    txHashesOf: (result: T) => string[],
+  ): Promise<T> {
+    return runShieldedSpend(
+      organizationId,
+      userId,
+      chainId,
+      () => this.withHinkalForOrganization(organizationId, userId, signerPublicKey, fromAddress, chainId, callback),
+      txHashesOf,
+    );
   }
 
   private finalizeHinkalInit = async (

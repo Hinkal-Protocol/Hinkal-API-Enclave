@@ -1,7 +1,7 @@
 import { Request, Response, Router } from 'express';
 import { isSolanaLike } from '@hinkal/common/constants/chains.constants';
 import { HttpError } from '@hinkal/common';
-import { parseChainId } from '../../utils/transactionHelpers';
+import { confirmBroadcastTransaction, parseChainId } from '../../utils/transactionHelpers';
 import { buildSolanaSigner, signAndSendSerializedSolanaTransaction } from '../../utils/solana-wallet.utils';
 import { sendError } from '../../utils/routeError';
 import { xStampMiddleware } from '../../middleware';
@@ -38,6 +38,7 @@ router.post('/waas/wallet/solana/execute', xStampMiddleware, async (req: Request
       parsedChainId,
     );
     const txHash = await signAndSendSerializedSolanaTransaction(connection, signer, String(transaction));
+    await confirmBroadcastTransaction(parsedChainId, txHash);
     res.status(200).send({ status: 'success', data: { txHash } });
   } catch (err) {
     sendError(res, err);

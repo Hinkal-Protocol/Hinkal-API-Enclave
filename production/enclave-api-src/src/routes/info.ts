@@ -54,25 +54,32 @@ router.get('/supported-chains', async (_req: Request, res: Response<SupportedCha
   }
 });
 
-router.get('/contract-addresses', (_req: Request, res: Response) => {
+const sendContractAddresses = (chains: number[]) => (_req: Request, res: Response) => {
   try {
     const addresses = Object.fromEntries(
-      HINKAL_SUPPORTED_CHAINS.filter((chainId) => !isSolanaLike(chainId) && chainId !== chainIds.tronNile).map(
-        (chainId) => {
-          const { contractData } = networkRegistry[chainId];
-          const entry: Record<string, string> = { hinkalAddress: contractData.hinkalAddress };
-          if (contractData.hinkalHelperAddress) {
-            entry.hinkalHelperAddress = contractData.hinkalHelperAddress;
-          }
-          return [chainId, entry];
-        },
-      ),
+      chains.map((chainId) => {
+        const { contractData } = networkRegistry[chainId];
+        const entry: Record<string, string> = { hinkalAddress: contractData.hinkalAddress };
+        if (contractData.hinkalHelperAddress) {
+          entry.hinkalHelperAddress = contractData.hinkalHelperAddress;
+        }
+        return [chainId, entry];
+      }),
     );
 
     res.status(200).json({ success: true, addresses });
   } catch (error) {
     res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
-});
+};
+
+router.get(
+  '/contract-addresses',
+  sendContractAddresses(
+    HINKAL_SUPPORTED_CHAINS.filter((chainId) => !isSolanaLike(chainId) && chainId !== chainIds.tronNile),
+  ),
+);
+
+router.get('/all-contract-addresses', sendContractAddresses(HINKAL_SUPPORTED_CHAINS));
 
 export default router;

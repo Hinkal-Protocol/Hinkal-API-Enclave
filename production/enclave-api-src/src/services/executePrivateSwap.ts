@@ -4,9 +4,10 @@ import { getFeeStructure } from '@hinkal/common/functions/pre-transaction/getFee
 import { calculateSolanaNullifierCount } from '@hinkal/common/functions/pre-transaction/calculateSolanaNullifierCount';
 import { hinkalInitializerService } from './hinkalInitializerService';
 import { getBestSwapQuote } from './getBestSwapQuote';
-import { PrivateSwapExecutionParams } from '../types/swap.types';
+import { getSwapReceivedAmount } from '../utils/getSwapReceivedAmount';
+import { PrivateSwapExecutionParams, PrivateSwapResult } from '../types/swap.types';
 
-export const executePrivateSwap = async (params: PrivateSwapExecutionParams): Promise<string> => {
+export const executePrivateSwap = async (params: PrivateSwapExecutionParams): Promise<PrivateSwapResult> => {
   const {
     organizationId,
     userId,
@@ -21,7 +22,7 @@ export const executePrivateSwap = async (params: PrivateSwapExecutionParams): Pr
   } = params;
   const isSolana = isSolanaLike(chainId);
 
-  return hinkalInitializerService.withHinkalForOrganization(
+  return hinkalInitializerService.withShieldedSpendForOrganization(
     organizationId,
     userId,
     signerPublicKey,
@@ -55,7 +56,7 @@ export const executePrivateSwap = async (params: PrivateSwapExecutionParams): Pr
           : undefined,
       );
 
-      return hinkal.swap(
+      const txHash = await hinkal.swap(
         [inToken, outToken],
         [-amountWei, outSwapAmount],
         externalActionId,
@@ -64,6 +65,8 @@ export const executePrivateSwap = async (params: PrivateSwapExecutionParams): Pr
         feeStructureOverride,
         parsedSlippage,
       );
+      return { txHash, receivedAmount: await getSwapReceivedAmount(hinkal, chainId, txHash, outToken) };
     },
+    ({ txHash }) => [txHash],
   );
 };

@@ -89,6 +89,11 @@ export type PrivateSwapExecutionParams = {
   parsedSlippage: number | undefined;
 };
 
+export type PrivateSwapResult = {
+  txHash: string;
+  receivedAmount?: string;
+};
+
 export type PrivateBridgeSwapResult = {
   txHash: string;
   sourceTxHash: string;

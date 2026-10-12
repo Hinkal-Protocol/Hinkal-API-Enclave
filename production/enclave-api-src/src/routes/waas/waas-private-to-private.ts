@@ -36,7 +36,7 @@ router.post('/waas/private-to-private', xStampMiddleware, async (req: Request, r
     const recipientInfo = await resolvePrivateRecipient(String(to));
 
     const amountWei = getAmountInWei(token, String(amount));
-    const txHash = await hinkalInitializerService.withHinkalForOrganization(
+    const txHash = await hinkalInitializerService.withShieldedSpendForOrganization(
       organizationId,
       userId,
       signerPublicKey,
@@ -73,6 +73,7 @@ router.post('/waas/private-to-private', xStampMiddleware, async (req: Request, r
 
         return hinkal.transfer([token], [-amountWei], recipientInfo, token.erc20TokenAddress, feeStructureOverride);
       },
+      (result) => [result],
     );
 
     ensureRecipientInfoPoolForApiInBackground(organizationId, userId, fromAddress, signerPublicKey, parsedChainId);

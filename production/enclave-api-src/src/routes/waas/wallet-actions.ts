@@ -5,6 +5,7 @@ import { getAmountInToken, getAmountInWei } from '@hinkal/common/functions/web3/
 import { caseInsensitiveEqual } from '@hinkal/common/functions/utils/caseInsensitive.utils';
 import { HttpError } from '@hinkal/common';
 import {
+  confirmBroadcastTransaction,
   hasMissingSwapFields,
   isNearIntentsBridgeRequest,
   parseChainId,
@@ -133,6 +134,7 @@ router.post('/waas/wallet/send', xStampMiddleware, async (req: Request, res: Res
       amount: parsedAmount,
       to,
     });
+    await confirmBroadcastTransaction(parsedChainId, txHash);
     res.status(200).send({ status: 'success', data: { txHash } });
   } catch (err) {
     sendError(res, err);
@@ -174,6 +176,7 @@ router.post('/waas/wallet/contract/approve', xStampMiddleware, async (req: Reque
         parsedAmount,
       );
       const txHash = await sendTronTransaction(tronWeb, tx);
+      await confirmBroadcastTransaction(parsedChainId, txHash);
       res.status(200).send({ status: 'success', data: { txHash } });
       return;
     }
@@ -190,6 +193,7 @@ router.post('/waas/wallet/contract/approve', xStampMiddleware, async (req: Reque
       data: encodeApproveCalldata(spender, parsedAmount),
       value: 0n,
     });
+    await confirmBroadcastTransaction(parsedChainId, txHash);
     res.status(200).send({ status: 'success', data: { txHash } });
   } catch (err) {
     sendError(res, err);
@@ -233,6 +237,7 @@ router.post('/waas/wallet/contract/execute', xStampMiddleware, async (req: Reque
         value ? BigInt(value) : undefined,
       );
       const txHash = await sendTronTransaction(tronWeb, tx);
+      await confirmBroadcastTransaction(parsedChainId, txHash);
       res.status(200).send({ status: 'success', data: { txHash } });
       return;
     }
@@ -250,6 +255,7 @@ router.post('/waas/wallet/contract/execute', xStampMiddleware, async (req: Reque
       data,
       value: value ? BigInt(value) : 0n,
     });
+    await confirmBroadcastTransaction(parsedChainId, txHash);
     res.status(200).send({ status: 'success', data: { txHash } });
   } catch (err) {
     sendError(res, err);
@@ -294,6 +300,7 @@ router.post('/waas/wallet/swap', xStampMiddleware, async (req: Request, res: Res
         sourceChainId,
         destChainId,
       });
+      await confirmBroadcastTransaction(sourceChainId, txHash);
 
       res.status(200).send({
         status: 'success',
@@ -328,6 +335,7 @@ router.post('/waas/wallet/swap', xStampMiddleware, async (req: Request, res: Res
     const result: SwapExecutionResult = isSolanaLike(parsedChainId)
       ? await executeSolanaSwap(swapParams)
       : await executeEvmSwap(swapParams);
+    await confirmBroadcastTransaction(parsedChainId, result.txHash);
 
     res.status(200).send({
       status: 'success',

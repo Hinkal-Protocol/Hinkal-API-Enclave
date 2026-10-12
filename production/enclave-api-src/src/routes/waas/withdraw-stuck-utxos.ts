@@ -27,7 +27,7 @@ router.post('/waas/withdraw-stuck-utxos', xStampMiddleware, async (req: Request,
 
     const parsedChainId = parseChainId(chainId);
     const token = resolveToken(tokenAddress, parsedChainId);
-    const txHashes = await hinkalInitializerService.withHinkalForOrganization(
+    const txHashes = await hinkalInitializerService.withShieldedSpendForOrganization(
       organizationId,
       userId,
       signerPublicKey,
@@ -36,6 +36,7 @@ router.post('/waas/withdraw-stuck-utxos', xStampMiddleware, async (req: Request,
       async (hinkal) => {
         return hinkal.withdrawStuckUtxos(token, String(recipientAddress));
       },
+      (result) => result,
     );
 
     res.status(200).send({ status: 'success', data: { txHashes } });
