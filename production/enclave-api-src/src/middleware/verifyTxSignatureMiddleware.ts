@@ -5,8 +5,10 @@ import {
   buildDepositAndWithdrawTypedData,
   buildDepositForOtherTypedData,
   buildDepositTypedData,
+  buildPrivateSendBridgeTypedData,
   buildProoflessDepositTypedData,
   buildReceiveVaultRecoverTypedData,
+  buildRecoverStuckBridgeBalanceTypedData,
   buildSwapTypedData,
   buildTransferTypedData,
   buildWithdrawStuckUtxosTypedData,
@@ -15,9 +17,11 @@ import {
 import {
   buildSolanaDepositForOtherMessage,
   buildSolanaDepositMessage,
+  buildSolanaPrivateSendBridgeMessage,
   buildSolanaPrivateSendMessage,
   buildSolanaProoflessDepositMessage,
   buildSolanaReceiveVaultRecoverMessage,
+  buildSolanaRecoverStuckBridgeBalanceMessage,
   buildSolanaSwapMessage,
   buildSolanaTransferMessage,
   buildSolanaWithdrawMessage,
@@ -25,6 +29,7 @@ import {
 } from '../utils/enclaveSolanaMessage';
 import {
   parseDepositAndWithdrawAuthBody,
+  parsePrivateSendBridgeAuthBody,
   parseReceiveVaultRecoverAuthBody,
   parseTokenDepositAuthBody,
   parseTokenDepositForOtherAuthBody,
@@ -203,10 +208,22 @@ export const verifyDepositAndWithdrawSignatureMiddleware = createVerifyEnclaveTx
   buildSolanaPrivateSendMessage,
 );
 
+export const verifyPrivateSendBridgeSignatureMiddleware = createVerifyEnclaveTxMiddleware(
+  parsePrivateSendBridgeAuthBody,
+  buildPrivateSendBridgeTypedData,
+  buildSolanaPrivateSendBridgeMessage,
+);
+
 export const verifyWithdrawStuckUtxosSignatureMiddleware = createVerifyEnclaveTxMiddleware(
   parseWithdrawStuckUtxosAuthBody,
   buildWithdrawStuckUtxosTypedData,
   buildSolanaWithdrawStuckUtxosMessage,
+);
+
+export const verifyRecoverStuckBridgeBalanceSignatureMiddleware = createVerifyEnclaveTxMiddleware(
+  parseWithdrawStuckUtxosAuthBody,
+  buildRecoverStuckBridgeBalanceTypedData,
+  buildSolanaRecoverStuckBridgeBalanceMessage,
 );
 
 export const verifyReceiveVaultRecoverSignatureMiddleware = createVerifyEnclaveTxMiddleware(

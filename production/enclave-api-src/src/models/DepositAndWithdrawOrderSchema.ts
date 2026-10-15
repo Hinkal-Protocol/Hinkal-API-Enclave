@@ -26,6 +26,7 @@ export interface DepositAndWithdrawOrder {
   txHash?: string;
   scheduleId?: string;
   enclaveHmac?: object;
+  bridgeQuote?: string; // encrypted private send bridge quote; set only for private send bridge orders
 }
 
 const DepositAndWithdrawOrderSchema = new Schema<DepositAndWithdrawOrder>(
@@ -48,6 +49,7 @@ const DepositAndWithdrawOrderSchema = new Schema<DepositAndWithdrawOrder>(
     txHash: { type: String },
     scheduleId: { type: String },
     enclaveHmac: { type: Object },
+    bridgeQuote: { type: String },
   },
   { strict: false, versionKey: false },
 );

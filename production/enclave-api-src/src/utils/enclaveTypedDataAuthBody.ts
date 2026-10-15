@@ -222,7 +222,7 @@ export const parseTokenSwapAuthBody = (
   };
 };
 
-const parseRecipients = (value: unknown): ParseResult<DepositAndWithdrawRecipient[]> => {
+const parseRecipients = (value: unknown, checksumAddresses = true): ParseResult<DepositAndWithdrawRecipient[]> => {
   if (!Array.isArray(value) || value.length === 0) {
     return { ok: false, error: 'Missing or empty recipients' };
   }
@@ -249,7 +249,10 @@ const parseRecipients = (value: unknown): ParseResult<DepositAndWithdrawRecipien
       const recipient = parseRecipientAddress(address);
       if (recipient.ok === false) return recipient;
 
-      return { ok: true, value: [...acc.value, { address: recipient.value, amount }] };
+      return {
+        ok: true,
+        value: [...acc.value, { address: checksumAddresses ? recipient.value : address, amount }],
+      };
     },
     { ok: true, value: [] },
   );
@@ -303,6 +306,63 @@ export const parseDepositAndWithdrawAuthBody = (
       recipients: recipients.value,
       feeToken,
       txCompletionTime,
+      ref,
+    },
+  };
+};
+
+export const parsePrivateSendBridgeAuthBody = (
+  body: Record<string, unknown>,
+): ParseResult<
+  BaseAuthFields & {
+    tokenAddress: string;
+    destinationChainId: number;
+    destinationTokenAddress: string;
+    recipients: DepositAndWithdrawRecipient[];
+    quote: string;
+    ref?: string;
+  }
+> => {
+  const base = parseBaseAuthBody(body);
+  if (base.ok === false) return base;
+
+  const { tokenAddress, destinationTokenAddress, quote } = body;
+  const destinationChainId = parseChainId(body.destinationChainId);
+  const recipients = parseRecipients(body.recipients, false);
+
+  if (typeof tokenAddress !== 'string' || !tokenAddress || containsControlChars(tokenAddress)) {
+    return { ok: false, error: 'Missing tokenAddress' };
+  }
+  if (destinationChainId === undefined) {
+    return { ok: false, error: 'Invalid destinationChainId' };
+  }
+  if (
+    typeof destinationTokenAddress !== 'string' ||
+    !destinationTokenAddress ||
+    containsControlChars(destinationTokenAddress)
+  ) {
+    return { ok: false, error: 'Missing destinationTokenAddress' };
+  }
+  if (recipients.ok === false) return recipients;
+  if (typeof quote !== 'string' || !quote || containsControlChars(quote)) {
+    return { ok: false, error: 'Missing quote' };
+  }
+
+  const rawRef = body.ref;
+  if (typeof rawRef === 'string' && containsControlChars(rawRef)) {
+    return { ok: false, error: 'Invalid ref' };
+  }
+  const ref = typeof rawRef === 'string' && rawRef ? rawRef : undefined;
+
+  return {
+    ok: true,
+    value: {
+      ...base.value,
+      tokenAddress,
+      destinationChainId,
+      destinationTokenAddress,
+      recipients: recipients.value,
+      quote,
       ref,
     },
   };

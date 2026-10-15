@@ -1,4 +1,5 @@
 import {
+  dispatchBridgeForOrder,
   dispatchEvmWithdrawForOrder,
   dispatchSolanaWithdrawForOrder,
   dispatchTronWithdrawForOrder,
@@ -57,6 +58,10 @@ class EnclaveWithdrawDispatcherService {
       decryptedOrder.senderAddress,
       decryptedOrder.chainId,
       async (hinkal) => {
+        const { bridgeQuote } = decryptedOrder;
+        if (bridgeQuote) {
+          return dispatchBridgeForOrder(hinkal, { ...decryptedOrder, txHash, bridgeQuote });
+        }
         if (isSolanaLike(decryptedOrder.chainId)) {
           return dispatchSolanaWithdrawForOrder(hinkal, { ...decryptedOrder, txHash });
         }

@@ -25,6 +25,14 @@ export type PrivateSendAuthFields = BaseAuthFields & {
   txCompletionTime?: number;
   ref?: string;
 };
+export type PrivateSendBridgeAuthFields = BaseAuthFields & {
+  tokenAddress: string;
+  destinationChainId: number;
+  destinationTokenAddress: string;
+  recipients: DepositAndWithdrawRecipient[];
+  quote: string;
+  ref?: string;
+};
 export type WithdrawStuckUtxosAuthFields = BaseAuthFields & { tokenAddress: string; recipientAddress: string };
 export type ReceiveVaultRecoverAuthFields = BaseAuthFields & {
   vaultAddress: string;

@@ -1,18 +1,9 @@
 import {
-  caseInsensitiveEqual,
   DepositAndWithdrawResponse,
   ENCLAVE_PUBLIC_SEND_VARIABLE_RATE,
-  ExternalActionId,
   getErrorMessage,
-  getFeeStructure,
-  hinkalPalEvmDepositPrepare,
-  hinkalPalSolanaDepositPrepare,
-  hinkalPalTronDepositPrepare,
   isNativePlaceholderAddress,
-  isSolanaLike,
-  isTronLike,
   Logger,
-  networkRegistry,
 } from '@hinkal/common';
 import { Request, Response, Router } from 'express';
 import {
@@ -24,16 +15,14 @@ import {
 } from '../middleware';
 import { DepositAndWithdrawRequest } from '../types';
 import { WHITELISTED_REFERRALS } from '@hinkal/backend-common';
-import { ethers } from 'ethers';
-import { DepositAndWithdrawOrderModel, DepositAndWithdrawOrderStatus } from '../models';
-import { DEPLOYMENT_MODE } from '../constants';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
-import { sealDocument } from '../utils/documentSigning';
-import { decryptField, encryptOrderFields } from '../utils/orderFieldEncryption';
-import { enclaveDepositDispatcherService } from '../services/EnclaveWithdrawDispatcherService';
-import { resolveDepositAndWithdrawScheduleStatus } from '../services/resolveDepositAndWithdrawScheduleStatus';
-import { resolveDepositAndWithdrawPublicStatus } from '../utils/resolveDepositAndWithdrawPublicStatus';
 import { getERC20Token } from '@hinkal/erc20-registry';
+import {
+  createDepositAndWithdrawOrder,
+  getDepositAndWithdrawFeeStructure,
+  prepareDepositAndWithdrawTx,
+} from '../utils/depositAndWithdrawHelpers';
+import { getDepositAndWithdrawOrderStatus } from '../utils/getDepositAndWithdrawOrderStatus';
 
 const router = Router();
 
@@ -80,16 +69,12 @@ router.post(
       const totalRecipientAmount = recipientAmounts.reduce((sum, a) => sum + a, 0n);
       const orderId = crypto.randomUUID();
 
-      const feeStructurePromise = getFeeStructure(
+      const feeStructurePromise = getDepositAndWithdrawFeeStructure(
         chainId,
         feeToken ?? token.erc20TokenAddress,
-        [token.erc20TokenAddress],
-        ExternalActionId.Transact,
-        [],
+        token,
+        recipients,
         ENCLAVE_PUBLIC_SEND_VARIABLE_RATE + getPartnerFeeBps(res),
-        isSolanaLike(chainId)
-          ? { mintTo: token.erc20TokenAddress, recipient: recipients[0].address, nullifierCount: recipients.length }
-          : undefined,
       );
       feeStructurePromise.catch(() => undefined);
 
@@ -98,83 +83,29 @@ router.post(
         chainId,
         async (hinkal) => {
           const feeStructure = await feeStructurePromise;
-          if (isSolanaLike(chainId)) {
-            const result = await hinkalPalSolanaDepositPrepare(
-              hinkal,
-              chainId,
-              token,
-              recipientAmounts,
-              feeStructure,
-              orderId,
-            );
-            return {
-              serializedTx: Buffer.from(result.unsignedTx.serialize()).toString('base64'),
-              utxoAmounts: result.utxoAmounts,
-            };
-          }
-
-          if (isTronLike(chainId)) {
-            const result = await hinkalPalTronDepositPrepare(hinkal, token, recipientAmounts, feeStructure, orderId);
-            return {
-              serializedTx: Buffer.from(JSON.stringify(result.unsignedTx)).toString('base64'),
-              utxoAmounts: result.utxoAmounts,
-            };
-          }
-
-          const result = await hinkalPalEvmDepositPrepare(hinkal, token, recipientAmounts, feeStructure, orderId);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const txData = { ...(result.unsignedTx as any) };
-          delete txData.from;
-          const evmTx = ethers.Transaction.from(txData);
-          return {
-            serializedTx: Buffer.from(evmTx.unsignedSerialized.slice(2), 'hex').toString('base64'),
-            utxoAmounts: result.utxoAmounts,
-          };
+          return prepareDepositAndWithdrawTx(hinkal, chainId, token, recipientAmounts, feeStructure, orderId);
         },
       );
 
       const feeStructure = await feeStructurePromise;
-      const totalAmount = utxoAmounts.reduce((sum, a) => sum + a, 0n);
-      const fee = totalAmount - totalRecipientAmount;
 
       const attribution = getRequestAttribution(res, ref);
 
-      const encryptedFields = await encryptOrderFields({
-        senderAddress: address,
-        recipients,
-        utxoAmounts: utxoAmounts.map((a) => a.toString()),
-      });
-
-      const sealed = await sealDocument({
-        orderId,
-        deploymentMode: DEPLOYMENT_MODE,
-        chainId,
-        ...encryptedFields,
-        tokenAddress: token.erc20TokenAddress,
-        feeToken: feeStructure.feeToken,
-        flatFee: feeStructure.flatFee.toString(),
-        variableRate: feeStructure.variableRate.toString(),
-        ...(txCompletionTime !== undefined && { txCompletionTime }),
-        ...(attribution.ref !== undefined && { ref: attribution.ref }),
-        ...(attribution.keyId !== undefined && { keyId: attribution.keyId }),
-        ...(attribution.partnerFeeBps !== undefined && { partnerFeeBps: attribution.partnerFeeBps }),
-        status: DepositAndWithdrawOrderStatus.AwaitingDeposit,
-      });
-      await DepositAndWithdrawOrderModel.create(sealed);
-
-      const approvalAddress = isSolanaLike(chainId)
-        ? null
-        : (networkRegistry[chainId].contractData.hinkalAddress ?? null);
-
-      res.status(200).json({
-        success: true,
-        orderId,
-        approvalAddress,
-        serializedTx,
-        amountIn: totalAmount.toString(),
-        amountOut: totalRecipientAmount.toString(),
-        fee: fee.toString(),
-      });
+      res.status(200).json(
+        await createDepositAndWithdrawOrder({
+          orderId,
+          chainId,
+          address,
+          token,
+          recipients,
+          totalRecipientAmount,
+          utxoAmounts,
+          feeStructure,
+          serializedTx,
+          attribution,
+          txCompletionTime,
+        }),
+      );
     } catch (err) {
       Logger.error('[private-send] error:', err);
       res.status(500).json({ success: false, error: getErrorMessage(err) });
@@ -182,30 +113,6 @@ router.post(
   },
 );
 
-router.get('/private-send/:orderId', verifyReadOnlySignatureMiddleware, async (req: Request, res: Response) => {
-  try {
-    const { orderId } = req.params as { orderId: string };
-    const order = await enclaveDepositDispatcherService.getOrder(orderId);
-
-    const decryptedSenderAddress = await decryptField(order?.senderAddress ?? '');
-
-    if (!order || !caseInsensitiveEqual(decryptedSenderAddress, res.locals.address as string)) {
-      res.status(404).json({ success: false, error: `Order ${orderId} not found` });
-      return;
-    }
-
-    const scheduledTransactions = order.scheduleId
-      ? await resolveDepositAndWithdrawScheduleStatus(order.scheduleId)
-      : null;
-
-    res.status(200).json({
-      success: true,
-      status: resolveDepositAndWithdrawPublicStatus(order.status),
-      ...(scheduledTransactions && { scheduledTransactions }),
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, error: getErrorMessage(err) });
-  }
-});
+router.get('/private-send/:orderId', verifyReadOnlySignatureMiddleware, getDepositAndWithdrawOrderStatus(false));
 
 export default router;

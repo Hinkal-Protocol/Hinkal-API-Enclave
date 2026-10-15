@@ -67,4 +67,33 @@ router.get(
   },
 );
 
+router.get(
+  '/stuck-bridge-balance',
+  verifyReadOnlySignatureMiddleware,
+  async (req: Request<object, BalanceResponse>, res: Response<BalanceResponse>) => {
+    try {
+      const chainIdNum = Number(req.query.chainId);
+      const balances = await hinkalInitializerService.withHinkalForAddress(res.locals.address, chainIdNum, (hinkal) =>
+        hinkal.getStuckBridgeBalances([chainIdNum]),
+      );
+
+      const totals = new Map<string, bigint>();
+      balances.forEach(({ token, balance }) =>
+        totals.set(token.erc20TokenAddress, (totals.get(token.erc20TokenAddress) ?? 0n) + balance),
+      );
+
+      res.status(200).json({
+        success: true,
+        balances: Array.from(totals, ([tokenAddress, balance]) => ({
+          chainId: chainIdNum,
+          tokenAddress,
+          balance: balance.toString(),
+        })),
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, error: getErrorMessage(error) });
+    }
+  },
+);
+
 export default router;

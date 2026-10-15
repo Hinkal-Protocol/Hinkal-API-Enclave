@@ -1,6 +1,8 @@
 import { Connection } from '@solana/web3.js';
 import {
   AdminTransactionType,
+  caseInsensitiveEqual,
+  DestinationMetadata,
   ERC20Token,
   FeeStructure,
   fetchSolanaTransaction,
@@ -9,16 +11,23 @@ import {
   getOnChainUtxosFromReceiptSolana,
   getUtxosFromReceipt,
   hashEthereumAddress,
+  hinkalBridgeBatch,
   hinkalSolanaWithdrawBatch,
   hinkalWithdrawBatch,
   IHinkal,
+  isSolanaLike,
   networkRegistry,
+  PublicBridgeRecipient,
+  PublicBridgeRecipientUtxo,
   RecipientUtxo,
   Utxo,
   waitForDepositedUtxosInMerkleTree,
   waitForEthereumTransactionConfirmation,
+  zeroAddress,
 } from '@hinkal/common';
 import { getERC20Token } from '@hinkal/erc20-registry';
+import { parsePrivateSendBridgeQuote } from '../utils/privateSendBridgeQuote';
+import { decryptLargeField } from '../utils/orderFieldEncryption';
 
 export interface DepositAndWithdrawOrderBase {
   orderId: string;
@@ -65,6 +74,8 @@ const dispatchEvmLikeWithdrawForOrder = async (
   order: DepositAndWithdrawOrderBase,
   token: ERC20Token,
   depositedUtxos: Utxo[],
+  action = AdminTransactionType.ApiPrivateSend,
+  destination?: DestinationMetadata,
 ): Promise<string> => {
   const userDepositedUtxos = matchDepositedUtxos(order, depositedUtxos);
   const feeStructure = buildOrderFeeStructure(order);
@@ -80,7 +91,9 @@ const dispatchEvmLikeWithdrawForOrder = async (
     hashEthereumAddress(order.senderAddress),
     order.txCompletionTime,
     order.ref,
-    AdminTransactionType.ApiPrivateSend,
+    action,
+    undefined,
+    destination,
   );
 };
 
@@ -97,6 +110,8 @@ export const dispatchEvmWithdrawForOrder = async (
 export const dispatchTronWithdrawForOrder = async (
   hinkal: IHinkal,
   order: DepositAndWithdrawOrderBase,
+  action = AdminTransactionType.ApiPrivateSend,
+  destination?: DestinationMetadata,
 ): Promise<string> => {
   const token = resolveOrderToken(order);
   const receipt = await waitForEthereumTransactionConfirmation(order.chainId, order.txHash);
@@ -107,12 +122,15 @@ export const dispatchTronWithdrawForOrder = async (
     token.erc20TokenAddress,
     hinkal.userKeys.getShieldedPrivateKey(),
   );
-  return dispatchEvmLikeWithdrawForOrder(hinkal, order, token, depositedUtxos);
+  return dispatchEvmLikeWithdrawForOrder(hinkal, order, token, depositedUtxos, action, destination);
 };
 
 export const dispatchSolanaWithdrawForOrder = async (
   hinkal: IHinkal,
   order: DepositAndWithdrawOrderBase,
+  action = AdminTransactionType.ApiPrivateSend,
+  displayRecipients?: string[],
+  destination?: DestinationMetadata,
 ): Promise<string> => {
   const token = resolveOrderToken(order);
 
@@ -143,6 +161,89 @@ export const dispatchSolanaWithdrawForOrder = async (
     recipientAmounts,
     order.txCompletionTime,
     order.ref,
-    AdminTransactionType.ApiPrivateSend,
+    action,
+    undefined,
+    displayRecipients,
+    destination,
   );
+};
+
+const dispatchLifiBridgeForOrder = async (
+  hinkal: IHinkal,
+  order: DepositAndWithdrawOrderBase,
+  token: ERC20Token,
+  recipients: PublicBridgeRecipient[],
+): Promise<string> => {
+  const receipt = await waitForEthereumTransactionConfirmation(order.chainId, order.txHash);
+  const depositedUtxos = getOnChainUtxosFromReceipt(receipt, hinkal, order.chainId, token.erc20TokenAddress);
+  const userDepositedUtxos = matchDepositedUtxos(order, depositedUtxos);
+
+  const isNativeInput = caseInsensitiveEqual(token.erc20TokenAddress, zeroAddress);
+  const needsNativeDeposit = !isNativeInput && recipients.some((recipient) => recipient.quote.nativeFee > 0n);
+  const nativeDepositedUtxos = needsNativeDeposit
+    ? matchDepositedUtxos(
+        { ...order, utxoAmounts: recipients.map((recipient) => recipient.quote.nativeFee.toString()) },
+        getOnChainUtxosFromReceipt(receipt, hinkal, order.chainId, zeroAddress),
+      )
+    : [];
+
+  const recipientBridgeUtxos: PublicBridgeRecipientUtxo[] = recipients.map((recipient, i) => ({
+    ...recipient,
+    utxo: userDepositedUtxos[i].utxo,
+    nativeUtxo: needsNativeDeposit ? nativeDepositedUtxos[i].utxo : undefined,
+  }));
+
+  const feeStructures: FeeStructure[] = recipients.map((recipient, i) => {
+    const netAmount = isNativeInput ? recipient.bridgeAmount + recipient.quote.nativeFee : recipient.bridgeAmount;
+    return { feeToken: order.feeToken, flatFee: BigInt(order.utxoAmounts[i]) - netAmount, variableRate: 0n };
+  });
+
+  await waitForDepositedUtxosInMerkleTree(hinkal, order.chainId, [...userDepositedUtxos, ...nativeDepositedUtxos]);
+
+  return hinkalBridgeBatch(
+    hinkal,
+    order.chainId,
+    token,
+    recipientBridgeUtxos,
+    feeStructures,
+    hashEthereumAddress(order.senderAddress),
+    order.txCompletionTime,
+    order.ref,
+    AdminTransactionType.ApiPrivateSendBridge,
+    BigInt(order.variableRate),
+  );
+};
+
+export const dispatchBridgeForOrder = async (
+  hinkal: IHinkal,
+  order: DepositAndWithdrawOrderBase & { bridgeQuote: string },
+): Promise<string> => {
+  const token = resolveOrderToken(order);
+  const { quote } = parsePrivateSendBridgeQuote(
+    hinkal,
+    await decryptLargeField(order.bridgeQuote),
+    order.senderAddress,
+    order.chainId,
+    token.erc20TokenAddress,
+  );
+
+  const { lifiRecipients, nearLegs = [], destinationChainId, destinationTokenAddress } = quote;
+  if (lifiRecipients?.length) return dispatchLifiBridgeForOrder(hinkal, order, token, lifiRecipients);
+
+  const destination: DestinationMetadata = {
+    chainId: destinationChainId === order.chainId ? undefined : destinationChainId,
+    tokenAddress: destinationTokenAddress,
+    tokenAmounts: nearLegs.map((leg) => leg.quote.amountOut),
+  };
+
+  if (isSolanaLike(order.chainId)) {
+    return dispatchSolanaWithdrawForOrder(
+      hinkal,
+      order,
+      AdminTransactionType.ApiPrivateSendBridge,
+      nearLegs.map((leg) => leg.destinationRecipient),
+      destination,
+    );
+  }
+  return dispatchTronWithdrawForOrder(hinkal, order, AdminTransactionType.ApiPrivateSendBridge, destination);
 };

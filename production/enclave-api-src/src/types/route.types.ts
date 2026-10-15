@@ -49,6 +49,12 @@ export type WithdrawStuckUtxosRequest = {
   ref?: string;
 };
 
+export type RecoverStuckBridgeBalanceRequest = {
+  chainId: number;
+  tokenAddress: string;
+  recipientAddress: string;
+};
+
 export type SolanaDepositResponse =
   | {
       success: true;
@@ -157,6 +163,29 @@ export type DepositAndWithdrawRequest = {
   recipients: { address: string; amount: string }[];
   feeToken?: string;
   txCompletionTime?: number;
+  ref?: string;
+};
+
+export type GetPrivateSendBridgeQuoteRequest = {
+  address: string;
+  chainId: number;
+  destinationChainId: number;
+  inputTokenAddress: string;
+  outputTokenAddress: string;
+  recipientAddresses: string[];
+  amounts: string[];
+  slippagePercentage?: number;
+  txCompletionTime?: number;
+};
+
+export type PrivateSendBridgeRequest = {
+  address: string;
+  chainId: number;
+  tokenAddress: string;
+  destinationChainId: number;
+  destinationTokenAddress: string;
+  recipients: { address: string; amount: string }[];
+  quote: string;
   ref?: string;
 };
 

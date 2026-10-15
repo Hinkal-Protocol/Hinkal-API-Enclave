@@ -7,6 +7,7 @@ import {
   DepositForOtherAuthFields,
   FeeAuthFields,
   PrivateSendAuthFields,
+  PrivateSendBridgeAuthFields,
   ReceiveVaultRecoverAuthFields,
   sortRecipientsByAddress,
   SwapAuthFields,
@@ -44,6 +45,10 @@ const ENCLAVE_TYPED_DATA_TYPES: Record<string, TypedDataField[]> = {
   ],
   RecipientAmount: [
     { name: 'recipient', type: 'address' },
+    { name: 'amount', type: 'int256' },
+  ],
+  BridgeRecipientAmount: [
+    { name: 'recipient', type: 'string' },
     { name: 'amount', type: 'int256' },
   ],
   Deposit: [
@@ -94,7 +99,24 @@ const ENCLAVE_TYPED_DATA_TYPES: Record<string, TypedDataField[]> = {
     { name: 'tokenAddress', type: 'address' },
     { name: 'recipients', type: 'RecipientAmount[]' },
   ],
+  PrivateSendBridge: [
+    { name: 'nonce', type: 'string' },
+    { name: 'sessionId', type: 'string' },
+    { name: 'chainId', type: 'uint256' },
+    { name: 'tokenAddress', type: 'address' },
+    { name: 'destinationChainId', type: 'uint256' },
+    { name: 'destinationTokenAddress', type: 'string' },
+    { name: 'recipients', type: 'BridgeRecipientAmount[]' },
+    { name: 'quote', type: 'string' },
+  ],
   WithdrawStuckUtxos: [
+    { name: 'nonce', type: 'string' },
+    { name: 'sessionId', type: 'string' },
+    { name: 'chainId', type: 'uint256' },
+    { name: 'tokenAddress', type: 'address' },
+    { name: 'recipient', type: 'address' },
+  ],
+  RecoverStuckBridgeBalance: [
     { name: 'nonce', type: 'string' },
     { name: 'sessionId', type: 'string' },
     { name: 'chainId', type: 'uint256' },
@@ -145,6 +167,9 @@ const getTypesForPrimary = (
   if (fields.some((f) => f.type === 'RecipientAmount' || f.type === 'RecipientAmount[]')) {
     types.RecipientAmount = ENCLAVE_TYPED_DATA_TYPES.RecipientAmount;
   }
+  if (fields.some((f) => f.type === 'BridgeRecipientAmount[]')) {
+    types.BridgeRecipientAmount = ENCLAVE_TYPED_DATA_TYPES.BridgeRecipientAmount;
+  }
   if (fields.some((f) => f.type === 'FeeStructure')) {
     types.FeeStructure = ENCLAVE_TYPED_DATA_TYPES.FeeStructure;
   }
@@ -172,6 +197,12 @@ const normalizeRecipientAddressForTypedData = (address: string): string => {
 const normalizeDepositAndWithdrawRecipients = (recipients: DepositAndWithdrawRecipient[]) =>
   sortRecipientsByAddress(recipients).map(({ address, amount }) => ({
     recipient: normalizeRecipientAddressForTypedData(address),
+    amount: BigInt(amount),
+  }));
+
+const normalizeBridgeRecipients = (recipients: DepositAndWithdrawRecipient[]) =>
+  sortRecipientsByAddress(recipients).map(({ address, amount }) => ({
+    recipient: address,
     amount: BigInt(amount),
   }));
 
@@ -277,8 +308,38 @@ export const buildDepositAndWithdrawTypedData = (params: PrivateSendAuthFields):
   return buildTypedData('PrivateSend', params.chainId, value);
 };
 
+export const buildPrivateSendBridgeTypedData = (params: PrivateSendBridgeAuthFields): EnclaveTypedDataPayload => {
+  const value: Record<string, unknown> = {
+    nonce: params.nonce,
+    sessionId: params.sessionId,
+    chainId: BigInt(params.chainId),
+    tokenAddress: getAddress(params.tokenAddress),
+    destinationChainId: BigInt(params.destinationChainId),
+    destinationTokenAddress: params.destinationTokenAddress,
+    recipients: normalizeBridgeRecipients(params.recipients),
+    quote: params.quote,
+  };
+
+  if (params.ref !== undefined) {
+    value.ref = params.ref;
+  }
+
+  return buildTypedData('PrivateSendBridge', params.chainId, value);
+};
+
 export const buildWithdrawStuckUtxosTypedData = (params: WithdrawStuckUtxosAuthFields): EnclaveTypedDataPayload =>
   buildTypedData('WithdrawStuckUtxos', params.chainId, {
+    nonce: params.nonce,
+    sessionId: params.sessionId,
+    chainId: BigInt(params.chainId),
+    tokenAddress: getAddress(params.tokenAddress),
+    recipient: getAddress(params.recipientAddress),
+  });
+
+export const buildRecoverStuckBridgeBalanceTypedData = (
+  params: WithdrawStuckUtxosAuthFields,
+): EnclaveTypedDataPayload =>
+  buildTypedData('RecoverStuckBridgeBalance', params.chainId, {
     nonce: params.nonce,
     sessionId: params.sessionId,
     chainId: BigInt(params.chainId),

@@ -3,6 +3,7 @@ import {
   buildSortedTokenPairs,
   FeeAuthFields,
   PrivateSendAuthFields,
+  PrivateSendBridgeAuthFields,
   sortRecipientsByAddress,
   SwapAuthFields,
   TokenAmountPair,
@@ -65,10 +66,26 @@ export const buildSolanaPrivateSendMessage = (params: PrivateSendAuthFields): st
   );
 };
 
+export const buildSolanaPrivateSendBridgeMessage = (params: PrivateSendBridgeAuthFields): string =>
+  `${buildHeader('PrivateSendBridge', params.nonce, params.sessionId, params.chainId)}` +
+  `\nToken Address: ${params.tokenAddress}` +
+  `\nDestination Chain ID: ${params.destinationChainId}` +
+  `\nDestination Token Address: ${params.destinationTokenAddress}` +
+  `\nRecipients:\n${renderRecipients(sortRecipientsByAddress(params.recipients))}` +
+  `\nQuote: ${params.quote}` +
+  `${params.ref !== undefined ? `\nRef: ${params.ref}` : ''}`;
+
 export const buildSolanaWithdrawStuckUtxosMessage = (
   params: BaseAuthFields & { tokenAddress: string; recipientAddress: string },
 ): string =>
   `${buildHeader('WithdrawStuckUtxos', params.nonce, params.sessionId, params.chainId)}` +
+  `\nToken Address: ${params.tokenAddress}` +
+  `\nRecipient: ${params.recipientAddress}`;
+
+export const buildSolanaRecoverStuckBridgeBalanceMessage = (
+  params: BaseAuthFields & { tokenAddress: string; recipientAddress: string },
+): string =>
+  `${buildHeader('RecoverStuckBridgeBalance', params.nonce, params.sessionId, params.chainId)}` +
   `\nToken Address: ${params.tokenAddress}` +
   `\nRecipient: ${params.recipientAddress}`;
 

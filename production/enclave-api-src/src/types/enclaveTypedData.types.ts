@@ -11,7 +11,9 @@ export type EnclaveTypedDataPrimaryType =
   | 'Withdraw'
   | 'Swap'
   | 'PrivateSend'
+  | 'PrivateSendBridge'
   | 'WithdrawStuckUtxos'
+  | 'RecoverStuckBridgeBalance'
   | 'ReceiveVaultRecover';
 
 export type EnclaveTypedDataPayload = {
