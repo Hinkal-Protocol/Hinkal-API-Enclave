@@ -1,12 +1,13 @@
 import {
   AccountActions,
+  buildTempSubAccountForChain,
   caseInsensitiveEqual,
   CustomJSONParse,
   CustomJSONStringify,
   DepositAndBridgeQuote,
-  deriveBridgeTempWallets,
   HttpError,
   IHinkal,
+  toBase58IfTron,
 } from '@hinkal/common';
 import { DepositAndWithdrawRecipient, PrivateSendBridgeQuotePayload } from '../types';
 
@@ -57,12 +58,7 @@ export const parsePrivateSendBridgeQuote = (
   }
 
   const lifiRecipients = quote.lifiRecipients?.map((recipient) => {
-    const { sourceSubAccount } = deriveBridgeTempWallets(
-      hinkal,
-      chainId,
-      quote.destinationChainId,
-      BigInt(recipient.temporarySubAccount.index),
-    );
+    const sourceSubAccount = buildTempSubAccountForChain(hinkal, chainId, BigInt(recipient.temporarySubAccount.index));
     const ethAddress = AccountActions.getAddressFromSubAccount(chainId, sourceSubAccount);
     if (!sourceSubAccount.privateKey || !caseInsensitiveEqual(ethAddress, recipient.temporarySubAccount.ethAddress)) {
       throw new Error('Failed to derive source temp wallet');
@@ -91,7 +87,9 @@ export const assertQuoteMatchesRequest = (
     [];
   const toSortedKeys = (items: DepositAndWithdrawRecipient[]) =>
     items.map(({ address, amount }) => `${address.toLowerCase()}:${BigInt(amount)}`).sort();
-  const signed = toSortedKeys(recipients);
+  const signed = toSortedKeys(
+    recipients.map(({ address, amount }) => ({ address: toBase58IfTron(destinationChainId, address), amount })),
+  );
   const quoted = toSortedKeys(quotedRecipients);
 
   const matches =

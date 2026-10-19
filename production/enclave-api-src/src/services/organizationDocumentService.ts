@@ -1,4 +1,4 @@
-import { getErrorMessage, HttpError } from '@hinkal/common';
+import { currentTronChainId, getErrorMessage, HttpError, toBase58IfTron } from '@hinkal/common';
 import { Organization, OrganizationModel, PolicyRecord } from '../models/OrganizationSchema';
 import { OrganizationUser, OrganizationUserModel } from '../models/OrganizationUserSchema';
 import { publicDoc, toRecord, verifyRawDoc } from '../utils/documentSigning';
@@ -65,7 +65,7 @@ export class OrganizationUserDocuments {
       userId: assertUuid(userId, 'userId'),
       $or: [
         { 'wallets.evmAddress': assertedWallet },
-        { 'wallets.tronAddress': assertedWallet },
+        { 'wallets.tronAddress': toBase58IfTron(currentTronChainId, assertedWallet) },
         { 'wallets.solanaAddress': assertedWallet },
       ],
     }).lean();

@@ -1,6 +1,13 @@
 import { Request, Response, Router } from 'express';
 import { sendError } from '../../utils/routeError';
-import { getScheduledTransactionById, hashEthereumAddress, HttpError, Logger } from '@hinkal/common';
+import {
+  currentTronChainId,
+  getScheduledTransactionById,
+  hashEthereumAddress,
+  HttpError,
+  Logger,
+  toBase58IfTron,
+} from '@hinkal/common';
 import { normalizeTronAddr } from '@hinkal/common/functions/utils/tron.utils';
 import { walletOwnershipMiddleware, xStampMiddleware } from '../../middleware';
 import { parseQueryParams } from '../../utils/request.utils';
@@ -30,7 +37,9 @@ router.get(
         return null;
       });
 
-      const isOwner = scheduled?.hashedEthereumAddress === hashEthereumAddress(normalizeTronAddr(walletAddress));
+      const isOwner =
+        scheduled?.hashedEthereumAddress ===
+        hashEthereumAddress(normalizeTronAddr(toBase58IfTron(currentTronChainId, walletAddress)));
       if (!scheduled || !isOwner) throw new HttpError(404, `Scheduled transaction ${scheduleId} not found`);
 
       res.status(200).send({ status: 'success', data: { scheduleId, transactions: scheduled.transactions } });

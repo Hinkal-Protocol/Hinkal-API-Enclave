@@ -15,6 +15,7 @@ import {
   Logger,
   PrivateSendBridgeResponse,
   secondsToMs,
+  toBase58IfTron,
 } from '@hinkal/common';
 import { Request, Response, Router } from 'express';
 import {
@@ -55,7 +56,9 @@ router.get(
         req.query as unknown as GetPrivateSendBridgeQuoteRequest;
       const chainId = Number(req.query.chainId);
       const destinationChainId = Number(req.query.destinationChainId);
-      const recipientAddresses = ([] as string[]).concat((req.query.recipientAddresses as string | string[]) ?? []);
+      const recipientAddresses = ([] as string[])
+        .concat((req.query.recipientAddresses as string | string[]) ?? [])
+        .map((address) => (typeof address === 'string' ? toBase58IfTron(destinationChainId, address) : address));
       const amounts = ([] as string[]).concat((req.query.amounts as string | string[]) ?? []);
 
       if (

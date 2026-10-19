@@ -4,6 +4,7 @@ import {
   isValidPrivateAddress,
   isValidSolanaPublicKey,
   isValidTronAddress,
+  toBase58IfTron,
 } from '@hinkal/common/functions/utils/addresses';
 import { getRecipientInfoFromUserKeys } from '@hinkal/common/functions/utils/getRecipientInfoFromUserKeys';
 import { allocateRecipientInfos } from '@hinkal/common/functions/utils/enclave-recipient-info-storage';
@@ -96,12 +97,12 @@ export const resolveToken = (tokenAddress: unknown, chainId: number): ERC20Token
   return token;
 };
 
-export const resolvePrivateRecipient = async (to: string): Promise<string> => {
+export const resolvePrivateRecipient = async (to: string, chainId: number): Promise<string> => {
   if (isNativePlaceholderAddress(to)) {
     throw new HttpError(400, 'Recipient must not be the native token placeholder address');
   }
 
-  const [allocation] = await allocateRecipientInfos([to]);
+  const [allocation] = await allocateRecipientInfos([toBase58IfTron(chainId, to)]);
 
   const existing = allocation?.recipientInfo;
   if (existing && isValidPrivateAddress(existing)) return existing;
@@ -109,7 +110,7 @@ export const resolvePrivateRecipient = async (to: string): Promise<string> => {
   throw new HttpError(400, 'Could not resolve private recipient info from provided public address');
 };
 
-export const resolveRecipientInfo = async (recipientInfo: string): Promise<string> => {
+export const resolveRecipientInfo = async (recipientInfo: string, chainId: number): Promise<string> => {
   if (isValidPrivateAddress(recipientInfo)) return recipientInfo;
 
   if (isNativePlaceholderAddress(recipientInfo)) {
@@ -124,7 +125,7 @@ export const resolveRecipientInfo = async (recipientInfo: string): Promise<strin
   }
 
   // get private recipientInfo from ethereumAddress/solanaAddress/tronAddress
-  const signature = await userKeysService.findOrCreatePrivateKey(recipientInfo);
+  const signature = await userKeysService.findOrCreatePrivateKey(toBase58IfTron(chainId, recipientInfo));
   const userKeys = new UserKeys(signature);
   return getRecipientInfoFromUserKeys(userKeys);
 };

@@ -6,26 +6,24 @@ import {
   NEAR_BRIDGE_QUOTE_DEADLINE_BUFFER_MS,
   NEAR_BRIDGE_SLIPPAGE_BPS,
 } from '@hinkal/common/constants/bridging.constants';
-import { isNearIntentsBridgeSource, isSolanaLike, networkRegistry } from '@hinkal/common/constants/chains.constants';
+import { isNearIntentsBridgeSource, isSolanaLike, isTronLike } from '@hinkal/common/constants/chains.constants';
 import {
   ENCLAVE_SWAP_VARIABLE_RATE,
   HINKAL_PRIVATE_SEND_VARIABLE_RATE,
-  HINKAL_SHIELD_VARIABLE_RATE,
   zeroAddress,
 } from '@hinkal/common/constants/protocol.constants';
 import { AccountActions } from '@hinkal/common/data-structures/AccountActions/AccountActions';
 import { calculateSolanaNullifierCount } from '@hinkal/common/functions/pre-transaction/calculateSolanaNullifierCount';
 import { getFeeStructure } from '@hinkal/common/functions/pre-transaction/getFeeStructure';
-import {
-  createLifiBridgeOps,
-  createTransaferEmporiumOpsBatch,
-} from '@hinkal/common/functions/private-wallet/emporium.helpers';
+import { createLifiBridgeOps } from '@hinkal/common/functions/private-wallet/emporium.helpers';
+import { calculateAmountUsingBeeps } from '@hinkal/common/functions/utils/amounts.utils';
 import { caseInsensitiveEqual } from '@hinkal/common/functions/utils/caseInsensitive.utils';
 import { convertEmporiumOpToCallInfo } from '@hinkal/common/functions/utils/convertEmporiumOpToCallInfo';
 import { calculateTotalFee, calculateVariableFeeGrossUp } from '@hinkal/common/functions/utils/fees.utils';
 import { resolveNearAssetId } from '@hinkal/common/functions/utils/nearIntents.utils';
-import { getSolanaShieldFeeParams } from '@hinkal/common/functions/utils/sponsored-shield.utils';
-import { buildTempSubAccountForChain, deriveBridgeTempWallets } from '@hinkal/common/functions/utils/temp-wallet.utils';
+import { getReceiveVaultSettleFeeStructure } from '@hinkal/common/functions/utils/receive-vault.utils';
+import { buildTempSubAccountForChain } from '@hinkal/common/functions/utils/temp-wallet.utils';
+import { resolveBridgeVaultAddress } from '@hinkal/common/data-structures/Hinkal/hinkalBridgePrivateToPrivate';
 import { getAmountInToken, getAmountInWei, randomBigInt } from '@hinkal/common/functions/web3/etherFunctions';
 import { getLifiPrice } from '@hinkal/common/functions/web3/lifiAPI';
 import { BridgeQuote } from '@hinkal/common/types/bridging-tx.types';
@@ -41,21 +39,18 @@ const estimateLifiBridgeOut = async (
   sourceToken: ERC20Token,
   destToken: ERC20Token,
   amount: string,
+  vaultAddress: string,
   slippage: number,
 ) => {
   const { chainId } = sourceToken;
   const lifiRouterAddress = SWAP_ROUTER_ADDRESSES[ExternalActionId.Lifi][chainId];
   if (!lifiRouterAddress) throw new Error(`LIFI not configured for chain ${chainId}`);
 
-  const { sourceSubAccount, destinationSubAccount } = deriveBridgeTempWallets(
-    hinkal,
+  const sourceAddress = AccountActions.getAddressFromSubAccount(
     chainId,
-    destToken.chainId,
-    randomBigInt(6),
+    buildTempSubAccountForChain(hinkal, chainId, randomBigInt(6)),
   );
-  const sourceAddress = AccountActions.getAddressFromSubAccount(chainId, sourceSubAccount);
-  const destinationAddress = AccountActions.getAddressFromSubAccount(destToken.chainId, destinationSubAccount);
-  if (!sourceAddress || !destinationAddress) throw new Error('Missing temp wallet address for LIFI bridge');
+  if (!sourceAddress) throw new Error('Missing temp wallet address for LIFI bridge');
 
   const { lifiDataValue, outSwapAmountValue, extraNativeTokenFee } = await getLifiPrice(
     sourceToken,
@@ -63,7 +58,7 @@ const estimateLifiBridgeOut = async (
     amount,
     slippage,
     sourceAddress,
-    destinationAddress,
+    vaultAddress,
   );
   const quote: BridgeQuote = {
     calldata: lifiDataValue,
@@ -102,14 +97,10 @@ const estimateNearBridgeOut = async (
   sourceToken: ERC20Token,
   destToken: ERC20Token,
   amount: string,
+  vaultAddress: string,
   slippage: number,
 ) => {
   const { chainId } = sourceToken;
-  const tempWalletAddress = AccountActions.getAddressFromSubAccount(
-    destToken.chainId,
-    buildTempSubAccountForChain(hinkal, destToken.chainId, randomBigInt(6)),
-  );
-  if (!tempWalletAddress) throw new Error('Missing temp wallet address for NEAR bridge');
 
   const bridgeAmount = getAmountInWei(sourceToken, amount);
   const [originAsset, destinationAsset] = await Promise.all([
@@ -124,7 +115,7 @@ const estimateNearBridgeOut = async (
     depositType: 'ORIGIN_CHAIN',
     destinationAsset,
     amount: bridgeAmount.toString(),
-    recipient: tempWalletAddress,
+    recipient: vaultAddress,
     recipientType: 'DESTINATION_CHAIN',
     refundTo: hinkal.userKeys.getNearIntentsAccountId(),
     refundType: 'INTENTS',
@@ -155,34 +146,6 @@ const estimateNearBridgeOut = async (
   return { sourceFee: feeStructure.flatFee, nativeFee: 0n, expectedAmount: BigInt(quote.amountOut ?? '0') };
 };
 
-const estimateBridgeShieldFee = async (hinkal: Hinkal<unknown>, destToken: ERC20Token, landedAmount: bigint) => {
-  const { chainId, erc20TokenAddress } = destToken;
-  if (isSolanaLike(chainId)) {
-    const feeStructure = await getFeeStructure(
-      chainId,
-      erc20TokenAddress,
-      [erc20TokenAddress],
-      ExternalActionId.Transact,
-      [],
-      HINKAL_SHIELD_VARIABLE_RATE,
-      getSolanaShieldFeeParams(chainId, destToken),
-    );
-    return calculateTotalFee(landedAmount, feeStructure);
-  }
-
-  const { hinkalAddress } = networkRegistry[chainId].contractData;
-  const transferOps = createTransaferEmporiumOpsBatch(hinkal, chainId, [erc20TokenAddress], [1n]);
-  const feeStructure = await getFeeStructure(
-    chainId,
-    erc20TokenAddress,
-    [erc20TokenAddress],
-    ExternalActionId.Emporium,
-    transferOps.map((op) => convertEmporiumOpToCallInfo(op, hinkalAddress, chainId)),
-    HINKAL_PRIVATE_SEND_VARIABLE_RATE,
-  );
-  return calculateTotalFee(landedAmount, feeStructure);
-};
-
 export const estimatePrivateBridgeFee = async (
   hinkal: Hinkal<unknown>,
   sourceToken: ERC20Token,
@@ -190,16 +153,25 @@ export const estimatePrivateBridgeFee = async (
   amount: string,
   slippage: number,
 ): Promise<WaasFeeEstimate> => {
+  // Receive vault address on the destination chain that the bridge quote is priced against.
+  const vaultAddress = await resolveBridgeVaultAddress(hinkal, destToken.chainId);
   const bridgeOut = isNearIntentsBridgeSource(sourceToken.chainId)
-    ? await estimateNearBridgeOut(hinkal, sourceToken, destToken, amount, slippage)
-    : await estimateLifiBridgeOut(hinkal, sourceToken, destToken, amount, slippage);
-  const destinationFee = await estimateBridgeShieldFee(hinkal, destToken, bridgeOut.expectedAmount);
+    ? await estimateNearBridgeOut(hinkal, sourceToken, destToken, amount, vaultAddress, slippage)
+    : await estimateLifiBridgeOut(hinkal, sourceToken, destToken, amount, vaultAddress, slippage);
+  const destinationFee = calculateTotalFee(
+    bridgeOut.expectedAmount,
+    await getReceiveVaultSettleFeeStructure(destToken.chainId, destToken.erc20TokenAddress),
+  );
   const shieldedAmount = getAmountInWei(
     sourceToken,
     getAmountInToken(destToken, bridgeOut.expectedAmount - destinationFee),
   );
+  const bridgeAmount = getAmountInWei(sourceToken, amount);
+  const variableFee = isTronLike(sourceToken.chainId)
+    ? calculateVariableFeeGrossUp(bridgeAmount, HINKAL_PRIVATE_SEND_VARIABLE_RATE)
+    : calculateAmountUsingBeeps(HINKAL_PRIVATE_SEND_VARIABLE_RATE, bridgeAmount);
   return {
-    fee: bridgeOut.sourceFee + getAmountInWei(sourceToken, amount) - shieldedAmount,
+    fee: bridgeOut.sourceFee + variableFee + bridgeAmount - shieldedAmount,
     feeToken: sourceToken,
     nativeFee: bridgeOut.nativeFee,
   };

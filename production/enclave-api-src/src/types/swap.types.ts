@@ -97,6 +97,5 @@ export type PrivateSwapResult = {
 export type PrivateBridgeSwapResult = {
   txHash: string;
   sourceTxHash: string;
-  destTxHash: string;
-  destinationTokenAmount?: string;
+  destinationTokenAmount: string;
 };

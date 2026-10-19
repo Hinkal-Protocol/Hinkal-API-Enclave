@@ -1,4 +1,9 @@
-import { buildEnclaveSignMessage, EnclaveSessionAuthMode, HINKAL_SUPPORTED_CHAINS } from '@hinkal/common';
+import {
+  buildEnclaveSignMessage,
+  EnclaveSessionAuthMode,
+  HINKAL_SUPPORTED_CHAINS,
+  toBase58IfTron,
+} from '@hinkal/common';
 import { Request, Response } from 'express';
 import { consumeRequestNonce } from '../models/RequestNonceSchema';
 import { ParsedCreateSessionRequest, ParsedSignatureRequest, ParseResult } from '../types';
@@ -139,16 +144,17 @@ export const consumeRequestNonceOrRespond = async (req: Request, res: Response):
   return true;
 };
 
-export const verifyEnclaveSessionSignature = async (
+export const resolveEnclaveSessionAddress = async (
   sessionId: string,
   clientPublicKey: string,
   signature: string,
   address: string,
   authMode: EnclaveSessionAuthMode,
-): Promise<boolean> => {
+): Promise<string | null> => {
   const message = buildEnclaveSignMessage(sessionId, clientPublicKey, authMode);
   const results = await Promise.all(
     HINKAL_SUPPORTED_CHAINS.map((chainId) => verifySignature(signature, address, message, chainId).catch(() => false)),
   );
-  return results.some(Boolean);
+  const verifiedChainId = HINKAL_SUPPORTED_CHAINS.find((_, index) => results[index]);
+  return verifiedChainId === undefined ? null : toBase58IfTron(verifiedChainId, address);
 };

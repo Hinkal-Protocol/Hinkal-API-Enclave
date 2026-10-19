@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from 'express';
+import { toBase58IfTron } from '@hinkal/common';
 import { StampNonceModel } from '../models/StampNonceSchema';
 import { XStamp } from '../types';
 import nacl from 'tweetnacl';
@@ -14,6 +15,19 @@ const parseXStamp = (xStamp: string): XStamp | null => {
   } catch {
     return null;
   }
+};
+
+const WALLET_ADDRESS_FIELDS = ['fromAddress', 'walletAddress'];
+
+const toTronWalletAddresses = (params: Record<string, unknown>): Record<string, unknown> => {
+  const chainId = Number(params.chainId);
+  return Object.fromEntries(
+    Object.entries(params).map(([key, value]) =>
+      WALLET_ADDRESS_FIELDS.includes(key) && typeof value === 'string'
+        ? [key, toBase58IfTron(chainId, value)]
+        : [key, value],
+    ),
+  );
 };
 
 /**
@@ -80,6 +94,11 @@ export const xStampMiddleware = async (req: Request, res: Response, next: NextFu
       res.status(500).send({ status: 'error', message: 'Error creating stamp nonce' });
       return;
     }
+
+    const walletParams = toTronWalletAddresses(params);
+    if (req.method === 'GET')
+      Object.defineProperty(req, 'query', { value: walletParams, writable: true, configurable: true });
+    else req.body = walletParams;
 
     res.locals.xStamp = xStamp;
     res.locals.signerPublicKey = parsed.publicKey;

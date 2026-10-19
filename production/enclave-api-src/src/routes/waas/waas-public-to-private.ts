@@ -39,7 +39,7 @@ router.post('/waas/public-to-private', xStampMiddleware, async (req: Request, re
     const parsedChainId = parseChainId(chainId);
     const token = resolveToken(tokenAddress, parsedChainId);
     const isTron = isTronLike(parsedChainId);
-    const recipientInfo = await resolvePrivateRecipient(String(to));
+    const recipientInfo = await resolvePrivateRecipient(String(to), parsedChainId);
     const amountWei = getAmountInWei(token, String(amount));
     await assertEnoughGasForDeposit(parsedChainId, String(fromAddress), token, amountWei);
     const tx = await hinkalInitializerService.withHinkalForOrganization(

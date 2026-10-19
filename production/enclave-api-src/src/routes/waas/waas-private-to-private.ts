@@ -33,7 +33,7 @@ router.post('/waas/private-to-private', xStampMiddleware, async (req: Request, r
 
     const parsedChainId = parseChainId(chainId);
     const token = resolveToken(tokenAddress, parsedChainId);
-    const recipientInfo = await resolvePrivateRecipient(String(to));
+    const recipientInfo = await resolvePrivateRecipient(String(to), parsedChainId);
 
     const amountWei = getAmountInWei(token, String(amount));
     const txHash = await hinkalInitializerService.withShieldedSpendForOrganization(

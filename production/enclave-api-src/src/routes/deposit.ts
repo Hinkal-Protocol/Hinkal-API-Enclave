@@ -106,7 +106,7 @@ router.post(
         return;
       }
 
-      const resolvedRecipientInfo = await resolveRecipientInfo(recipientInfo);
+      const resolvedRecipientInfo = await resolveRecipientInfo(recipientInfo, chainId);
       const attribution = getRequestAttribution(res, resolveReferral(ref));
       const orderId = crypto.randomUUID();
 
@@ -164,7 +164,7 @@ router.post(
         return;
       }
 
-      const resolvedRecipientInfo = await resolveRecipientInfo(recipientInfo);
+      const resolvedRecipientInfo = await resolveRecipientInfo(recipientInfo, chainId);
       const attribution = getRequestAttribution(res, resolveReferral(ref));
       const orderId = crypto.randomUUID();
 

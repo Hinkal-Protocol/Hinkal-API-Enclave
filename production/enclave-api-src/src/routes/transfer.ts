@@ -50,7 +50,7 @@ router.post(
         return;
       }
 
-      const resolvedRecipientInfo = await resolveRecipientInfo(recipientAddress);
+      const resolvedRecipientInfo = await resolveRecipientInfo(recipientAddress, chainId);
       const resolvedFeeToken = isSolanaLike(chainId) ? tokenAddresses[0] : feeToken;
 
       const variableRate = ENCLAVE_PRIVATE_SEND_VARIABLE_RATE + getPartnerFeeBps(res);

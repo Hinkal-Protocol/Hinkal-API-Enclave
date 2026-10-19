@@ -21,7 +21,6 @@ const SOLANA_USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 type BridgeResponse = {
   txHash: string;
   sourceTxHash: string;
-  destTxHash: string;
   destinationTokenAmount: string;
 };
 
@@ -116,7 +115,6 @@ describe('WAAS private bridge (integration)', () => {
 
     expect(result.sourceTxHash).toMatch(/^0x/);
     expect(result.txHash).toBe(result.sourceTxHash);
-    expect(result.destTxHash).toMatch(/^0x/);
-    expect(BigInt(result.destinationTokenAmount ?? '0')).toBeGreaterThan(0n);
+    expect(BigInt(result.destinationTokenAmount)).toBeGreaterThan(0n);
   });
 });

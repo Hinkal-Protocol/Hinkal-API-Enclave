@@ -1,4 +1,4 @@
-import { isValidTronAddress, Logger } from '@hinkal/common';
+import { isSolanaLike, isTronLike, isValidTronAddress, Logger } from '@hinkal/common';
 import { ethers, TypedDataDomain, TypedDataField } from 'ethers';
 import { verifyEthereumSignature } from './verifiers/verifyEthereumSignature';
 import { verifyEthereumTypedDataSignature } from './verifiers/verifyEthereumTypedDataSignature';
@@ -13,15 +13,15 @@ export const verifySignature = async (
   chainId: number,
 ): Promise<boolean> => {
   try {
-    if (ethers.isAddress(address)) {
-      return verifyEthereumSignature(signature, address, message, chainId);
-    }
-
-    if (isValidTronAddress(address)) {
+    if (isTronLike(chainId)) {
       return verifyTronSignature(signature, address, message, chainId);
     }
 
-    return verifySolanaSignature(signature, address, message);
+    if (isSolanaLike(chainId)) {
+      return verifySolanaSignature(signature, address, message);
+    }
+
+    return verifyEthereumSignature(signature, address, message, chainId);
   } catch (error) {
     Logger.error('Error verifying signature', error);
     return false;

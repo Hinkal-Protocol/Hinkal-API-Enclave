@@ -27,6 +27,7 @@ import waasPrivateSwap from '../routes/waas/waas-private-swap';
 import waasEstimateFee from '../routes/waas/waas-estimate-fee';
 import waasWithdrawStuckUtxos from '../routes/waas/withdraw-stuck-utxos';
 import waasRecoverTemporaryWallet from '../routes/waas/waas-recover-temporary-wallet';
+import waasReceiveVault from '../routes/waas/waas-receive-vault';
 import waasScheduledTransaction from '../routes/waas/waas-scheduled-transaction';
 import walletActions from '../routes/waas/wallet-actions';
 import solanaWalletActions from '../routes/waas/waas-solana-wallet-actions';
@@ -90,5 +91,6 @@ export const loadRoutes = (app: Express) => {
   app.use(BASE_URL, waasBalances);
   app.use(BASE_URL, waasWithdrawStuckUtxos);
   app.use(BASE_URL, waasRecoverTemporaryWallet);
+  app.use(BASE_URL, waasReceiveVault);
   app.use(BASE_URL, waasScheduledTransaction);
 };

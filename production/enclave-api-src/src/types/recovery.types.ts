@@ -1,3 +1,4 @@
+import { ReceiveVaultBlockReason } from '@hinkal/common/types/receive-vault.types';
 import { TemporaryWalletRecoveryDestination } from '@hinkal/common/types/token.types';
 
 export interface TemporaryWalletRecoveryRequestParams {
@@ -38,4 +39,34 @@ export interface TemporaryWalletRecoveryResult {
   recovered: RecoveredTemporaryWalletFund[];
   failed: FailedTemporaryWalletRecovery[];
   skipped: SkippedTemporaryWalletNonce[];
+}
+
+export interface ReceiveVaultFundsRequestParams {
+  organizationId: string;
+  userId: string;
+  signerPublicKey: string;
+  fromAddress: string;
+  chainId: number;
+}
+
+export interface ReceiveVaultFund {
+  chainId: number;
+  vaultAddress: string;
+  tokenAddress: string;
+  tokenSymbol: string;
+  amount: string;
+  reason: ReceiveVaultBlockReason;
+}
+
+export interface RecoveredReceiveVaultFund extends ReceiveVaultFund {
+  txHash: string;
+}
+
+export interface FailedReceiveVaultRecovery extends ReceiveVaultFund {
+  error: string;
+}
+
+export interface ReceiveVaultRecoveryResult {
+  recovered: RecoveredReceiveVaultFund[];
+  failed: FailedReceiveVaultRecovery[];
 }

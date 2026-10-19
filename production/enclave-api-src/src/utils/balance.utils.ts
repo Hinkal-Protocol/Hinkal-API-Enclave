@@ -9,20 +9,26 @@ import {
   isValidSolanaPublicKey,
   isValidTronAddress,
   Logger,
+  toBase58IfTron,
   TokenBalance,
   validateWalletAddressForChainId,
 } from '@hinkal/common';
 import { getErc20TokensForChain } from '@hinkal/erc20-registry';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
+import { walletSecretsService } from '../services/walletSecretsService';
 
 export const fetchPrivateBalances = async (
   organizationId: string,
   userId: string,
   signerPublicKey: string,
-  walletAddress: string,
+  requestWalletAddress: string,
   chainId: number | undefined,
   useBlockedUtxos: boolean,
 ) => {
+  const walletAddress =
+    chainId === undefined
+      ? await walletSecretsService.resolveWalletAddress(organizationId, userId, signerPublicKey, requestWalletAddress)
+      : requestWalletAddress;
   let addressChainId = chainIds.ethMainnet;
   if (isValidTronAddress(walletAddress)) addressChainId = currentTronChainId;
   else if (isValidSolanaPublicKey(walletAddress)) addressChainId = currentSolanaChainId;
@@ -57,7 +63,8 @@ export const fetchPrivateBalances = async (
   );
 };
 
-export const fetchPublicBalances = async (walletAddress: string, chainId: number) => {
+export const fetchPublicBalances = async (requestWalletAddress: string, chainId: number) => {
+  const walletAddress = toBase58IfTron(chainId, requestWalletAddress);
   validateWalletAddressForChainId(walletAddress, chainId);
 
   let balancesByChain: TokenBalance[] = [];

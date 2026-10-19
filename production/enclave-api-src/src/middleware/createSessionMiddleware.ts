@@ -3,7 +3,7 @@ import { NextFunction, Request, Response } from 'express';
 import { EnclaveSessionValidationResult, openEnclaveSession } from '../models/EnclaveSessionSchema';
 import { isValidSecp256k1PublicKey, verifyRequestSignature } from '../utils/requestSignatureUtils';
 import { getSignedRequestFields } from '../utils/requestBinding';
-import { parseCreateSessionRequest, verifyEnclaveSessionSignature } from './signatureMiddlewareUtils';
+import { parseCreateSessionRequest, resolveEnclaveSessionAddress } from './signatureMiddlewareUtils';
 
 export const createSessionMiddleware = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -39,7 +39,7 @@ export const createSessionMiddleware = async (req: Request, res: Response, next:
     const expiresAt = typeof body.expiresAt === 'string' && body.expiresAt ? new Date(body.expiresAt) : undefined;
 
     const authMode = resolveSessionAuthMode(request.useEIP712);
-    const isValid = await verifyEnclaveSessionSignature(
+    const sessionAddress = await resolveEnclaveSessionAddress(
       request.sessionId,
       request.clientPublicKey,
       request.signature,
@@ -47,14 +47,14 @@ export const createSessionMiddleware = async (req: Request, res: Response, next:
       authMode,
     );
 
-    if (!isValid) {
+    if (!sessionAddress) {
       res.status(401).json({ error: 'Invalid signature' });
       return;
     }
 
     const sessionResult = await openEnclaveSession({
       sessionId: request.sessionId,
-      address: request.address,
+      address: sessionAddress,
       authMode,
       clientPublicKey,
       expiresAt,

@@ -39,8 +39,9 @@ export const buildTronTransferTransaction = async (
   tokenAddress: string,
   amount: bigint,
 ): Promise<TronWebTypes.Transaction> => {
+  const toBase58 = evmHexToTronBase58Address(to);
   if (tokenAddress.toLowerCase() === zeroAddress.toLowerCase()) {
-    return tronWeb.transactionBuilder.sendTrx(to, Number(amount), from);
+    return tronWeb.transactionBuilder.sendTrx(toBase58, Number(amount), from);
   }
   const contractBase58 = evmHexToTronBase58Address(tokenAddress);
   const { transaction } = await tronWeb.transactionBuilder.triggerSmartContract(
@@ -48,7 +49,7 @@ export const buildTronTransferTransaction = async (
     'transfer(address,uint256)',
     { feeLimit: TRON_DEFAULT_FEE_LIMIT_SUN },
     [
-      { type: 'address', value: to },
+      { type: 'address', value: toBase58 },
       { type: 'uint256', value: amount.toString() },
     ],
     from,
@@ -69,7 +70,7 @@ export const buildTronApproveTransaction = async (
     'approve(address,uint256)',
     { feeLimit: TRON_DEFAULT_FEE_LIMIT_SUN },
     [
-      { type: 'address', value: spender },
+      { type: 'address', value: evmHexToTronBase58Address(spender) },
       { type: 'uint256', value: amount.toString() },
     ],
     from,
@@ -119,4 +120,4 @@ export const buildTronDelegateResourceTransaction = async (
   amount: bigint,
   resource: 'ENERGY' | 'BANDWIDTH',
 ): Promise<TronWebTypes.Transaction<TronWebTypes.DelegateResourceContract>> =>
-  tronWeb.transactionBuilder.delegateResource(Number(amount), to, resource, from, false);
+  tronWeb.transactionBuilder.delegateResource(Number(amount), evmHexToTronBase58Address(to), resource, from, false);
