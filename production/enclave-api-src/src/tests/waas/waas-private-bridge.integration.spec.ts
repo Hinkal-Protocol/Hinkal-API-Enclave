@@ -5,6 +5,7 @@ jest.setTimeout(900_000);
 
 const BRIDGE_AMOUNT = process.env.WAAS_TEST_BRIDGE_AMOUNT ?? '0.5';
 const RUN_FUNDED_BRIDGE = process.env.WAAS_TEST_BRIDGE === 'true';
+const UNAFFORDABLE_AMOUNT = '10000';
 
 const USDC_BY_CHAIN: Record<number, string> = {
   137: '0x3c499c542cef5e3811e1192ce70d8cc03d5c3359',
@@ -42,19 +43,21 @@ describe('WAAS private bridge (integration)', () => {
     chainId: ctx.chainId,
   });
 
-  it('rejects cross-chain bridge to a non-confidential-bridge chain', async () => {
+  it('accepts a bridge to another network family and fails only on missing private balance', async () => {
     const { status, text } = await ctx.client.postRaw(
       '/waas/private-swap',
       {
         ...baseBody(),
+        amount: UNAFFORDABLE_AMOUNT,
         fromToken: USDC_BY_CHAIN[ctx.chainId],
         toToken: SOLANA_USDC,
         toChainId: chainIds.solanaMainnet,
       },
       ctx.userKp,
     );
-    expect(status).toBe(400);
-    expect(text).toMatch(/supported between these chains only/i);
+    expect(status).toBeGreaterThanOrEqual(400);
+    expect(text).not.toMatch(/vaultAddress is required/i);
+    expect(text).toMatch(/insufficient/i);
   });
 
   it('rejects cross-chain bridge between different token symbols', async () => {
