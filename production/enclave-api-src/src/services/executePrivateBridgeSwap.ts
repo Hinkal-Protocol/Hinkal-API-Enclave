@@ -28,9 +28,6 @@ export const executePrivateBridgeSwap = async (
         bridgeSlippage,
         inToken.erc20TokenAddress,
         undefined,
-        undefined,
-        undefined,
-        true,
       ),
     (result) => [result.sourceTxHash],
   );

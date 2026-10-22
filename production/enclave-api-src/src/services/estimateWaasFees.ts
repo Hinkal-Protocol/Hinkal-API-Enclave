@@ -154,7 +154,7 @@ export const estimatePrivateBridgeFee = async (
   slippage: number,
 ): Promise<WaasFeeEstimate> => {
   // Receive vault address on the destination chain that the bridge quote is priced against.
-  const vaultAddress = await resolveBridgeVaultAddress(hinkal, sourceToken.chainId, destToken.chainId, undefined, true);
+  const vaultAddress = await resolveBridgeVaultAddress(hinkal, destToken.chainId);
   const bridgeOut = isNearIntentsBridgeSource(sourceToken.chainId)
     ? await estimateNearBridgeOut(hinkal, sourceToken, destToken, amount, vaultAddress, slippage)
     : await estimateLifiBridgeOut(hinkal, sourceToken, destToken, amount, vaultAddress, slippage);
