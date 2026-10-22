@@ -4,7 +4,6 @@ import {
   ENCLAVE_PUBLIC_SEND_VARIABLE_RATE,
   getBridgeDestinationChains,
   getDepositAndBridgeQuote,
-  getErrorMessage,
   GetPrivateSendBridgeQuoteResponse,
   hinkalLifiBridgeDepositPrepare,
   HttpError,
@@ -19,6 +18,7 @@ import {
 } from '@hinkal/common';
 import { Request, Response, Router } from 'express';
 import {
+  getHinkalVariableRate,
   getPartnerFeeBps,
   getRequestAttribution,
   partnerKeyMiddleware,
@@ -42,6 +42,7 @@ import {
 } from '../utils/depositAndWithdrawHelpers';
 import { getDepositAndWithdrawOrderStatus } from '../utils/getDepositAndWithdrawOrderStatus';
 import { parseSlippagePercentage } from '../utils/transactionHelpers';
+import { resolveRouteError } from '../utils/routeError';
 import { encryptLargeField } from '../utils/orderFieldEncryption';
 import { PRIVATE_SEND_BRIDGE_QUOTE_TTL_MS } from '../constants/swap.constants';
 
@@ -160,11 +161,8 @@ router.get(
       });
     } catch (error) {
       Logger.error('[get-private-send-bridge-quote] error:', error);
-      if (error instanceof HttpError) {
-        res.status(error.status).json({ success: false, error: error.message });
-        return;
-      }
-      res.status(500).json({ success: false, error: getErrorMessage(error) });
+      const { status, message } = resolveRouteError(error);
+      res.status(status).json({ success: false, error: message });
     }
   },
 );
@@ -203,7 +201,7 @@ router.post(
       }
 
       const orderId = crypto.randomUUID();
-      const variableRate = ENCLAVE_PUBLIC_SEND_VARIABLE_RATE + getPartnerFeeBps(res);
+      const variableRate = getHinkalVariableRate(res, ENCLAVE_PUBLIC_SEND_VARIABLE_RATE) + getPartnerFeeBps(res);
 
       const { serializedTx, utxoAmounts, orderRecipients, feeStructure, expectedAmountOut, txCompletionTime } =
         await hinkalInitializerService.withHinkalForAddress(address, chainId, async (hinkal) => {
@@ -283,11 +281,8 @@ router.post(
       );
     } catch (err) {
       Logger.error('[private-send-bridge] error:', err);
-      if (err instanceof HttpError) {
-        res.status(err.status).json({ success: false, error: err.message });
-        return;
-      }
-      res.status(500).json({ success: false, error: getErrorMessage(err) });
+      const { status, message } = resolveRouteError(err);
+      res.status(status).json({ success: false, error: message });
     }
   },
 );

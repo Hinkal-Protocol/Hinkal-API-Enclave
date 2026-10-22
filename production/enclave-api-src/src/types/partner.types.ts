@@ -4,6 +4,7 @@ export interface ReferralAttribution {
   ref?: string;
   keyId?: string;
   partnerFeeBps?: number;
+  hinkalVariableRateBps?: number;
 }
 
 export interface CachedPartnerKey {

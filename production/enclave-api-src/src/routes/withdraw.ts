@@ -14,6 +14,7 @@ import { WithdrawRequest } from '../types/route.types';
 import { parseFeeStructure } from '../utils/parseFeeStructure';
 import { emitReferralVolume } from '../utils/emitReferralVolume';
 import {
+  getHinkalVariableRate,
   getPartnerFeeBps,
   getRequestAttribution,
   partnerKeyMiddleware,
@@ -54,17 +55,27 @@ router.post(
         return;
       }
 
-      if (ref !== undefined && !WHITELISTED_REFERRALS.includes(ref)) {
+      if (ref !== undefined && typeof ref !== 'string') {
+        res.status(400).json({ success: false, error: 'Invalid ref: must be a string' });
+        return;
+      }
+
+      const refVariableRate =
+        ref !== undefined
+          ? WITHDRAW_REF_HASH_VARIABLE_RATE_BPS[createHash('sha256').update(ref).digest('hex')]
+          : undefined;
+      const trackedRef = ref !== undefined && WHITELISTED_REFERRALS.includes(ref) ? ref : undefined;
+      const isKnownRef = trackedRef !== undefined || refVariableRate !== undefined;
+
+      if (ref !== undefined && !isKnownRef) {
         res.status(400).json({ success: false, error: `Invalid ref: '${ref}' is not a whitelisted referral` });
         return;
       }
 
       const resolvedFeeToken = isSolanaLike(chainId) ? tokenAddresses[0] : feeToken;
-      const refHash = createHash('sha256')
-        .update(ref ?? '')
-        .digest('hex');
-      const resolvedVariableRate =
-        (WITHDRAW_REF_HASH_VARIABLE_RATE_BPS[refHash] ?? ENCLAVE_UNSHIELD_VARIABLE_RATE) + getPartnerFeeBps(res);
+      // A ref-hash deal rate wins over the partner's Hinkal rate.
+      const hinkalVariableRate = refVariableRate ?? getHinkalVariableRate(res, ENCLAVE_UNSHIELD_VARIABLE_RATE);
+      const resolvedVariableRate = hinkalVariableRate + getPartnerFeeBps(res);
       const feeStructureOverride = parseFeeStructure(resolvedFeeToken, feeAmount, resolvedVariableRate);
 
       const txData = await hinkalInitializerService.withHinkalForAddress(
@@ -87,7 +98,7 @@ router.post(
       const txHash = typeof txData === 'string' ? txData : txData.hash;
 
       emitReferralVolume(
-        getRequestAttribution(res, ref),
+        getRequestAttribution(res, trackedRef),
         chainId,
         txHash,
         erc20Tokens,

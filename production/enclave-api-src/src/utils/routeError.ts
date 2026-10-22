@@ -7,26 +7,31 @@ const detailedMessage = (err: unknown): string => {
   return mapped === transactionErrorCodes.UNKNOWN && err instanceof Error && err.message ? err.message : mapped;
 };
 
+export const resolveRouteError = (err: unknown): { status: number; message: string } => {
+  if (err instanceof HttpError) {
+    return { status: err.status, message: err.message };
+  }
+
+  if (axios.isAxiosError(err)) {
+    const upstreamStatus = err.response?.status;
+    const status =
+      upstreamStatus && upstreamStatus >= 400 && upstreamStatus < 500 && ![401, 403, 404].includes(upstreamStatus)
+        ? upstreamStatus
+        : 502;
+
+    const message =
+      err.response?.data?.detail || err.response?.data?.message || err.response?.data?.error?.message || err.message;
+
+    return { status, message };
+  }
+
+  return { status: 500, message: detailedMessage(err) };
+};
+
 export const sendError = (res: Response, err: unknown): void => {
   try {
-    if (err instanceof HttpError) {
-      res.status(err.status).send({ status: 'error', message: err.message });
-      return;
-    }
-
-    if (axios.isAxiosError(err)) {
-      const status = err.response?.status ?? 500;
-
-      const message = err.response?.data?.detail || err.response?.data?.message || err.message;
-
-      res.status(status).send({
-        status: 'error',
-        message,
-      });
-      return;
-    }
-
-    res.status(500).send({ status: 'error', message: detailedMessage(err) });
+    const { status, message } = resolveRouteError(err);
+    res.status(status).send({ status: 'error', message });
   } catch {
     res.status(500).send({ status: 'error', message: 'Internal server error' });
   }

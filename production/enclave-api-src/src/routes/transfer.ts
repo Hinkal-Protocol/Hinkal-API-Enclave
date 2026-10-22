@@ -13,6 +13,7 @@ import { parseFeeStructure } from '../utils/parseFeeStructure';
 import { resolveRecipientInfo } from '../utils/transactionHelpers';
 import { emitReferralVolume } from '../utils/emitReferralVolume';
 import {
+  getHinkalVariableRate,
   getPartnerFeeBps,
   getRequestAttribution,
   partnerKeyMiddleware,
@@ -53,7 +54,7 @@ router.post(
       const resolvedRecipientInfo = await resolveRecipientInfo(recipientAddress, chainId);
       const resolvedFeeToken = isSolanaLike(chainId) ? tokenAddresses[0] : feeToken;
 
-      const variableRate = ENCLAVE_PRIVATE_SEND_VARIABLE_RATE + getPartnerFeeBps(res);
+      const variableRate = getHinkalVariableRate(res, ENCLAVE_PRIVATE_SEND_VARIABLE_RATE) + getPartnerFeeBps(res);
       const resolvedFeeStructure = parseFeeStructure(resolvedFeeToken, feeAmount, variableRate);
 
       const txHash = await hinkalInitializerService.withHinkalForAddress(

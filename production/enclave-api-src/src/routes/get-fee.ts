@@ -58,12 +58,12 @@ router.get(
         solanaTransactionParams,
       );
 
-      const { keyId, partnerFeeBps } = getRequestAttribution(res, undefined);
+      const { keyId, partnerFeeBps, hinkalVariableRateBps } = getRequestAttribution(res, undefined);
 
       res.status(200).json({
         success: true,
         feeAmount: feeStructure.flatFee.toString(),
-        ...(keyId && { partnerFeeBps }),
+        ...(keyId && { partnerFeeBps, hinkalVariableRateBps }),
       });
     } catch (error) {
       res.status(500).json({ success: false, error: getErrorMessage(error) });

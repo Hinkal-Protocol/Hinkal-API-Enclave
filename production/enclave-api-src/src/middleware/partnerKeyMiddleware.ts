@@ -60,6 +60,9 @@ export const partnerKeyMiddleware = async (req: Request, res: Response, next: Ne
     ref: resolution.ref,
     keyId: resolution.keyId,
     partnerFeeBps: isValidPartnerFeeBps(resolution.partnerFeeBps) ? resolution.partnerFeeBps : 0,
+    hinkalVariableRateBps: isValidPartnerFeeBps(resolution.hinkalVariableRateBps)
+      ? resolution.hinkalVariableRateBps
+      : undefined,
   };
   next();
 };
@@ -69,3 +72,8 @@ export const getRequestAttribution = (res: Response, bodyRef: string | undefined
 
 export const getPartnerFeeBps = (res: Response): bigint =>
   BigInt((res.locals.partnerAttribution as ReferralAttribution | undefined)?.partnerFeeBps ?? 0);
+
+export const getHinkalVariableRate = (res: Response, defaultRate: bigint): bigint => {
+  const rate = (res.locals.partnerAttribution as ReferralAttribution | undefined)?.hinkalVariableRateBps;
+  return rate === undefined ? defaultRate : BigInt(rate);
+};

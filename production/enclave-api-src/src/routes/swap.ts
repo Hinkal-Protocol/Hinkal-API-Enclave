@@ -16,6 +16,7 @@ import { parseFeeStructure } from '../utils/parseFeeStructure';
 import { emitReferralVolume } from '../utils/emitReferralVolume';
 import { adjustSwapOutputForPartnerFee } from '../utils/partnerFee.utils';
 import {
+  getHinkalVariableRate,
   getPartnerFeeBps,
   getRequestAttribution,
   partnerKeyMiddleware,
@@ -64,7 +65,7 @@ router.post(
       const resolvedFeeToken = isSolanaLike(chainId) ? tokenAddresses[1] : feeToken;
 
       const partnerFeeBps = getPartnerFeeBps(res);
-      const variableRate = ENCLAVE_SWAP_VARIABLE_RATE + partnerFeeBps;
+      const variableRate = getHinkalVariableRate(res, ENCLAVE_SWAP_VARIABLE_RATE) + partnerFeeBps;
       const resolvedFeeStructure = parseFeeStructure(resolvedFeeToken, feeAmount, variableRate);
       const deltaAmounts = adjustSwapOutputForPartnerFee(amounts.map(BigInt), chainId, partnerFeeBps);
       const txHash = await hinkalInitializerService.withHinkalForAddress(

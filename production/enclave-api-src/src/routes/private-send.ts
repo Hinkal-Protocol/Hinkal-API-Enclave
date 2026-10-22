@@ -7,6 +7,7 @@ import {
 } from '@hinkal/common';
 import { Request, Response, Router } from 'express';
 import {
+  getHinkalVariableRate,
   getPartnerFeeBps,
   getRequestAttribution,
   partnerKeyMiddleware,
@@ -74,7 +75,7 @@ router.post(
         feeToken ?? token.erc20TokenAddress,
         token,
         recipients,
-        ENCLAVE_PUBLIC_SEND_VARIABLE_RATE + getPartnerFeeBps(res),
+        getHinkalVariableRate(res, ENCLAVE_PUBLIC_SEND_VARIABLE_RATE) + getPartnerFeeBps(res),
       );
       feeStructurePromise.catch(() => undefined);
 
