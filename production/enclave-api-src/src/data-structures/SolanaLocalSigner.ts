@@ -1,7 +1,15 @@
-import { Keypair, PublicKey, Transaction, VersionedTransaction } from '@solana/web3.js';
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  Transaction,
+  TransactionInstruction,
+  VersionedTransaction,
+} from '@solana/web3.js';
 import bs58 from 'bs58';
 import nacl from 'tweetnacl';
 import { SolanaWallet } from '@hinkal/common/types/solana.types';
+import { sendV1Transaction } from '@hinkal/common';
 
 export class SolanaLocalSigner implements SolanaWallet {
   private readonly keypair: Keypair;
@@ -28,6 +36,10 @@ export class SolanaLocalSigner implements SolanaWallet {
 
   async signAllTransactions<T extends Transaction | VersionedTransaction>(txs: T[]): Promise<T[]> {
     return Promise.all(txs.map((tx) => this.signTransaction(tx)));
+  }
+
+  async sendV1Transaction(connection: Connection, instructions: TransactionInstruction[]): Promise<string> {
+    return sendV1Transaction(connection, instructions, this.keypair);
   }
 
   async signMessage(message: Uint8Array): Promise<{ signature: Uint8Array; publicKey: PublicKey }> {

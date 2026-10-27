@@ -32,25 +32,6 @@ export const buildSolanaSigner = async (
   return { signer, connection };
 };
 
-export const buildAndSendSolanaTransaction = async (
-  connection: Connection,
-  signer: SolanaLocalSigner,
-  instructions: TransactionInstruction[],
-): Promise<string> => {
-  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
-  const message = new TransactionMessage({
-    payerKey: signer.publicKey,
-    recentBlockhash: blockhash,
-    instructions,
-  }).compileToV0Message();
-
-  const tx = new VersionedTransaction(message);
-  const signed = await signer.signTransaction(tx);
-  const signature = await connection.sendRawTransaction(signed.serialize());
-  await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
-  return signature;
-};
-
 export const buildSolanaTransferInstructionsForSend = async (
   connection: Connection,
   fromPubkey: PublicKey,
@@ -67,12 +48,17 @@ export const signAndSendSerializedSolanaTransaction = async (
   signer: SolanaLocalSigner,
   serializedTransactionBase64: string,
 ): Promise<string> => {
-  const txBuffer = Buffer.from(serializedTransactionBase64, 'base64');
-  const tx = VersionedTransaction.deserialize(txBuffer);
-  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
-  tx.message.recentBlockhash = blockhash;
-  const signed = await signer.signTransaction(tx);
-  const signature = await connection.sendRawTransaction(signed.serialize());
-  await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
-  return signature;
+  const { message } = VersionedTransaction.deserialize(Buffer.from(serializedTransactionBase64, 'base64'));
+  if (message.header.numRequiredSignatures !== 1 || !message.staticAccountKeys[0]?.equals(signer.publicKey)) {
+    throw new Error('Solana transaction must have the enclave wallet as its only signer and fee payer');
+  }
+  const addressLookupTableAccounts = await Promise.all(
+    message.addressTableLookups.map(async ({ accountKey }) => {
+      const { value } = await connection.getAddressLookupTable(accountKey);
+      if (!value) throw new Error(`Failed to fetch lookup table: ${accountKey.toBase58()}`);
+      return value;
+    }),
+  );
+  const { instructions } = TransactionMessage.decompile(message, { addressLookupTableAccounts });
+  return signer.sendV1Transaction(connection, instructions);
 };

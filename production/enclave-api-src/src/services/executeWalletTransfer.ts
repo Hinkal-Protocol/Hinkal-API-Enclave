@@ -4,11 +4,7 @@ import { zeroAddress } from '@hinkal/common/constants/protocol.constants';
 import { caseInsensitiveEqual } from '@hinkal/common/functions/utils/caseInsensitive.utils';
 import { WalletTransferParams } from '../types/swap.types';
 import { buildEvmSigner, encodeTransferCalldata, sendEvmTransaction } from '../utils/evm-wallet.utils';
-import {
-  buildAndSendSolanaTransaction,
-  buildSolanaSigner,
-  buildSolanaTransferInstructionsForSend,
-} from '../utils/solana-wallet.utils';
+import { buildSolanaSigner, buildSolanaTransferInstructionsForSend } from '../utils/solana-wallet.utils';
 import { buildTronSigner, buildTronTransferTransaction, sendTronTransaction } from '../utils/tron-wallet.utils';
 
 export const executeWalletTransfer = async (params: WalletTransferParams): Promise<string> => {
@@ -29,7 +25,7 @@ export const executeWalletTransfer = async (params: WalletTransferParams): Promi
       token,
       amount,
     );
-    return buildAndSendSolanaTransaction(connection, signer, instructions);
+    return signer.sendV1Transaction(connection, instructions);
   }
 
   if (isTronLike(chainId)) {
