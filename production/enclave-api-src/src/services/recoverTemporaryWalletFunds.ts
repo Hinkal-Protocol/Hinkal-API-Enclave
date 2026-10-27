@@ -3,6 +3,7 @@ import {
   API,
   calculateTotalFee,
   ContractType,
+  DerivedTempWallet,
   deriveTempWallet,
   ERC20Token,
   ExternalActionId,
@@ -129,7 +130,14 @@ export const recoverTemporaryWalletFunds = async (
         }
 
         for (const { nonce, recoveryDestination, isLegacy } of entries) {
-          const { privateKey, address: ethAddress } = deriveTempWallet(hinkal, chainId, BigInt(nonce), isLegacy);
+          let tempWallet: DerivedTempWallet;
+          try {
+            tempWallet = deriveTempWallet(hinkal, chainId, BigInt(nonce), isLegacy);
+          } catch (error) {
+            Logger.error(`Skipping invalid temporary wallet nonce ${nonce} on chain ${chainId}`, error);
+            continue;
+          }
+          const { privateKey, address: ethAddress } = tempWallet;
 
           const balances = (await getPublicBalancesOfTokens(chainId, ethAddress)).filter(
             ({ token, balance }) => balance > 0n && !isNFTToken(token),
