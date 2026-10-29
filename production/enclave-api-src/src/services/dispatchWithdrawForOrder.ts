@@ -20,6 +20,7 @@ import {
   PublicBridgeRecipient,
   PublicBridgeRecipientUtxo,
   RecipientUtxo,
+  THROWN_ERROR_MESSAGES,
   Utxo,
   waitForDepositedUtxosInMerkleTree,
   waitForEthereumTransactionConfirmation,
@@ -46,7 +47,8 @@ export interface DepositAndWithdrawOrderBase {
 
 const resolveOrderToken = (order: DepositAndWithdrawOrderBase): ERC20Token => {
   const token = getERC20Token(order.tokenAddress, order.chainId);
-  if (!token) throw new Error(`Token ${order.tokenAddress} not found for chain ${order.chainId}`);
+  if (!token)
+    throw new Error(`${THROWN_ERROR_MESSAGES.TOKEN_NOT_FOUND_ON_CHAIN}: ${order.tokenAddress}, ${order.chainId}`);
   return token;
 };
 
@@ -57,13 +59,15 @@ const buildOrderFeeStructure = (order: DepositAndWithdrawOrderBase): FeeStructur
 });
 
 const matchDepositedUtxos = (order: DepositAndWithdrawOrderBase, depositedUtxos: Utxo[]): RecipientUtxo[] => {
-  if (depositedUtxos.length === 0) throw new Error(`No deposited UTXOs found in tx ${order.txHash}`);
+  if (depositedUtxos.length === 0)
+    throw new Error(`${THROWN_ERROR_MESSAGES.NO_DEPOSITED_UTXOS_FOUND_IN_TX}: ${order.txHash}`);
 
   const utxoAmounts = order.utxoAmounts.map((s) => BigInt(s));
   const availableUtxos = [...depositedUtxos];
   return utxoAmounts.map((amount, i) => {
     const matchIndex = availableUtxos.findIndex((u) => u.amount === amount);
-    if (matchIndex === -1) throw new Error(`No UTXO found matching amount ${amount} for recipient ${i}`);
+    if (matchIndex === -1)
+      throw new Error(`${THROWN_ERROR_MESSAGES.NO_UTXO_FOUND_MATCHING_AMOUNT_FOR_RECIPIENT}: ${amount}, ${i}`);
     const [match] = availableUtxos.splice(matchIndex, 1);
     return { recipientAddress: order.recipients[i].address, utxo: match };
   });
@@ -136,11 +140,11 @@ export const dispatchSolanaWithdrawForOrder = async (
 
   const { rpcUrl } = networkRegistry[order.chainId];
   const { hinkalIdl } = networkRegistry[order.chainId].contractData;
-  if (!hinkalIdl) throw new Error(`Missing Hinkal IDL for chain ${order.chainId}`);
+  if (!hinkalIdl) throw new Error(`${THROWN_ERROR_MESSAGES.MISSING_HINKAL_IDL_FOR_CHAIN}: ${order.chainId}`);
 
   const connection = new Connection(rpcUrl, 'confirmed');
   const tx = await fetchSolanaTransaction(connection, order.txHash, 'confirmed');
-  if (!tx) throw new Error(`Receipt not found for signature ${order.txHash}`);
+  if (!tx) throw new Error(`${THROWN_ERROR_MESSAGES.RECEIPT_NOT_FOUND_FOR_SIGNATURE}: ${order.txHash}`);
 
   const program = hinkal.getSolanaProgram(hinkalIdl);
   const { compressedAddress } = formatMintAddress(token.erc20TokenAddress);

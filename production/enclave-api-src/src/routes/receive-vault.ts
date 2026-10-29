@@ -2,8 +2,10 @@ import {
   addressEqual,
   getErrorMessage,
   isReceiveVaultSupported,
+  isValidAddressForChain,
   Logger,
   receiveVaultNetworkOf,
+  THROWN_ERROR_MESSAGES,
   toJsonSafe,
 } from '@hinkal/common';
 import { Request, Response, Router } from 'express';
@@ -16,6 +18,7 @@ import {
   verifySignatureMiddleware,
 } from '../middleware';
 import { rejectNonWhitelistedRef } from '../utils/referralWhitelist';
+import { invalidAddressMessage } from '../utils/queryGuards';
 import { trackReceiveVaultRecovery } from '../utils/trackReceiveVaultRecovery';
 import {
   ReceiveAddressRequest,
@@ -102,6 +105,11 @@ router.post(
 
       if (rejectNonWhitelistedRef(res, ref)) return;
 
+      if (!isValidAddressForChain(chainId, recipientAddress)) {
+        res.status(400).json({ success: false, error: invalidAddressMessage('recipientAddress', chainId) });
+        return;
+      }
+
       const txData = await hinkalInitializerService.withHinkalForAddress(
         res.locals.address,
         chainId,
@@ -110,7 +118,10 @@ router.post(
           const record = [...entries, ...blockedFunds.map(({ record: entryRecord }) => entryRecord)].find(
             (entryRecord) => addressEqual(chainId, entryRecord.vaultAddress, vaultAddress),
           );
-          if (!record) throw new Error(`Receive address ${vaultAddress} does not belong to this account`);
+          if (!record)
+            throw new Error(
+              `${THROWN_ERROR_MESSAGES.RECEIVE_ADDRESS_DOES_NOT_BELONG_TO_THIS_ACCOUNT}: ${vaultAddress}`,
+            );
 
           const recovery = await hinkal.recoverReceiveVault(record, tokenAddress, chainId, recipientAddress, true);
 

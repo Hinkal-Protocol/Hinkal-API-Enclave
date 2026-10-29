@@ -1,6 +1,6 @@
 /* eslint-disable no-await-in-loop */
 import { createHash, createHmac, timingSafeEqual } from 'crypto';
-import { hashEthereumAddress, Logger, RECIPIENT_INFO_TARGET_POOL_SIZE } from '@hinkal/common';
+import { hashEthereumAddress, Logger, RECIPIENT_INFO_TARGET_POOL_SIZE, THROWN_ERROR_MESSAGES } from '@hinkal/common';
 import { HENCLAVE_HMAC_SEED } from '../constants';
 import { EnclaveHmac } from '../models/EnclaveHmacSchema';
 import { RecipientInfoEntry, RecipientInfoPool, RecipientInfoPoolModel } from '../models/RecipientInfoPoolSchema';
@@ -70,7 +70,9 @@ const storeRecipientInfosToPool = async (hashedAddress: string, infos: string[])
     const kept = pool.recipientInfos.filter((entry) => entry.isAvailable);
     if (await writePool(hashedAddress, [...kept, ...newEntries], pool.enclaveHmac)) return;
   }
-  throw new Error(`store recipient infos: pool changed under ${RECIPIENT_INFO_POOL_WRITE_ATTEMPTS} attempts`);
+  throw new Error(
+    `${THROWN_ERROR_MESSAGES.STORE_RECIPIENT_INFOS_POOL_CHANGED_CONCURRENTLY}: ${RECIPIENT_INFO_POOL_WRITE_ATTEMPTS}`,
+  );
 };
 
 export const storeWaasRecipientInfos = async (

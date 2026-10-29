@@ -1,4 +1,5 @@
 import { BaseAuthFields, DepositAndWithdrawRecipient } from '../types';
+import { THROWN_ERROR_MESSAGES } from '@hinkal/common';
 
 export type TokenAmountPair = { tokenAddress: string; amount: string };
 
@@ -47,7 +48,7 @@ export const buildSortedTokenPairs = (
   normalizeAddress: (addr: string) => string = (addr) => addr,
 ): TokenAmountPair[] => {
   if (tokenAddresses.length !== amounts.length) {
-    throw new Error('tokenAddresses and amounts must have the same length');
+    throw new Error(THROWN_ERROR_MESSAGES.TOKENADDRESSES_AND_AMOUNTS_MUST_HAVE_THE_SAME_LENGTH);
   }
   return tokenAddresses
     .map((tokenAddress, index) => ({

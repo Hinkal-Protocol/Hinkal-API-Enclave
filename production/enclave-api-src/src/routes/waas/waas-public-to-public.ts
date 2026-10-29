@@ -9,7 +9,7 @@ import { sendError } from '../../utils/routeError';
 import { ensureRecipientInfoPoolForApiInBackground } from '../../utils/ensureRecipientInfoPoolForApi';
 import { hinkalInitializerService } from '../../services/hinkalInitializerService';
 import { xStampMiddleware } from '../../middleware';
-import { requireActionPermission, resolveTargetUser } from '../../utils';
+import { assertAddressForChain, requireActionPermission, resolveTargetUser } from '../../utils';
 import { WaasPolicyAction } from '../../constants/policyActions';
 
 const router = Router();
@@ -31,6 +31,7 @@ router.post('/waas/public-to-public', xStampMiddleware, async (req: Request, res
     requireActionPermission(signer, WaasPolicyAction.SIGN_TRANSACTION);
 
     const parsedChainId = parseChainId(chainId);
+    assertAddressForChain(to, 'to', parsedChainId);
     const token = resolveToken(tokenAddress, parsedChainId);
     const recipientAmount = getAmountInWei(token, String(amount));
 

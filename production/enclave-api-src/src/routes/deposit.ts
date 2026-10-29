@@ -11,7 +11,12 @@ import {
   SolanaDepositResponse,
 } from '../types/route.types';
 import { validateTokens } from '../utils';
-import { resolveRecipientInfo } from '../utils/transactionHelpers';
+import {
+  INVALID_AMOUNTS_ERROR,
+  isPositiveAmount,
+  isPositiveAmountList,
+  resolveRecipientInfo,
+} from '../utils/transactionHelpers';
 import {
   getRequestAttribution,
   partnerKeyMiddleware,
@@ -35,6 +40,11 @@ router.post(
   ) => {
     try {
       const { chainId, tokenAddresses, amounts, ref } = req.body;
+
+      if (!isPositiveAmountList(amounts)) {
+        res.status(400).json({ success: false, error: INVALID_AMOUNTS_ERROR });
+        return;
+      }
 
       if (tokenAddresses.length !== amounts.length) {
         res.status(400).json({ success: false, error: 'tokenAddresses and amounts must have the same length' });
@@ -92,6 +102,11 @@ router.post(
   async (req: Request<object, DepositResponse, DepositForOtherRequest>, res: Response<DepositResponse>) => {
     try {
       const { chainId, tokenAddresses, amounts, recipientInfo, ref } = req.body;
+
+      if (!isPositiveAmountList(amounts)) {
+        res.status(400).json({ success: false, error: INVALID_AMOUNTS_ERROR });
+        return;
+      }
 
       if (tokenAddresses.length !== amounts.length) {
         res.status(400).json({ success: false, error: 'tokenAddresses and amounts must have the same length' });
@@ -156,6 +171,11 @@ router.post(
       const tokenAddress = tokenAddresses?.[0];
       const amount = amounts?.[0];
 
+      if (!isPositiveAmount(amount)) {
+        res.status(400).json({ success: false, error: INVALID_AMOUNTS_ERROR });
+        return;
+      }
+
       if (rejectNonWhitelistedRef(res, ref)) return;
 
       const token = getERC20Token(tokenAddress, chainId);
@@ -215,6 +235,11 @@ router.post(
 
       if (isTronLike(chainId)) {
         res.status(400).json({ success: false, error: 'Proofless deposit is not supported on Tron' });
+        return;
+      }
+
+      if (!isPositiveAmountList(amounts)) {
+        res.status(400).json({ success: false, error: INVALID_AMOUNTS_ERROR });
         return;
       }
 

@@ -7,7 +7,7 @@ import {
 } from '@solana/web3.js';
 import { buildSolanaTransferInstructions } from '@hinkal/common/functions/pre-transaction/solanaTransfer.utils';
 import { ERC20Token } from '@hinkal/common/types/token.types';
-import { networkRegistry } from '@hinkal/common';
+import { networkRegistry, THROWN_ERROR_MESSAGES } from '@hinkal/common';
 import { SolanaLocalSigner } from '../data-structures';
 import { walletSecretsService } from '../services/walletSecretsService';
 
@@ -50,12 +50,12 @@ export const signAndSendSerializedSolanaTransaction = async (
 ): Promise<string> => {
   const { message } = VersionedTransaction.deserialize(Buffer.from(serializedTransactionBase64, 'base64'));
   if (message.header.numRequiredSignatures !== 1 || !message.staticAccountKeys[0]?.equals(signer.publicKey)) {
-    throw new Error('Solana transaction must have the enclave wallet as its only signer and fee payer');
+    throw new Error(THROWN_ERROR_MESSAGES.SOLANA_TRANSACTION_MUST_HAVE_ENCLAVE_WALLET_AS_ONLY_SIGNER);
   }
   const addressLookupTableAccounts = await Promise.all(
     message.addressTableLookups.map(async ({ accountKey }) => {
       const { value } = await connection.getAddressLookupTable(accountKey);
-      if (!value) throw new Error(`Failed to fetch lookup table: ${accountKey.toBase58()}`);
+      if (!value) throw new Error(`${THROWN_ERROR_MESSAGES.FAILED_TO_FETCH_LOOKUP_TABLE}: ${accountKey.toBase58()}`);
       return value;
     }),
   );

@@ -10,7 +10,7 @@ import { Request, Response, Router } from 'express';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { TransferRequest } from '../types/route.types';
 import { parseFeeStructure } from '../utils/parseFeeStructure';
-import { resolveRecipientInfo } from '../utils/transactionHelpers';
+import { INVALID_AMOUNTS_ERROR, isPositiveAmountList, resolveRecipientInfo } from '../utils/transactionHelpers';
 import { emitReferralVolume } from '../utils/emitReferralVolume';
 import {
   getHinkalVariableRate,
@@ -32,6 +32,11 @@ router.post(
     try {
       const { chainId, tokenAddresses, amounts, recipientAddress, feeToken, feeAmount, ref } =
         req.body as TransferRequest;
+
+      if (!isPositiveAmountList(amounts)) {
+        res.status(400).json({ success: false, error: INVALID_AMOUNTS_ERROR });
+        return;
+      }
 
       if (tokenAddresses.length !== amounts.length) {
         res.status(400).json({ success: false, error: 'Token addresses and amounts must have the same length' });

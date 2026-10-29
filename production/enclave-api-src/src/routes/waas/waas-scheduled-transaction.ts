@@ -1,6 +1,7 @@
 import { Request, Response, Router } from 'express';
 import { sendError } from '../../utils/routeError';
 import {
+  API_ERROR_MESSAGES,
   currentTronChainId,
   getScheduledTransactionById,
   hashEthereumAddress,
@@ -40,7 +41,8 @@ router.get(
       const isOwner =
         scheduled?.hashedEthereumAddress ===
         hashEthereumAddress(normalizeTronAddr(toBase58IfTron(currentTronChainId, walletAddress)));
-      if (!scheduled || !isOwner) throw new HttpError(404, `Scheduled transaction ${scheduleId} not found`);
+      if (!scheduled || !isOwner)
+        throw new HttpError(404, `${API_ERROR_MESSAGES.SCHEDULED_TX_NOT_FOUND}: ${scheduleId}`);
 
       res.status(200).send({ status: 'success', data: { scheduleId, transactions: scheduled.transactions } });
     } catch (err) {

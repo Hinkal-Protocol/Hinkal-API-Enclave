@@ -7,6 +7,7 @@ import {
   isSolanaLike,
   Logger,
   networkRegistry,
+  THROWN_ERROR_MESSAGES,
   Utxo,
   waitForEthereumTransactionConfirmation,
   waitForSolanaTransactionConfirmation,
@@ -20,7 +21,7 @@ const getSwapOutputUtxos = async (
 ): Promise<Utxo[]> => {
   if (isSolanaLike(chainId)) {
     const { hinkalIdl } = networkRegistry[chainId].contractData;
-    if (!hinkalIdl) throw new Error(`Missing Hinkal IDL for chain ${chainId}`);
+    if (!hinkalIdl) throw new Error(`${THROWN_ERROR_MESSAGES.MISSING_HINKAL_IDL_FOR_CHAIN}: ${chainId}`);
     const tx = await waitForSolanaTransactionConfirmation(chainId, txHash);
     const { compressedAddress } = formatMintAddress(outToken.erc20TokenAddress);
     return getOnChainUtxosFromReceiptSolana(tx, hinkal.getSolanaProgram(hinkalIdl), hinkal.userKeys, compressedAddress);

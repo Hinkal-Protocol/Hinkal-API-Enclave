@@ -1,5 +1,5 @@
 import { Request, Response, Router } from 'express';
-import { getGasTokenSymbols, HttpError } from '@hinkal/common';
+import { API_ERROR_MESSAGES, getGasTokenSymbols, HttpError } from '@hinkal/common';
 import { sendError } from '../../utils/routeError';
 import { palApiKeyMiddleware } from '../../middleware/palApiKeyMiddleware';
 import { getErc20TokensForChain } from '@hinkal/erc20-registry';
@@ -9,7 +9,7 @@ const router = Router();
 router.get('/pal/tokens', palApiKeyMiddleware, async (req: Request, res: Response) => {
   try {
     const parsed = Number(req.query.chainId);
-    if (!Number.isFinite(parsed)) throw new HttpError(400, 'Invalid or missing chainId');
+    if (!Number.isFinite(parsed)) throw new HttpError(400, API_ERROR_MESSAGES.INVALID_CHAIN_ID);
 
     const gasTokenSymbols = await getGasTokenSymbols(parsed);
     const supportedSymbols = new Set(gasTokenSymbols);

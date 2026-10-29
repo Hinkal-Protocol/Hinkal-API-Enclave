@@ -1,4 +1,4 @@
-import { extractMessage } from '@hinkal/common';
+import { getErrorMessage } from '@hinkal/common';
 import { Request, Response, Router } from 'express';
 import { userKeysService } from '../services/userKeysService';
 
@@ -10,7 +10,7 @@ router.post('/maintenance/normalize-user-key-addresses', async (_req: Request, r
     const summary = await userKeysService.normalizeStoredAddressKeys();
     res.status(200).send({ status: 'success', ...summary });
   } catch (err) {
-    res.status(500).send({ status: 'error', message: extractMessage(err) ?? 'normalization failed' });
+    res.status(500).send({ status: 'error', message: getErrorMessage(err) });
   }
 });
 

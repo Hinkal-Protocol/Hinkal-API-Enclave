@@ -1,3 +1,4 @@
+import { API_ERROR_MESSAGES, UserFriendlyErrorCodes } from '@hinkal/common';
 import { isAddress } from 'ethers';
 import {
   isNativePlaceholderAddress,
@@ -22,7 +23,6 @@ import { ExternalActionId } from '@hinkal/common/types/external-action.types';
 import { Logger } from '@hinkal/common/error-handling/logger';
 import { caseInsensitiveEqual } from '@hinkal/common/functions/utils/caseInsensitive.utils';
 import { waitForTransactionConfirmation } from '@hinkal/common/functions/utils/tx-confirmation.utils';
-import { getErrorMessage } from '@hinkal/common/error-handling/get-error.message';
 import {
   BRIDGE_SUPPORTED_CHAINS,
   CONFIDENTIAL_BRIDGE_CHAINS,
@@ -42,10 +42,9 @@ export const confirmBroadcastTransaction = async (chainId: number, txHash: strin
   try {
     await waitForTransactionConfirmation(chainId, txHash);
   } catch (err) {
-    throw new HttpError(
-      502,
-      `Transaction ${txHash} was broadcast but did not succeed on-chain: ${getErrorMessage(err)}`,
-    );
+    // The reason stays in logs: a friendly reason in the message would win over the pattern that keeps the hash.
+    Logger.error(`[confirmBroadcastTransaction] ${txHash} did not succeed:`, err);
+    throw new HttpError(502, `${API_ERROR_MESSAGES.TX_BROADCAST_NOT_SUCCEEDED}: ${txHash}`);
   }
 };
 
@@ -81,25 +80,39 @@ export const assertEnoughGasForDeposit = async (
   const networkName = networkRegistry[chainId]?.name ?? `chain ${chainId}`;
   throw new HttpError(
     400,
-    `${gasToken.symbol} balance on ${networkName} is too low to cover network fees: need ~${getAmountInToken(gasToken, required)} ${gasToken.symbol}, have ${getAmountInToken(gasToken, gasTokenBalance)} ${gasToken.symbol}`,
+    `${UserFriendlyErrorCodes.INSUFFICIENT_FUNDS_GAS} (${gasToken.symbol} on ${networkName}: need ~${getAmountInToken(gasToken, required)}, have ${getAmountInToken(gasToken, gasTokenBalance)})`,
   );
 };
 
 export const parseChainId = (chainId: unknown): number => {
   const parsed = Number(chainId);
-  if (!Number.isFinite(parsed)) throw new HttpError(400, 'Invalid or missing chainId');
+  if (!Number.isFinite(parsed)) throw new HttpError(400, API_ERROR_MESSAGES.INVALID_CHAIN_ID);
   return parsed;
 };
 
+export const INVALID_AMOUNTS_ERROR = 'Amounts must be positive integers in base units';
+
+// Accepts any input BigInt() parses (routes convert with BigInt), so only zero/negative/unparsable values are rejected.
+export const isPositiveAmount = (amount: unknown): boolean => {
+  try {
+    return BigInt(amount as string) > 0n;
+  } catch {
+    return false;
+  }
+};
+
+export const isPositiveAmountList = (amounts: unknown): boolean =>
+  Array.isArray(amounts) && amounts.length > 0 && amounts.every(isPositiveAmount);
+
 export const resolveToken = (tokenAddress: unknown, chainId: number): ERC20Token => {
   const token = getERC20Token(String(tokenAddress), chainId);
-  if (!token) throw new HttpError(400, 'Token not found in registry for provided chainId');
+  if (!token) throw new HttpError(400, API_ERROR_MESSAGES.TOKEN_NOT_FOUND);
   return token;
 };
 
 export const resolvePrivateRecipient = async (to: string, chainId: number): Promise<string> => {
   if (isNativePlaceholderAddress(to)) {
-    throw new HttpError(400, 'Recipient must not be the native token placeholder address');
+    throw new HttpError(400, API_ERROR_MESSAGES.RECIPIENT_IS_NATIVE_PLACEHOLDER);
   }
 
   const [allocation] = await allocateRecipientInfos([toBase58IfTron(chainId, to)]);
@@ -107,21 +120,18 @@ export const resolvePrivateRecipient = async (to: string, chainId: number): Prom
   const existing = allocation?.recipientInfo;
   if (existing && isValidPrivateAddress(existing)) return existing;
 
-  throw new HttpError(400, 'Could not resolve private recipient info from provided public address');
+  throw new HttpError(400, API_ERROR_MESSAGES.RECIPIENT_INFO_NOT_RESOLVED);
 };
 
 export const resolveRecipientInfo = async (recipientInfo: string, chainId: number): Promise<string> => {
   if (isValidPrivateAddress(recipientInfo)) return recipientInfo;
 
   if (isNativePlaceholderAddress(recipientInfo)) {
-    throw new HttpError(400, 'recipientInfo must not be the native token placeholder address');
+    throw new HttpError(400, API_ERROR_MESSAGES.RECIPIENT_INFO_IS_NATIVE_PLACEHOLDER);
   }
 
   if (!isAddress(recipientInfo) && !isValidSolanaPublicKey(recipientInfo) && !isValidTronAddress(recipientInfo)) {
-    throw new HttpError(
-      400,
-      'recipientInfo must be a valid private recipient info, Ethereum address, Solana address, or Tron address',
-    );
+    throw new HttpError(400, API_ERROR_MESSAGES.INVALID_RECIPIENT_INFO);
   }
 
   // get private recipientInfo from ethereumAddress/solanaAddress/tronAddress
@@ -150,7 +160,10 @@ export const parseSlippagePercentage = (slippagePercentage?: number | string | n
 
   const parsed = Number(slippagePercentage);
   if (!Number.isFinite(parsed) || parsed < 0 || parsed > MAX_SLIPPAGE_PERCENTAGE) {
-    throw new HttpError(400, `slippagePercentage must be a number between 0 and ${MAX_SLIPPAGE_PERCENTAGE}`);
+    throw new HttpError(
+      400,
+      `${API_ERROR_MESSAGES.INVALID_SLIPPAGE}: must be between 0 and ${MAX_SLIPPAGE_PERCENTAGE}`,
+    );
   }
   return parsed;
 };
@@ -171,23 +184,26 @@ export const resolveAndValidateNearBridgeRequest = (
   slippagePercentage?: number | string | null,
 ): ValidatedNearBridgeRequest => {
   if (!isNearBridgeSupportedChain(sourceChainId) || !isNearBridgeSupportedChain(destChainId)) {
-    throw new HttpError(400, `Bridging from chain ${sourceChainId} to chain ${destChainId} is not supported`);
+    throw new HttpError(400, `${API_ERROR_MESSAGES.BRIDGE_ROUTE_NOT_SUPPORTED}: ${sourceChainId} -> ${destChainId}`);
   }
 
   const sourceToken = resolveToken(fromToken, sourceChainId);
   const destToken = resolveToken(toToken, destChainId);
   if (destChainId === sourceChainId && caseInsensitiveEqual(sourceToken.erc20TokenAddress, destToken.erc20TokenAddress))
-    throw new HttpError(400, 'fromToken and toToken must be different tokens when swapping on the same chain');
+    throw new HttpError(400, API_ERROR_MESSAGES.SAME_TOKEN_SWAP);
 
   const bridgeAmount = getAmountInWei(sourceToken, String(amount));
-  if (bridgeAmount <= 0n) throw new HttpError(400, 'amount must be greater than zero');
+  if (bridgeAmount <= 0n) throw new HttpError(400, API_ERROR_MESSAGES.AMOUNT_NOT_POSITIVE);
 
   const parsedSlippage = parseSlippagePercentage(slippagePercentage);
 
   const wallet = wallets.find((w) => caseInsensitiveEqual(walletAddressForChain(w, sourceChainId), fromAddress));
   const destinationRecipient = wallet && walletAddressForChain(wallet, destChainId);
   if (!destinationRecipient) {
-    throw new HttpError(400, `Wallet ${fromAddress} has no address on destination chain ${destChainId}`);
+    throw new HttpError(
+      400,
+      `${API_ERROR_MESSAGES.NO_ADDRESS_ON_DESTINATION_CHAIN}: wallet ${fromAddress}, chain ${destChainId}`,
+    );
   }
 
   return { sourceToken, destToken, bridgeAmount, parsedSlippage, destinationRecipient };
@@ -211,7 +227,7 @@ export const resolveAndValidatePublicSwapRequest = (
   ) {
     throw new HttpError(
       400,
-      `Bridging from chain ${parsedChainId} to chain ${parsedToChainId} is not supported. Supported chains: ${BRIDGE_SUPPORTED_CHAINS.join(', ')}`,
+      `${API_ERROR_MESSAGES.BRIDGE_ROUTE_NOT_SUPPORTED}: ${parsedChainId} -> ${parsedToChainId}, supported: ${BRIDGE_SUPPORTED_CHAINS.join(', ')}`,
     );
   }
 
@@ -219,11 +235,11 @@ export const resolveAndValidatePublicSwapRequest = (
   const outToken = resolveToken(toToken, parsedToChainId);
 
   if (!isCrossChain && caseInsensitiveEqual(inToken.erc20TokenAddress, outToken.erc20TokenAddress)) {
-    throw new HttpError(400, 'fromToken and toToken must be different tokens when swapping on the same chain');
+    throw new HttpError(400, API_ERROR_MESSAGES.SAME_TOKEN_SWAP);
   }
 
   const amountWei = getAmountInWei(inToken, String(amount));
-  if (amountWei <= 0n) throw new HttpError(400, 'amount must be greater than zero');
+  if (amountWei <= 0n) throw new HttpError(400, API_ERROR_MESSAGES.AMOUNT_NOT_POSITIVE);
 
   const parsedSlippage = parseSlippagePercentage(slippagePercentage);
 
@@ -246,25 +262,22 @@ export const resolveAndValidateSwapRequest = (
   const outToken = resolveToken(toToken, parsedToChainId);
 
   if (!isCrossChain && caseInsensitiveEqual(inToken.erc20TokenAddress, outToken.erc20TokenAddress)) {
-    throw new HttpError(400, 'fromToken and toToken must be different tokens when swapping on the same chain');
+    throw new HttpError(400, API_ERROR_MESSAGES.SAME_TOKEN_SWAP);
   }
 
   if (isCrossChain && (!isConfidentialBridgeChain(parsedChainId) || !isConfidentialBridgeChain(parsedToChainId))) {
     throw new HttpError(
       400,
-      `Cross-chain private swap is supported between these chains only: ${CONFIDENTIAL_BRIDGE_CHAINS.join(', ')}`,
+      `${API_ERROR_MESSAGES.CROSS_CHAIN_SWAP_NOT_SUPPORTED}, supported: ${CONFIDENTIAL_BRIDGE_CHAINS.join(', ')}`,
     );
   }
 
   if (isCrossChain && !caseInsensitiveEqual(inToken.symbol, outToken.symbol)) {
-    throw new HttpError(
-      400,
-      'Cross-chain private swap supports bridging the same token only (e.g. USDC on Ethereum to USDC on Base)',
-    );
+    throw new HttpError(400, API_ERROR_MESSAGES.CROSS_CHAIN_SWAP_SAME_TOKEN_ONLY);
   }
 
   const amountWei = getAmountInWei(inToken, String(amount));
-  if (amountWei <= 0n) throw new HttpError(400, 'amount must be greater than zero');
+  if (amountWei <= 0n) throw new HttpError(400, API_ERROR_MESSAGES.AMOUNT_NOT_POSITIVE);
 
   const parsedSlippage = parseSlippagePercentage(slippagePercentage);
 

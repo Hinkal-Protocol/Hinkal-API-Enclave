@@ -1,11 +1,11 @@
 import mongoose, { Schema } from 'mongoose';
-import { AdminTransactionType } from '@hinkal/common/types/admin.types';
+import { WaasPolicyAction } from '../constants/policyActions';
 import { EnclaveHmac, EnclaveHmacSchema } from './EnclaveHmacSchema';
 
 export interface PolicyRecord {
   policyId: string;
   userIds: string[];
-  actionType: AdminTransactionType;
+  actionType: WaasPolicyAction;
 }
 
 export interface Organization {
@@ -19,7 +19,7 @@ const PolicySchema = new Schema<PolicyRecord>(
   {
     policyId: { type: String, required: true },
     userIds: { type: [String], required: true, default: [] },
-    actionType: { type: String, enum: Object.values(AdminTransactionType), required: true },
+    actionType: { type: String, enum: Object.values(WaasPolicyAction), required: true },
   },
   { _id: false },
 );

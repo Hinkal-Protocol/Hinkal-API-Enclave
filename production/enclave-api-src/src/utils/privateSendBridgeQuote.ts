@@ -1,5 +1,6 @@
 import {
   AccountActions,
+  API_ERROR_MESSAGES,
   buildTempSubAccountForChain,
   caseInsensitiveEqual,
   CustomJSONParse,
@@ -7,6 +8,7 @@ import {
   DepositAndBridgeQuote,
   HttpError,
   IHinkal,
+  THROWN_ERROR_MESSAGES,
   toBase58IfTron,
 } from '@hinkal/common';
 import { DepositAndWithdrawRecipient, PrivateSendBridgeQuotePayload } from '../types';
@@ -42,7 +44,7 @@ export const parsePrivateSendBridgeQuote = (
   try {
     payload = CustomJSONParse(serializedQuote) as PrivateSendBridgeQuotePayload;
   } catch {
-    throw new HttpError(400, 'Invalid quote');
+    throw new HttpError(400, API_ERROR_MESSAGES.INVALID_QUOTE);
   }
 
   const { quote } = payload;
@@ -51,17 +53,17 @@ export const parsePrivateSendBridgeQuote = (
     quote.sourceChainId !== chainId ||
     !caseInsensitiveEqual(quote.sourceTokenAddress, tokenAddress)
   ) {
-    throw new HttpError(400, 'Quote was issued for a different sender, chain or token');
+    throw new HttpError(400, API_ERROR_MESSAGES.QUOTE_MISMATCH);
   }
   if (quote.lifiRecipients?.length && quote.nearLegs?.length) {
-    throw new HttpError(400, 'Quote must contain either lifiRecipients or nearLegs, not both');
+    throw new HttpError(400, API_ERROR_MESSAGES.QUOTE_BOTH_ROUTES);
   }
 
   const lifiRecipients = quote.lifiRecipients?.map((recipient) => {
     const sourceSubAccount = buildTempSubAccountForChain(hinkal, chainId, BigInt(recipient.temporarySubAccount.index));
     const ethAddress = AccountActions.getAddressFromSubAccount(chainId, sourceSubAccount);
     if (!sourceSubAccount.privateKey || !caseInsensitiveEqual(ethAddress, recipient.temporarySubAccount.ethAddress)) {
-      throw new Error('Failed to derive source temp wallet');
+      throw new Error(THROWN_ERROR_MESSAGES.FAILED_TO_DERIVE_SOURCE_TEMP_WALLET);
     }
     return {
       ...recipient,
@@ -98,5 +100,5 @@ export const assertQuoteMatchesRequest = (
     signed.length === quoted.length &&
     signed.every((key, i) => key === quoted[i]);
 
-  if (!matches) throw new HttpError(400, 'Destination or recipients do not match the quote');
+  if (!matches) throw new HttpError(400, API_ERROR_MESSAGES.QUOTE_DESTINATION_MISMATCH);
 };

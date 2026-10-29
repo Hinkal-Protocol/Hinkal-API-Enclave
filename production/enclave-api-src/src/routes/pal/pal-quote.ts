@@ -1,5 +1,6 @@
 import { Request, Response, Router } from 'express';
 import {
+  API_ERROR_MESSAGES,
   calculateTotalFee,
   ENCLAVE_PUBLIC_SEND_VARIABLE_RATE,
   ExternalActionId,
@@ -26,10 +27,10 @@ router.post('/pal/quote', palApiKeyMiddleware, async (req: Request, res: Respons
 
   try {
     const parsed = Number(chainId);
-    if (!Number.isFinite(parsed)) throw new HttpError(400, 'Invalid chainId');
+    if (!Number.isFinite(parsed)) throw new HttpError(400, API_ERROR_MESSAGES.INVALID_CHAIN_ID);
 
     const token = getERC20Token(String(sourceAssetId), parsed);
-    if (!token) throw new HttpError(400, 'Token not found in registry for provided chainId');
+    if (!token) throw new HttpError(400, API_ERROR_MESSAGES.TOKEN_NOT_FOUND);
 
     const recipientAmount = getAmountInWei(token, String(amount));
 

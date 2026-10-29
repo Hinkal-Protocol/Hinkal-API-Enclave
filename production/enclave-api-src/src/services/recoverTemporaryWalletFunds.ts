@@ -5,6 +5,7 @@ import {
   ContractType,
   DerivedTempWallet,
   deriveTempWallet,
+  DIRECTLY_SHOW_MESSAGE_ERROR_CODES,
   ERC20Token,
   ExternalActionId,
   getContractAddress,
@@ -18,6 +19,7 @@ import {
   Logger,
   TemporaryWalletNonceEntry,
   TemporaryWalletRecoveryDestination,
+  THROWN_ERROR_MESSAGES,
   zeroAddress,
 } from '@hinkal/common';
 import { hinkalInitializerService } from './hinkalInitializerService';
@@ -31,13 +33,13 @@ import {
 
 const buildRecoveryCalls = (hinkal: Hinkal<unknown>, chainId: number, ethAddress: string, tokenAddress: string) => {
   const hinkalContract = hinkal.getContractWithFetcher(chainId, ContractType.HinkalContract);
-  if (!hinkalContract) throw new Error('Hinkal contract not found');
+  if (!hinkalContract) throw new Error(THROWN_ERROR_MESSAGES.HINKAL_CONTRACT_NOT_FOUND);
 
   if (tokenAddress === zeroAddress)
     return [{ from: ethAddress, to: getContractAddress(hinkalContract), calldata: '0x', value: 1n }];
 
   const { interface: erc20Interface } = hinkal.getContractWithFetcher(chainId, ContractType.ERC20Contract, zeroAddress);
-  if (!erc20Interface) throw new Error('ERC20 interface not found');
+  if (!erc20Interface) throw new Error(THROWN_ERROR_MESSAGES.ERC20_INTERFACE_NOT_FOUND);
 
   return [
     {
@@ -82,7 +84,7 @@ const recoverTemporaryWalletBalance = async (
   };
 
   const recoveredAmount = amount - calculateTotalFee(amount, feeStructure);
-  if (recoveredAmount <= 0n) throw new Error('Insufficient funds to cover recovery fees');
+  if (recoveredAmount <= 0n) throw new Error(DIRECTLY_SHOW_MESSAGE_ERROR_CODES.INSUFFICIENT_FUNDS_FOR_RECOVERY_FEES);
 
   await hinkal.resetMerkleTreesIfNecessary([chainId]);
 

@@ -1,5 +1,5 @@
 /* eslint-disable no-await-in-loop, no-restricted-syntax */
-import { getErrorMessage, ReceiveVaultBlockedFund } from '@hinkal/common';
+import { getErrorMessage, ReceiveVaultBlockedFund, THROWN_ERROR_MESSAGES } from '@hinkal/common';
 import { hinkalInitializerService } from './hinkalInitializerService';
 import { confirmBroadcastTransaction } from '../utils/transactionHelpers';
 import {
@@ -57,7 +57,8 @@ export const recoverReceiveVaultFunds = ({
         const fund = toReceiveVaultFund(blockedFund);
         try {
           const txHash = await hinkal.recoverReceiveVault(blockedFund.record, fund.tokenAddress, chainId, fromAddress);
-          if (typeof txHash !== 'string') throw new Error('Receive vault recovery returned no transaction hash');
+          if (typeof txHash !== 'string')
+            throw new Error(THROWN_ERROR_MESSAGES.RECEIVE_VAULT_RECOVERY_RETURNED_NO_TRANSACTION_HASH);
           await confirmBroadcastTransaction(chainId, txHash);
           recovered.push({ ...fund, txHash });
         } catch (error) {

@@ -3,7 +3,7 @@ import { isSolanaLike, isTronLike } from '@hinkal/common/constants/chains.consta
 import { zeroAddress } from '@hinkal/common/constants/protocol.constants';
 import { getAmountInToken, getAmountInWei } from '@hinkal/common/functions/web3/etherFunctions';
 import { caseInsensitiveEqual } from '@hinkal/common/functions/utils/caseInsensitive.utils';
-import { HttpError } from '@hinkal/common';
+import { API_ERROR_MESSAGES, HttpError } from '@hinkal/common';
 import {
   confirmBroadcastTransaction,
   hasMissingSwapFields,
@@ -23,7 +23,7 @@ import {
 import { buildSolanaSigner } from '../../utils/solana-wallet.utils';
 import { sendError } from '../../utils/routeError';
 import { xStampMiddleware } from '../../middleware';
-import { requireActionPermission, resolveTargetUser } from '../../utils';
+import { assertAddressForChain, requireActionPermission, resolveTargetUser } from '../../utils';
 import { WaasPolicyAction } from '../../constants/policyActions';
 import { executeEvmSwap, executeSolanaSwap } from '../../services/executePublicSwap';
 import { executeNearBridgeDeposit } from '../../services/executeNearBridgeDeposit';
@@ -93,7 +93,7 @@ router.post('/waas/wallet/sign-typed-data', xStampMiddleware, async (req: Reques
     const parsedChainId = parseChainId(chainId);
 
     if (isSolanaLike(parsedChainId) || isTronLike(parsedChainId)) {
-      throw new HttpError(400, 'sign-typed-data is only supported on EVM chains');
+      throw new HttpError(400, API_ERROR_MESSAGES.SIGN_TYPED_DATA_EVM_ONLY);
     }
 
     const { signer } = await buildEvmSigner(signerPublicKey, organizationId, userId, fromAddress, parsedChainId);
@@ -121,6 +121,7 @@ router.post('/waas/wallet/send', xStampMiddleware, async (req: Request, res: Res
     requireActionPermission(authorizedUser, WaasPolicyAction.SIGN_TRANSACTION);
 
     const parsedChainId = parseChainId(chainId);
+    assertAddressForChain(to, 'to', parsedChainId);
     const token = resolveToken(tokenAddress, parsedChainId);
     const parsedAmount = getAmountInWei(token, String(amount));
 
@@ -160,8 +161,9 @@ router.post('/waas/wallet/contract/approve', xStampMiddleware, async (req: Reque
     const parsedChainId = parseChainId(chainId);
 
     if (isSolanaLike(parsedChainId)) {
-      throw new HttpError(400, 'Solana token approval uses a different model — not supported via this route');
+      throw new HttpError(400, API_ERROR_MESSAGES.SOLANA_APPROVAL_UNSUPPORTED);
     }
+    assertAddressForChain(spender, 'spender', parsedChainId);
 
     const token = resolveToken(tokenAddress, parsedChainId);
     const parsedAmount = getAmountInWei(token, String(amount));
@@ -220,12 +222,12 @@ router.post('/waas/wallet/contract/execute', xStampMiddleware, async (req: Reque
     const parsedChainId = parseChainId(chainId);
 
     if (isSolanaLike(parsedChainId)) {
-      throw new HttpError(400, 'Solana does not use contract calldata — use POST /waas/wallet/solana/execute instead');
+      throw new HttpError(400, API_ERROR_MESSAGES.SOLANA_NO_CALLDATA);
     }
 
     if (isTronLike(parsedChainId)) {
       if (!functionSelector || !Array.isArray(parameters)) {
-        throw new HttpError(400, 'Tron contract execute requires functionSelector and parameters array');
+        throw new HttpError(400, API_ERROR_MESSAGES.TRON_EXECUTE_PARAMS_REQUIRED);
       }
       const { tronWeb } = await buildTronSigner(signerPublicKey, organizationId, userId, fromAddress, parsedChainId);
       const tx = await buildTronExecuteTransaction(
@@ -242,7 +244,7 @@ router.post('/waas/wallet/contract/execute', xStampMiddleware, async (req: Reque
       return;
     }
 
-    if (!data) throw new HttpError(400, 'EVM contract execute requires data (hex calldata)');
+    if (!data) throw new HttpError(400, API_ERROR_MESSAGES.EVM_EXECUTE_DATA_REQUIRED);
     const { signer, provider } = await buildEvmSigner(
       signerPublicKey,
       organizationId,

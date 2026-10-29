@@ -1,4 +1,4 @@
-import { HttpError } from '@hinkal/common';
+import { API_ERROR_MESSAGES, HttpError } from '@hinkal/common';
 import { OrganizationUser, UserRole } from '../models/OrganizationUserSchema';
 import { OrganizationUserDocuments } from '../services/organizationDocumentService';
 
@@ -6,19 +6,20 @@ export const findSignerOrThrow = async (organizationId: string, signerPublicKey:
   OrganizationUserDocuments.getByPublicKey(organizationId, signerPublicKey);
 
 export const requireRoot = (signer: OrganizationUser, action: string): void => {
-  if (signer.role !== UserRole.Root) throw new HttpError(403, `Only root users can ${action}`);
+  if (signer.role !== UserRole.Root) throw new HttpError(403, `${API_ERROR_MESSAGES.ROOT_ONLY}: ${action}`);
 };
 
 export const requireActionPermission = (caller: OrganizationUser, action: string): void => {
   if (caller.role === UserRole.Root) return;
   const allowedActions = caller.allowedActions ?? [];
   if (!allowedActions.includes(action)) {
-    throw new HttpError(403, `${action} not permitted`);
+    throw new HttpError(403, `${API_ERROR_MESSAGES.ACTION_NOT_PERMITTED}: ${action}`);
   }
 };
 
 export const requireRootOrSelf = (signer: OrganizationUser, userId: string): void => {
-  if (signer.role !== UserRole.Root && signer.userId !== userId) throw new HttpError(403, 'Access denied');
+  if (signer.role !== UserRole.Root && signer.userId !== userId)
+    throw new HttpError(403, API_ERROR_MESSAGES.ACCESS_DENIED);
 };
 
 export const resolveTargetUser = async (

@@ -1,4 +1,4 @@
-import { AdminTransactionType } from '@hinkal/common';
+import { WaasPolicyAction } from '../constants/policyActions';
 
 export type CreateOrganizationRequestBody = {
   organizationName: string;
@@ -16,7 +16,7 @@ export type CreateWalletRequestBody = {
 
 export type AddPolicyRequestBody = {
   organizationId: string;
-  policy: { userIds: string[]; actionType: AdminTransactionType };
+  policy: { userIds: string[]; actionType: WaasPolicyAction };
 };
 
 export type RemovePolicyRequestBody = {
@@ -27,5 +27,5 @@ export type RemovePolicyRequestBody = {
 export type UpdatePolicyRequestBody = {
   organizationId: string;
   policyId: string;
-  newPolicy: { userIds: string[]; actionType: AdminTransactionType };
+  newPolicy: { userIds: string[]; actionType: WaasPolicyAction };
 };

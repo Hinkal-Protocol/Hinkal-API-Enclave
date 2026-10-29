@@ -66,7 +66,9 @@ export const createSessionMiddleware = async (req: Request, res: Response, next:
     }
 
     if (sessionResult === EnclaveSessionValidationResult.CONFLICT) {
-      res.status(409).json({ error: 'Session already registered for a different owner' });
+      res.status(409).json({
+        error: 'Session already registered with a different owner or key. Create a new session with a new sessionId',
+      });
       return;
     }
 

@@ -4,6 +4,7 @@ import { getLifiChainId } from '@hinkal/common/constants/lifi.constants';
 import { toTronBase58IfHex } from '@hinkal/common/functions/utils/tron.utils';
 import { getAmountInWei } from '@hinkal/common/functions/web3/etherFunctions';
 import { ERC20Token } from '@hinkal/common/types/token.types';
+import { UserFriendlyErrorCodes } from '@hinkal/common/error-handling/error-codes.constants';
 import { resolveBridgeSlippagePercent } from '../utils/bridgeSlippage';
 
 type GetPublicSwapQuoteParams = {
@@ -49,7 +50,7 @@ export const getPublicSwapQuote = async ({
   };
 
   const { lifiResponse } = await callLifiAPI(request);
-  if (!lifiResponse?.transactionRequest?.data) throw new Error('LiFi API fetch error');
+  if (!lifiResponse?.transactionRequest?.data) throw new Error(UserFriendlyErrorCodes.NO_LIFI_PRICE);
 
   const { approvalAddress } = lifiResponse.estimate;
 

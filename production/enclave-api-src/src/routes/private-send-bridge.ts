@@ -1,4 +1,5 @@
 import {
+  API_ERROR_MESSAGES,
   BRIDGE_SUPPORTED_CHAINS,
   caseInsensitiveEqual,
   ENCLAVE_PUBLIC_SEND_VARIABLE_RATE,
@@ -7,10 +8,7 @@ import {
   GetPrivateSendBridgeQuoteResponse,
   hinkalLifiBridgeDepositPrepare,
   HttpError,
-  isNativePlaceholderAddress,
-  isRecipientAddressInvalid,
-  isSolanaLike,
-  isTronLike,
+  isValidAddressForChain,
   Logger,
   PrivateSendBridgeResponse,
   secondsToMs,
@@ -41,8 +39,9 @@ import {
   serializeEvmTx,
 } from '../utils/depositAndWithdrawHelpers';
 import { getDepositAndWithdrawOrderStatus } from '../utils/getDepositAndWithdrawOrderStatus';
-import { parseSlippagePercentage } from '../utils/transactionHelpers';
+import { INVALID_AMOUNTS_ERROR, isPositiveAmountList, parseSlippagePercentage } from '../utils/transactionHelpers';
 import { resolveRouteError } from '../utils/routeError';
+import { invalidAddressMessage } from '../utils/queryGuards';
 import { encryptLargeField } from '../utils/orderFieldEncryption';
 import { PRIVATE_SEND_BRIDGE_QUOTE_TTL_MS } from '../constants/swap.constants';
 
@@ -74,13 +73,8 @@ router.get(
         return;
       }
 
-      if (recipientAddresses.some((address) => typeof address !== 'string' || !address)) {
-        res.status(400).json({ success: false, error: 'Invalid recipient address' });
-        return;
-      }
-
-      if (amounts.some((amount) => typeof amount !== 'string' || !/^\d+$/.test(amount) || BigInt(amount) === 0n)) {
-        res.status(400).json({ success: false, error: 'Bridge amount must be a positive integer in base units' });
+      if (!isPositiveAmountList(amounts)) {
+        res.status(400).json({ success: false, error: INVALID_AMOUNTS_ERROR });
         return;
       }
 
@@ -95,21 +89,10 @@ router.get(
         return;
       }
 
-      if (recipientAddresses.some((address) => isNativePlaceholderAddress(address, destinationChainId))) {
+      if (recipientAddresses.some((address) => !isValidAddressForChain(destinationChainId, address))) {
         res
           .status(400)
-          .json({ success: false, error: 'Recipient address must not be the native token placeholder address' });
-        return;
-      }
-
-      if (
-        recipientAddresses.some((address) =>
-          isRecipientAddressInvalid(address, isSolanaLike(destinationChainId), isTronLike(destinationChainId)),
-        )
-      ) {
-        res
-          .status(400)
-          .json({ success: false, error: `Recipient address is not valid on chain ${destinationChainId}` });
+          .json({ success: false, error: invalidAddressMessage('recipientAddresses', destinationChainId) });
         return;
       }
 
@@ -188,6 +171,11 @@ router.post(
       return;
     }
 
+    if (!Array.isArray(recipients) || !isPositiveAmountList(recipients.map((r) => r?.amount))) {
+      res.status(400).json({ success: false, error: INVALID_AMOUNTS_ERROR });
+      return;
+    }
+
     if (ref !== undefined && !WHITELISTED_REFERRALS.includes(ref)) {
       res.status(400).json({ success: false, error: `Invalid ref: '${ref}' is not a whitelisted referral` });
       return;
@@ -207,7 +195,7 @@ router.post(
         await hinkalInitializerService.withHinkalForAddress(address, chainId, async (hinkal) => {
           const decoded = parsePrivateSendBridgeQuote(hinkal, quote, address, chainId, token.erc20TokenAddress);
           if (Date.now() - decoded.issuedAt > PRIVATE_SEND_BRIDGE_QUOTE_TTL_MS) {
-            throw new HttpError(400, 'Quote has expired');
+            throw new HttpError(400, API_ERROR_MESSAGES.QUOTE_EXPIRED);
           }
           assertQuoteMatchesRequest(decoded.quote, destinationChainId, destinationTokenAddress, recipients);
           const { lifiRecipients, nearLegs = [], expectedAmounts } = decoded.quote;
@@ -232,7 +220,7 @@ router.post(
           // Solana/Tron sources bridge through NEAR Intents: a private send to the 1Click deposit addresses.
           const executionTimeMs = secondsToMs(decoded.txCompletionTime);
           if (nearLegs.some((leg) => leg.quote.deadline && new Date(leg.quote.deadline).getTime() < executionTimeMs)) {
-            throw new HttpError(400, 'Bridge quote expires before the scheduled execution time. Choose a sooner time.');
+            throw new HttpError(400, API_ERROR_MESSAGES.BRIDGE_QUOTE_EXPIRES_BEFORE_EXECUTION);
           }
 
           const nearRecipients = nearLegs.map((leg) => ({

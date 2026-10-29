@@ -1,6 +1,6 @@
 import { Request, Response, Router } from 'express';
 import { isSolanaLike } from '@hinkal/common/constants/chains.constants';
-import { HttpError } from '@hinkal/common';
+import { API_ERROR_MESSAGES, HttpError } from '@hinkal/common';
 import { confirmBroadcastTransaction, parseChainId } from '../../utils/transactionHelpers';
 import { buildSolanaSigner, signAndSendSerializedSolanaTransaction } from '../../utils/solana-wallet.utils';
 import { sendError } from '../../utils/routeError';
@@ -28,7 +28,7 @@ router.post('/waas/wallet/solana/execute', xStampMiddleware, async (req: Request
     requireActionPermission(authorizedUser, WaasPolicyAction.SIGN_TRANSACTION);
 
     const parsedChainId = parseChainId(chainId);
-    if (!isSolanaLike(parsedChainId)) throw new HttpError(400, 'chainId is not a Solana chain');
+    if (!isSolanaLike(parsedChainId)) throw new HttpError(400, API_ERROR_MESSAGES.NOT_SOLANA_CHAIN);
 
     const { signer, connection } = await buildSolanaSigner(
       signerPublicKey,

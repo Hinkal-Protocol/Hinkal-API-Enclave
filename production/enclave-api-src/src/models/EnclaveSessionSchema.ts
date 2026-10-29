@@ -1,4 +1,4 @@
-import { EnclaveSessionAuthMode } from '@hinkal/common';
+import { caseInsensitiveEqual, EnclaveSessionAuthMode } from '@hinkal/common';
 import mongoose, { Schema } from 'mongoose';
 import { MONGO_DUPLICATE_KEY_ERROR } from '../constants';
 import { sealDocument, toRecord, verifyRawDoc } from '../utils/documentSigning';
@@ -52,6 +52,11 @@ export const getEnclaveSession = async (sessionId: string): Promise<EnclaveSessi
 const sessionValidationResult = (session: EnclaveSession): EnclaveSessionValidationResult =>
   isEnclaveSessionActive(session) ? EnclaveSessionValidationResult.VALID : EnclaveSessionValidationResult.EXPIRED;
 
+const isSameSession = (session: EnclaveSession, params: OpenEnclaveSessionParams): boolean =>
+  session.address === params.address &&
+  session.authMode === params.authMode &&
+  caseInsensitiveEqual(session.clientPublicKey, params.clientPublicKey);
+
 export const openEnclaveSession = async (params: OpenEnclaveSessionParams): Promise<EnclaveSessionValidationResult> => {
   const now = new Date();
   const existing = await getEnclaveSession(params.sessionId);
@@ -61,9 +66,9 @@ export const openEnclaveSession = async (params: OpenEnclaveSessionParams): Prom
       return EnclaveSessionValidationResult.EXPIRED;
     }
 
-    const isSameSession = existing.address === params.address && existing.authMode === params.authMode;
-
-    return isSameSession ? EnclaveSessionValidationResult.VALID : EnclaveSessionValidationResult.CONFLICT;
+    return isSameSession(existing, params)
+      ? EnclaveSessionValidationResult.VALID
+      : EnclaveSessionValidationResult.CONFLICT;
   }
 
   const expiresAt =
@@ -91,8 +96,7 @@ export const openEnclaveSession = async (params: OpenEnclaveSessionParams): Prom
       return EnclaveSessionValidationResult.ERROR;
     }
 
-    const isSameSession = raced.address === params.address && raced.authMode === params.authMode;
-    if (!isSameSession) {
+    if (!isSameSession(raced, params)) {
       return EnclaveSessionValidationResult.CONFLICT;
     }
 

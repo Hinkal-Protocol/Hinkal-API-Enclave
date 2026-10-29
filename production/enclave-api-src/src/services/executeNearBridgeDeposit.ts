@@ -1,4 +1,4 @@
-import { HttpError } from '@hinkal/common';
+import { API_ERROR_MESSAGES, HttpError } from '@hinkal/common';
 import { getNearIntentsQuote } from '@hinkal/common/API/callNearIntentsAPI';
 import {
   NEAR_BRIDGE_QUOTE_DEADLINE_BUFFER_MS,
@@ -44,7 +44,7 @@ export const executeNearBridgeDeposit = async (params: NearBridgeDepositParams):
     refundType: 'ORIGIN_CHAIN',
     deadline: new Date(Date.now() + NEAR_BRIDGE_QUOTE_DEADLINE_BUFFER_MS).toISOString(),
   });
-  if (!quote.depositAddress) throw new HttpError(502, 'NEAR Intents quote returned no deposit address');
+  if (!quote.depositAddress) throw new HttpError(502, API_ERROR_MESSAGES.NEAR_NO_DEPOSIT_ADDRESS);
 
   const txHash = await executeWalletTransfer({
     signerPublicKey,

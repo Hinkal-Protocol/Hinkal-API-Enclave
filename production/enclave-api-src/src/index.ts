@@ -7,7 +7,12 @@ import {
   setCustomUtxoProvider,
   setDataServerServiceKey,
 } from '@hinkal/common';
-import { applyPaidRpcUrlOverrides, MONGO_CONNECTION_OPTIONS, setServerSettings } from '@hinkal/backend-common';
+import {
+  applyPaidRpcUrlOverrides,
+  errorResponseMiddleware,
+  MONGO_CONNECTION_OPTIONS,
+  setServerSettings,
+} from '@hinkal/backend-common';
 import cors from 'cors';
 import express, { json } from 'express';
 import mongoose from 'mongoose';
@@ -25,6 +30,7 @@ applyPaidRpcUrlOverrides();
 
 const app = express();
 
+app.use(cors({ exposedHeaders: [HEADER_ENCLAVE_SIGNATURE] }));
 app.use(
   json({
     limit: '10mb',
@@ -34,10 +40,10 @@ app.use(
     },
   }),
 );
-app.use(cors({ exposedHeaders: [HEADER_ENCLAVE_SIGNATURE] }));
 app.use(express.text({ type: '*/*', limit: '50mb' }));
 
 loadRoutes(app);
+app.use(errorResponseMiddleware);
 
 if (DEPLOYMENT_MODE !== 'development') {
   setCustomProofGenerator(generateProof);

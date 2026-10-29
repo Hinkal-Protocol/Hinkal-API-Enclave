@@ -21,6 +21,7 @@ import {
   PollingSolanaBlockchainEventEmitter,
   SOLANA_MAX_SUPPORTED_TX_VERSION,
   solanaNativeAddress,
+  THROWN_ERROR_MESSAGES,
 } from '@hinkal/common';
 import { getContract, getRpcProvider, Web3Contracts } from '@hinkal/backend-common';
 import { PAL_EVENTS_INITIAL_BLOCK_BY_CHAIN } from '../constants/palInitialBlocks';
@@ -283,7 +284,7 @@ class EnclaveDepositListenerService {
     scannedToBlock?: number,
   ): Promise<number> {
     const connection = this.solanaConnection;
-    if (!connection) throw new Error(`[EnclaveDepositListenerService] Solana connection not initialized`);
+    if (!connection) throw new Error(THROWN_ERROR_MESSAGES.SOLANA_CONNECTION_NOT_INITIALIZED);
 
     await this.confirmSolanaReceiveVaultRecoveries(chainId, events);
 

@@ -2,7 +2,7 @@ import {
   DepositAndWithdrawResponse,
   ENCLAVE_PUBLIC_SEND_VARIABLE_RATE,
   getErrorMessage,
-  isNativePlaceholderAddress,
+  isValidAddressForChain,
   Logger,
 } from '@hinkal/common';
 import { Request, Response, Router } from 'express';
@@ -24,6 +24,8 @@ import {
   prepareDepositAndWithdrawTx,
 } from '../utils/depositAndWithdrawHelpers';
 import { getDepositAndWithdrawOrderStatus } from '../utils/getDepositAndWithdrawOrderStatus';
+import { INVALID_AMOUNTS_ERROR, isPositiveAmountList } from '../utils/transactionHelpers';
+import { invalidAddressMessage } from '../utils/queryGuards';
 
 const router = Router();
 
@@ -47,15 +49,18 @@ router.post(
       return;
     }
 
+    if (!Array.isArray(recipients) || !isPositiveAmountList(recipients.map((r) => r?.amount))) {
+      res.status(400).json({ success: false, error: INVALID_AMOUNTS_ERROR });
+      return;
+    }
+
     if (ref !== undefined && !WHITELISTED_REFERRALS.includes(ref)) {
       res.status(400).json({ success: false, error: `Invalid ref: '${ref}' is not a whitelisted referral` });
       return;
     }
 
-    if (recipients.some((r) => isNativePlaceholderAddress(r.address, chainId))) {
-      res
-        .status(400)
-        .json({ success: false, error: 'Recipient address must not be the native token placeholder address' });
+    if (recipients.some((r) => !isValidAddressForChain(chainId, r?.address))) {
+      res.status(400).json({ success: false, error: invalidAddressMessage('recipientAddress', chainId) });
       return;
     }
 

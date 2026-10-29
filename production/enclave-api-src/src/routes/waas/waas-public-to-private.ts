@@ -1,3 +1,4 @@
+import { API_ERROR_MESSAGES } from '@hinkal/common';
 import { Request, Response, Router } from 'express';
 import { isTronLike } from '@hinkal/common/constants/chains.constants';
 import { constructStealthAddressStructure } from '@hinkal/common/functions/utils/addresses';
@@ -63,7 +64,7 @@ router.post('/waas/public-to-private', xStampMiddleware, async (req: Request, re
     );
 
     const txHash = getSubmittedTxHash(tx);
-    if (!txHash) throw new HttpError(500, 'Deposit was submitted but returned no transaction hash');
+    if (!txHash) throw new HttpError(500, API_ERROR_MESSAGES.DEPOSIT_NO_TX_HASH);
     await confirmBroadcastTransaction(parsedChainId, txHash);
 
     ensureRecipientInfoPoolForApiInBackground(organizationId, userId, fromAddress, signerPublicKey, parsedChainId);

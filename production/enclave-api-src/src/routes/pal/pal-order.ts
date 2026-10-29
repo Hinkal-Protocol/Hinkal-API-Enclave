@@ -2,6 +2,7 @@ import { ethers } from 'ethers';
 import crypto from 'crypto';
 import { Request, Response, Router } from 'express';
 import {
+  API_ERROR_MESSAGES,
   ENCLAVE_PUBLIC_SEND_VARIABLE_RATE,
   ExternalActionId,
   getAmountInWei,
@@ -10,7 +11,6 @@ import {
   hinkalPalSolanaDepositPrepare,
   hinkalPalTronDepositPrepare,
   HttpError,
-  isNativePlaceholderAddress,
   isSolanaLike,
   isTronLike,
   Logger,
@@ -25,6 +25,7 @@ import { hinkalInitializerService } from '../../services/hinkalInitializerServic
 import { sealDocument } from '../../utils/documentSigning';
 import { encryptField } from '../../utils/orderFieldEncryption';
 import { sendError } from '../../utils/routeError';
+import { assertAddressForChain } from '../../utils/queryGuards';
 import { palApiKeyMiddleware } from '../../middleware/palApiKeyMiddleware';
 import { getERC20Token } from '@hinkal/erc20-registry';
 
@@ -43,14 +44,12 @@ router.post('/pal/order', palApiKeyMiddleware, async (req: Request, res: Respons
 
   try {
     const parsed = Number(chainId);
-    if (!Number.isFinite(parsed)) throw new HttpError(400, 'Invalid chainId');
+    if (!Number.isFinite(parsed)) throw new HttpError(400, API_ERROR_MESSAGES.INVALID_CHAIN_ID);
 
-    if (isNativePlaceholderAddress(String(recipientAddress), parsed)) {
-      throw new HttpError(400, 'recipientAddress must not be the native token placeholder address');
-    }
+    assertAddressForChain(recipientAddress, 'recipientAddress', parsed);
 
     const token = getERC20Token(String(sourceAssetId), parsed);
-    if (!token) throw new HttpError(400, 'Token not found in registry for provided chainId');
+    if (!token) throw new HttpError(400, API_ERROR_MESSAGES.TOKEN_NOT_FOUND);
 
     const recipientAmount = getAmountInWei(token, String(amount));
     const orderId = crypto.randomUUID();

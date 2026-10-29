@@ -9,7 +9,7 @@ import {
 import bs58 from 'bs58';
 import nacl from 'tweetnacl';
 import { SolanaWallet } from '@hinkal/common/types/solana.types';
-import { sendV1Transaction } from '@hinkal/common';
+import { sendV1Transaction, THROWN_ERROR_MESSAGES } from '@hinkal/common';
 
 export class SolanaLocalSigner implements SolanaWallet {
   private readonly keypair: Keypair;
@@ -17,7 +17,7 @@ export class SolanaLocalSigner implements SolanaWallet {
   constructor(secretKeyBase58: string, publicKeyBase58: string) {
     this.keypair = Keypair.fromSecretKey(bs58.decode(secretKeyBase58));
     if (this.keypair.publicKey.toBase58() !== publicKeyBase58) {
-      throw new Error('Solana keypair does not match wallet address');
+      throw new Error(THROWN_ERROR_MESSAGES.SOLANA_KEYPAIR_DOES_NOT_MATCH_WALLET_ADDRESS);
     }
   }
 

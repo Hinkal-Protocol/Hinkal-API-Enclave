@@ -2,7 +2,7 @@ import { walletOwnershipMiddleware, xStampMiddleware } from '../../middleware';
 import { parseQueryParams } from '../../utils/request.utils';
 import { parseChainId } from '../../utils/transactionHelpers';
 import { fetchPrivateBalances, fetchPublicBalances } from '../../utils/balance.utils';
-import { Logger } from '@hinkal/common';
+import { getErrorMessage, Logger } from '@hinkal/common';
 import { Request, Response, Router } from 'express';
 
 const router = Router();
@@ -14,7 +14,7 @@ router.get('/waas/public-balance', async (req: Request, res: Response) => {
     const data = await fetchPublicBalances(walletAddress, parseChainId(chainId));
     res.send({ status: 'success', data });
   } catch (err: unknown) {
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    const errorMessage = getErrorMessage(err);
     Logger.error('Error fetching public balances:', err);
     res.status(500).send({ status: 'error', message: 'public balance fetch failed', error: errorMessage });
   }
@@ -44,7 +44,7 @@ router.get(
       );
       res.send({ status: 'success', data });
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      const errorMessage = getErrorMessage(err);
       Logger.error('Error fetching private balances:', err);
       res.status(500).send({ status: 'error', message: 'private balance fetch failed', error: errorMessage });
     }
@@ -67,7 +67,7 @@ router.get(
       const data = await fetchPrivateBalances(organizationId, userId, signerPublicKey, walletAddress, undefined, true);
       res.send({ status: 'success', data });
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      const errorMessage = getErrorMessage(err);
       Logger.error('Error fetching stuck UTXO balances:', err);
       res.status(500).send({ status: 'error', message: 'stuck UTXO balance fetch failed', error: errorMessage });
     }

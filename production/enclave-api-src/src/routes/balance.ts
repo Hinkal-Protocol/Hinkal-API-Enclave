@@ -1,4 +1,4 @@
-import { BalanceResponse, getErrorMessage } from '@hinkal/common';
+import { BalanceResponse, getErrorMessage, THROWN_ERROR_MESSAGES } from '@hinkal/common';
 import { Request, Response, Router } from 'express';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { verifyReadOnlySignatureMiddleware } from '../middleware';
@@ -17,7 +17,8 @@ router.get(
         async (hinkal) => {
           const balancesByChain = await hinkal.getTotalBalances([chainIdNum], undefined, undefined, false, true);
           const chainBalances = balancesByChain.get(chainIdNum);
-          if (!chainBalances) throw new Error(`Failed to fetch balances for chainId ${chainIdNum}`);
+          if (!chainBalances)
+            throw new Error(`${THROWN_ERROR_MESSAGES.FAILED_TO_FETCH_BALANCES_FOR_CHAINID}: ${chainIdNum}`);
           return chainBalances;
         },
       );
@@ -48,7 +49,8 @@ router.get(
         async (hinkal) => {
           const balancesByChain = await hinkal.getTotalBalances([chainIdNum], undefined, undefined, false, true, true);
           const chainBalances = balancesByChain.get(chainIdNum);
-          if (!chainBalances) throw new Error(`Failed to fetch stuck balances for chainId ${chainIdNum}`);
+          if (!chainBalances)
+            throw new Error(`${THROWN_ERROR_MESSAGES.FAILED_TO_FETCH_STUCK_BALANCES_FOR_CHAINID}: ${chainIdNum}`);
           return chainBalances;
         },
       );

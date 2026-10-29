@@ -1,5 +1,7 @@
 import { Request, Response, Router } from 'express';
+import { HttpError } from '@hinkal/common';
 import { PolicyRecord } from '../../models/OrganizationSchema';
+import { WaasPolicyAction } from '../../constants/policyActions';
 import {
   addOrganizationPolicy,
   removeOrganizationPolicy,
@@ -14,6 +16,19 @@ import { xStampMiddleware } from '../../middleware/xStamp';
 
 const router = Router();
 
+const POLICY_ACTIONS = Object.values(WaasPolicyAction);
+
+const parsePolicy = (policy: unknown): Omit<PolicyRecord, 'policyId'> => {
+  const { userIds, actionType } = (policy ?? {}) as Record<string, unknown>;
+  if (!Array.isArray(userIds) || !userIds.every((userId) => typeof userId === 'string' && userId)) {
+    throw new HttpError(400, 'Invalid userIds: must be an array of user IDs');
+  }
+  if (!POLICY_ACTIONS.includes(actionType as WaasPolicyAction)) {
+    throw new HttpError(400, `Invalid actionType: must be one of ${POLICY_ACTIONS.join(', ')}`);
+  }
+  return { userIds, actionType: actionType as WaasPolicyAction };
+};
+
 router.post('/waas/add-policy', xStampMiddleware, async (req: Request, res: Response) => {
   const body = req.body as AddPolicyRequestBody;
 
@@ -26,11 +41,7 @@ router.post('/waas/add-policy', xStampMiddleware, async (req: Request, res: Resp
     const signer = await findSignerOrThrow(body.organizationId, res.locals.signerPublicKey as string);
     requireRoot(signer, 'add policy');
 
-    const policyDoc: PolicyRecord = {
-      policyId: uuidv4(),
-      userIds: body.policy.userIds,
-      actionType: body.policy.actionType,
-    };
+    const policyDoc: PolicyRecord = { policyId: uuidv4(), ...parsePolicy(body.policy) };
 
     const policies = await addOrganizationPolicy(body.organizationId, policyDoc);
 
@@ -78,11 +89,7 @@ router.post('/waas/update-policy', xStampMiddleware, async (req: Request, res: R
     const signer = await findSignerOrThrow(body.organizationId, res.locals.signerPublicKey as string);
     requireRoot(signer, 'update policy');
 
-    const newPolicyDoc: PolicyRecord = {
-      policyId: body.policyId,
-      userIds: body.newPolicy.userIds,
-      actionType: body.newPolicy.actionType,
-    };
+    const newPolicyDoc: PolicyRecord = { policyId: body.policyId, ...parsePolicy(body.newPolicy) };
 
     const policies = await updateOrganizationPolicy(body.organizationId, body.policyId, newPolicyDoc);
 

@@ -1,7 +1,8 @@
 import { Request, Response, Router } from 'express';
-import { addressEqual, getErrorMessage } from '@hinkal/common';
+import { addressEqual, getErrorMessage, isValidAddressForChain } from '@hinkal/common';
 import { verifyRecoverStuckBridgeBalanceSignatureMiddleware } from '../middleware';
 import { RecoverStuckBridgeBalanceRequest } from '../types';
+import { invalidAddressMessage } from '../utils/queryGuards';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 
 const router = Router();
@@ -13,6 +14,11 @@ router.post(
     try {
       const { tokenAddress, recipientAddress } = req.body;
       const chainId = Number(req.body.chainId);
+
+      if (!isValidAddressForChain(chainId, recipientAddress)) {
+        res.status(400).json({ success: false, error: invalidAddressMessage('recipientAddress', chainId) });
+        return;
+      }
 
       const { foundCount, recoveredCount, recoveredAmount, errors } =
         await hinkalInitializerService.withHinkalForAddress(res.locals.address, chainId, async (hinkal) => {

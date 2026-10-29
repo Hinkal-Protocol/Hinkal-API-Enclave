@@ -1,4 +1,11 @@
-import { caseInsensitiveEqual, currentTronChainId, HttpError, toBase58IfTron, WalletManager } from '@hinkal/common';
+import {
+  API_ERROR_MESSAGES,
+  caseInsensitiveEqual,
+  currentTronChainId,
+  HttpError,
+  toBase58IfTron,
+  WalletManager,
+} from '@hinkal/common';
 import { generateHashFromSeedPhrases } from '@hinkal/common/functions/utils/mnemonics';
 import { cryptoHelper } from '../crypto';
 import { WalletAddresses } from '../models/OrganizationUserSchema';
@@ -15,7 +22,7 @@ const findStoredWalletAddress = (wallet: WalletAddresses, walletAddress: string)
 class WalletSecretsService {
   private findWalletIndex(wallets: WalletAddresses[], walletAddress: string): number {
     const index = wallets.findIndex((w) => findStoredWalletAddress(w, walletAddress) !== undefined);
-    if (index < 0) throw new HttpError(404, 'Wallet address not found for user');
+    if (index < 0) throw new HttpError(404, API_ERROR_MESSAGES.WALLET_ADDRESS_NOT_FOUND);
     return index;
   }
 

@@ -1,15 +1,11 @@
 import { Response } from 'express';
-import { getErrorMessage, HttpError, transactionErrorCodes } from '@hinkal/common';
+import { getErrorMessage, HttpError, Logger } from '@hinkal/common';
 import axios from 'axios';
 
-const detailedMessage = (err: unknown): string => {
-  const mapped = getErrorMessage(err);
-  return mapped === transactionErrorCodes.UNKNOWN && err instanceof Error && err.message ? err.message : mapped;
-};
-
 export const resolveRouteError = (err: unknown): { status: number; message: string } => {
+  // HttpError only picks the status; the message is mapped like any other error.
   if (err instanceof HttpError) {
-    return { status: err.status, message: err.message };
+    return { status: err.status, message: getErrorMessage(err) };
   }
 
   if (axios.isAxiosError(err)) {
@@ -19,18 +15,16 @@ export const resolveRouteError = (err: unknown): { status: number; message: stri
         ? upstreamStatus
         : 502;
 
-    const message =
-      err.response?.data?.detail || err.response?.data?.message || err.response?.data?.error?.message || err.message;
-
-    return { status, message };
+    return { status, message: getErrorMessage(err) };
   }
 
-  return { status: 500, message: detailedMessage(err) };
+  return { status: 500, message: getErrorMessage(err) };
 };
 
 export const sendError = (res: Response, err: unknown): void => {
   try {
     const { status, message } = resolveRouteError(err);
+    Logger.error(`[${res.req.method} ${res.req.path}] ${status}:`, err);
     res.status(status).send({ status: 'error', message });
   } catch {
     res.status(500).send({ status: 'error', message: 'Internal server error' });

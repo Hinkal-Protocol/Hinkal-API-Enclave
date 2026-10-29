@@ -3,6 +3,7 @@ import { createTronWeb, evmHexToTronBase58Address } from '@hinkal/common/functio
 import { TRON_DEFAULT_FEE_LIMIT_SUN, zeroAddress } from '@hinkal/common/constants/protocol.constants';
 import { TronLocalSigner } from '../data-structures';
 import { walletSecretsService } from '../services/walletSecretsService';
+import { THROWN_ERROR_MESSAGES } from '@hinkal/common';
 
 export const buildTronSigner = async (
   signerPublicKey: string,
@@ -28,7 +29,7 @@ export const buildTronSigner = async (
 export const sendTronTransaction = async (tronWeb: TronWeb, tx: TronWebTypes.Transaction): Promise<string> => {
   const signed = await tronWeb.trx.sign(tx);
   const result = await tronWeb.trx.sendRawTransaction(signed as TronWebTypes.SignedTransaction);
-  if (!result.result) throw new Error(`Tron transaction failed: ${result.message}`);
+  if (!result.result) throw new Error(`${THROWN_ERROR_MESSAGES.TRON_TRANSACTION_FAILED}: ${result.message}`);
   return result.txid;
 };
 

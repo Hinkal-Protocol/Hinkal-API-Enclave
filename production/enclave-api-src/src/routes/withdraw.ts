@@ -2,8 +2,8 @@ import {
   AdminTransactionType,
   ENCLAVE_UNSHIELD_VARIABLE_RATE,
   getErrorMessage,
-  isNativePlaceholderAddress,
   isSolanaLike,
+  isValidAddressForChain,
   PartnerTransactionType,
   TxHashResponse,
 } from '@hinkal/common';
@@ -12,7 +12,9 @@ import { Request, Response, Router } from 'express';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { WithdrawRequest } from '../types/route.types';
 import { parseFeeStructure } from '../utils/parseFeeStructure';
+import { INVALID_AMOUNTS_ERROR, isPositiveAmountList } from '../utils/transactionHelpers';
 import { emitReferralVolume } from '../utils/emitReferralVolume';
+import { invalidAddressMessage } from '../utils/queryGuards';
 import {
   getHinkalVariableRate,
   getPartnerFeeBps,
@@ -35,15 +37,18 @@ router.post(
       const { chainId, tokenAddresses, amounts, recipientAddress, feeToken, feeAmount, ref } =
         req.body as WithdrawRequest;
 
+      if (!isPositiveAmountList(amounts)) {
+        res.status(400).json({ success: false, error: INVALID_AMOUNTS_ERROR });
+        return;
+      }
+
       if (tokenAddresses.length !== amounts.length) {
         res.status(400).json({ success: false, error: 'Token addresses and amounts must have the same length' });
         return;
       }
 
-      if (isNativePlaceholderAddress(recipientAddress, chainId)) {
-        res
-          .status(400)
-          .json({ success: false, error: 'recipientAddress must not be the native token placeholder address' });
+      if (!isValidAddressForChain(chainId, recipientAddress)) {
+        res.status(400).json({ success: false, error: invalidAddressMessage('recipientAddress', chainId) });
         return;
       }
 

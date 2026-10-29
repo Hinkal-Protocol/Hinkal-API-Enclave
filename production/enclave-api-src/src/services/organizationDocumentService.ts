@@ -1,4 +1,4 @@
-import { currentTronChainId, getErrorMessage, HttpError, toBase58IfTron } from '@hinkal/common';
+import { API_ERROR_MESSAGES, currentTronChainId, getErrorMessage, HttpError, toBase58IfTron } from '@hinkal/common';
 import { Organization, OrganizationModel, PolicyRecord } from '../models/OrganizationSchema';
 import { OrganizationUser, OrganizationUserModel } from '../models/OrganizationUserSchema';
 import { publicDoc, toRecord, verifyRawDoc } from '../utils/documentSigning';
@@ -28,7 +28,7 @@ export class OrganizationDocuments {
     const raw = await OrganizationModel.findOne({
       organizationId: assertUuid(organizationId, 'organizationId'),
     }).lean();
-    return verifyOrHttpError<Organization>(raw, ORG_INTEGRITY_LABEL, 404, 'Organization not found');
+    return verifyOrHttpError<Organization>(raw, ORG_INTEGRITY_LABEL, 404, API_ERROR_MESSAGES.ORGANIZATION_NOT_FOUND);
   }
 
   static async getPolicies(organizationId: string): Promise<{ organizationId: string; policies: PolicyRecord[] }> {
@@ -36,7 +36,7 @@ export class OrganizationDocuments {
       organizationId: assertUuid(organizationId, 'organizationId'),
     }).lean();
     const org = await publicDoc(toRecord(raw), ORG_INTEGRITY_LABEL);
-    if (!org) throw new HttpError(404, 'Organization not found');
+    if (!org) throw new HttpError(404, API_ERROR_MESSAGES.ORGANIZATION_NOT_FOUND);
     return { organizationId, policies: (org.policies as PolicyRecord[]) ?? [] };
   }
 }
@@ -47,7 +47,12 @@ export class OrganizationUserDocuments {
       organizationId: assertUuid(organizationId, 'organizationId'),
       publicKey: assertString(publicKey, 'publicKey'),
     }).lean();
-    return verifyOrHttpError<OrganizationUser>(raw, USER_INTEGRITY_LABEL, 403, 'Signer not found in organization');
+    return verifyOrHttpError<OrganizationUser>(
+      raw,
+      USER_INTEGRITY_LABEL,
+      403,
+      API_ERROR_MESSAGES.SIGNER_NOT_IN_ORGANIZATION,
+    );
   }
 
   static async getByUserId(organizationId: string, userId: string): Promise<OrganizationUser> {
@@ -55,7 +60,7 @@ export class OrganizationUserDocuments {
       organizationId: assertUuid(organizationId, 'organizationId'),
       userId: assertUuid(userId, 'userId'),
     }).lean();
-    return verifyOrHttpError<OrganizationUser>(raw, USER_INTEGRITY_LABEL, 404, 'User not found');
+    return verifyOrHttpError<OrganizationUser>(raw, USER_INTEGRITY_LABEL, 404, API_ERROR_MESSAGES.USER_NOT_FOUND);
   }
 
   static async getByWallet(organizationId: string, userId: string, walletAddress: string): Promise<OrganizationUser> {
@@ -69,7 +74,7 @@ export class OrganizationUserDocuments {
         { 'wallets.solanaAddress': assertedWallet },
       ],
     }).lean();
-    return verifyOrHttpError<OrganizationUser>(raw, USER_INTEGRITY_LABEL, 403, 'Wallet does not belong to user');
+    return verifyOrHttpError<OrganizationUser>(raw, USER_INTEGRITY_LABEL, 403, API_ERROR_MESSAGES.WALLET_NOT_OWNED);
   }
 
   static async listByOrganization(organizationId: string): Promise<OrganizationUser[]> {
@@ -78,7 +83,12 @@ export class OrganizationUserDocuments {
     }).lean();
     return Promise.all(
       raws.map((raw) =>
-        verifyOrHttpError<OrganizationUser>(raw, USER_INTEGRITY_LABEL, 500, 'User integrity check failed'),
+        verifyOrHttpError<OrganizationUser>(
+          raw,
+          USER_INTEGRITY_LABEL,
+          500,
+          API_ERROR_MESSAGES.USER_INTEGRITY_CHECK_FAILED,
+        ),
       ),
     );
   }

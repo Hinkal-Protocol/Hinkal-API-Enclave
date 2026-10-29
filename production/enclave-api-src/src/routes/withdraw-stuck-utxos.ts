@@ -1,7 +1,8 @@
 import { Request, Response, Router } from 'express';
-import { getErrorMessage } from '@hinkal/common';
+import { getErrorMessage, isValidAddressForChain } from '@hinkal/common';
 import { verifyWithdrawStuckUtxosSignatureMiddleware } from '../middleware';
 import { WithdrawStuckUtxosRequest } from '../types';
+import { invalidAddressMessage } from '../utils/queryGuards';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { getERC20Token } from '@hinkal/erc20-registry';
 import { WHITELISTED_REFERRALS } from '@hinkal/backend-common';
@@ -17,6 +18,11 @@ router.post(
 
       if (ref !== undefined && !WHITELISTED_REFERRALS.includes(ref)) {
         res.status(400).json({ success: false, error: `Invalid ref: '${ref}' is not a whitelisted referral` });
+        return;
+      }
+
+      if (!isValidAddressForChain(chainId, recipientAddress)) {
+        res.status(400).json({ success: false, error: invalidAddressMessage('recipientAddress', chainId) });
         return;
       }
 

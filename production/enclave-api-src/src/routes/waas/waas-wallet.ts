@@ -2,7 +2,14 @@ import { Request, Response, Router } from 'express';
 import { requireActionPermission, requireRootOrSelf, resolveTargetUser } from '../../utils/authHelpers';
 import { WaasPolicyAction } from '../../constants/policyActions';
 import { sendError } from '../../utils/routeError';
-import { chainIds, currentSolanaChainId, currentTronChainId, HttpError, WalletManager } from '@hinkal/common';
+import {
+  API_ERROR_MESSAGES,
+  chainIds,
+  currentSolanaChainId,
+  currentTronChainId,
+  HttpError,
+  WalletManager,
+} from '@hinkal/common';
 import { CreateWalletRequestBody } from '../../types';
 import { cryptoHelper } from '../../crypto';
 import { appendWalletToUser } from '../../services/organizationUserService';
@@ -80,7 +87,7 @@ router.get('/waas/get-wallets', xStampMiddleware, async (req: Request, res: Resp
 
   try {
     const target = await resolveTargetUser(organizationId, userId, signerPublicKey);
-    if (!target.wallets?.length) throw new HttpError(404, 'No wallets found');
+    if (!target.wallets?.length) throw new HttpError(404, API_ERROR_MESSAGES.NO_WALLETS);
 
     res.status(200).send({
       status: 'success',

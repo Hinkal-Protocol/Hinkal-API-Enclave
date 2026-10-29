@@ -26,6 +26,7 @@ import {
   isSolanaLike,
   isTronLike,
   Logger,
+  THROWN_ERROR_MESSAGES,
 } from '@hinkal/common';
 
 const ORDER_LABEL = 'deposit-and-withdraw order';
@@ -51,7 +52,8 @@ class EnclaveWithdrawDispatcherService {
     decryptedOrder: DepositAndWithdrawOrder & { _id: mongoose.Types.ObjectId },
     encryptedOrderRaw: RawOrder,
   ): Promise<void> {
-    if (!decryptedOrder.txHash) throw new Error(`Order ${decryptedOrder.orderId} missing txHash`);
+    if (!decryptedOrder.txHash)
+      throw new Error(`${THROWN_ERROR_MESSAGES.ORDER_MISSING_TXHASH}: ${decryptedOrder.orderId}`);
     const { txHash } = decryptedOrder;
 
     const scheduleId = await hinkalInitializerService.withHinkalForAddress(

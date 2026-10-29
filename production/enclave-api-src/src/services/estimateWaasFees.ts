@@ -1,5 +1,5 @@
 import { Keypair } from '@solana/web3.js';
-import { Hinkal } from '@hinkal/common';
+import { Hinkal, THROWN_ERROR_MESSAGES } from '@hinkal/common';
 import { getNearIntentsQuote } from '@hinkal/common/API/callNearIntentsAPI';
 import { SWAP_ROUTER_ADDRESSES } from '@hinkal/common/constants/addresses.constants';
 import {
@@ -44,13 +44,13 @@ const estimateLifiBridgeOut = async (
 ) => {
   const { chainId } = sourceToken;
   const lifiRouterAddress = SWAP_ROUTER_ADDRESSES[ExternalActionId.Lifi][chainId];
-  if (!lifiRouterAddress) throw new Error(`LIFI not configured for chain ${chainId}`);
+  if (!lifiRouterAddress) throw new Error(`${THROWN_ERROR_MESSAGES.LIFI_NOT_CONFIGURED_FOR_CHAIN}: ${chainId}`);
 
   const sourceAddress = AccountActions.getAddressFromSubAccount(
     chainId,
     buildTempSubAccountForChain(hinkal, chainId, randomBigInt(6)),
   );
-  if (!sourceAddress) throw new Error('Missing temp wallet address for LIFI bridge');
+  if (!sourceAddress) throw new Error(THROWN_ERROR_MESSAGES.MISSING_TEMP_WALLET_ADDRESS_FOR_LIFI_BRIDGE);
 
   const { lifiDataValue, outSwapAmountValue, extraNativeTokenFee } = await getLifiPrice(
     sourceToken,

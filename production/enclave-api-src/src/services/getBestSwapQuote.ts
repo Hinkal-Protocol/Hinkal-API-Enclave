@@ -8,6 +8,8 @@ import {
   getOKXPrice,
   IntegrationProvider,
   isSolanaLike,
+  THROWN_ERROR_MESSAGES,
+  transactionErrorCodes,
 } from '@hinkal/common';
 import { PERCENT_TO_DECIMAL } from '../constants/swap.constants';
 
@@ -47,7 +49,7 @@ const fetchLifiQuote = async (
     fromAddress,
   );
   if (priceDict.outSwapAmountValue === 0n) {
-    throw new Error('No LI.FI price');
+    throw new Error(transactionErrorCodes.NO_SWAP_QUOTES);
   }
   return {
     integrationProvider: IntegrationProvider.LIFI,
@@ -65,7 +67,7 @@ const fetchOkxQuote = async (
 ): Promise<SwapQuoteCandidate> => {
   const priceDict = await getOKXPrice(chainId, inSwapToken, outSwapToken, inSwapAmount, slippagePercentage);
   if (priceDict.outSwapAmountValue === 0n) {
-    throw new Error('No OKX price');
+    throw new Error(transactionErrorCodes.NO_SWAP_QUOTES);
   }
   return {
     integrationProvider: IntegrationProvider.OKX,
@@ -88,7 +90,7 @@ export const getBestSwapQuote = async ({
   const externalActionId = convertIntegrationProviderToExternalActionId(quote.integrationProvider);
 
   if (!externalActionId) {
-    throw new Error(`Unsupported integration provider: ${quote.integrationProvider}`);
+    throw new Error(`${THROWN_ERROR_MESSAGES.UNSUPPORTED_INTEGRATION_PROVIDER}: ${quote.integrationProvider}`);
   }
 
   return {

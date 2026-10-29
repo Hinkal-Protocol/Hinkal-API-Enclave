@@ -1,4 +1,4 @@
-import { HttpError } from '@hinkal/common';
+import { API_ERROR_MESSAGES, HttpError } from '@hinkal/common';
 import { OrganizationModel, OrganizationUserModel, PolicyRecord } from '../models';
 import { replaceSignedDoc } from '../utils/documentSigning';
 import { Organization } from '../models/OrganizationSchema';
@@ -24,7 +24,7 @@ const updateOrganizationPolicies = async (
   policies: PolicyRecord[],
 ): Promise<PolicyRecord[]> => {
   const sealed = await replaceSignedDoc(OrganizationModel.collection, org, { policies });
-  if (!sealed) throw new HttpError(500, 'Failed to update organization');
+  if (!sealed) throw new HttpError(500, API_ERROR_MESSAGES.UPDATE_ORGANIZATION_FAILED);
 
   await syncAllowedActions(organizationId, policies);
   return policies;
@@ -42,7 +42,7 @@ export const removeOrganizationPolicy = async (organizationId: string, policyId:
   const policies = currentPolicies.filter((policy) => policy.policyId !== policyId);
 
   if (policies.length === currentPolicies.length) {
-    throw new HttpError(404, 'Policy not found');
+    throw new HttpError(404, API_ERROR_MESSAGES.POLICY_NOT_FOUND);
   }
 
   return updateOrganizationPolicies(organizationId, org, policies);
@@ -63,7 +63,7 @@ export const updateOrganizationPolicy = async (
     return newPolicy;
   });
 
-  if (!found) throw new HttpError(404, 'Policy not found');
+  if (!found) throw new HttpError(404, API_ERROR_MESSAGES.POLICY_NOT_FOUND);
 
   return updateOrganizationPolicies(organizationId, org, policies);
 };
