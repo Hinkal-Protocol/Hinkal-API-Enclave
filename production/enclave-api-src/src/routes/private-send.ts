@@ -1,21 +1,19 @@
 import {
   DepositAndWithdrawResponse,
-  ENCLAVE_PUBLIC_SEND_VARIABLE_RATE,
+  ENCLAVE_TRANSACT_VARIABLE_RATE,
   getErrorMessage,
   isValidAddressForChain,
   Logger,
 } from '@hinkal/common';
 import { Request, Response, Router } from 'express';
 import {
-  getHinkalVariableRate,
-  getPartnerFeeBps,
   getRequestAttribution,
   partnerKeyMiddleware,
   verifyDepositAndWithdrawSignatureMiddleware,
   verifyReadOnlySignatureMiddleware,
 } from '../middleware';
 import { DepositAndWithdrawRequest } from '../types';
-import { WHITELISTED_REFERRALS } from '@hinkal/backend-common';
+import { resolveRefVariableRate } from '../utils/referralWhitelist';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { getERC20Token } from '@hinkal/erc20-registry';
 import {
@@ -54,10 +52,9 @@ router.post(
       return;
     }
 
-    if (ref !== undefined && !WHITELISTED_REFERRALS.includes(ref)) {
-      res.status(400).json({ success: false, error: `Invalid ref: '${ref}' is not a whitelisted referral` });
-      return;
-    }
+    const resolvedRef = resolveRefVariableRate(res, ref, ENCLAVE_TRANSACT_VARIABLE_RATE);
+    if (!resolvedRef) return;
+    const { trackedRef, variableRate } = resolvedRef;
 
     if (recipients.some((r) => !isValidAddressForChain(chainId, r?.address))) {
       res.status(400).json({ success: false, error: invalidAddressMessage('recipientAddress', chainId) });
@@ -80,7 +77,7 @@ router.post(
         feeToken ?? token.erc20TokenAddress,
         token,
         recipients,
-        getHinkalVariableRate(res, ENCLAVE_PUBLIC_SEND_VARIABLE_RATE) + getPartnerFeeBps(res),
+        variableRate,
       );
       feeStructurePromise.catch(() => undefined);
 
@@ -95,7 +92,7 @@ router.post(
 
       const feeStructure = await feeStructurePromise;
 
-      const attribution = getRequestAttribution(res, ref);
+      const attribution = getRequestAttribution(res, trackedRef);
 
       res.status(200).json(
         await createDepositAndWithdrawOrder({

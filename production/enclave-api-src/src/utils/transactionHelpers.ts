@@ -84,6 +84,26 @@ export const assertEnoughGasForDeposit = async (
   );
 };
 
+export const assertEnoughTokenBalance = async (
+  chainId: number,
+  walletAddress: string,
+  token: ERC20Token,
+  requiredWei: bigint,
+): Promise<void> => {
+  const balance = await getPublicBalanceByTokenAddress(
+    chainId,
+    normalizeTronAddr(walletAddress),
+    token.erc20TokenAddress,
+  );
+  if (balance === null || balance >= requiredWei) return;
+
+  const networkName = networkRegistry[chainId]?.name ?? `chain ${chainId}`;
+  throw new HttpError(
+    400,
+    `${UserFriendlyErrorCodes.NOT_ENOUGH_TOKENS} (${token.symbol} on ${networkName}: need ${getAmountInToken(token, requiredWei)}, have ${getAmountInToken(token, balance)})`,
+  );
+};
+
 export const parseChainId = (chainId: unknown): number => {
   const parsed = Number(chainId);
   if (!Number.isFinite(parsed)) throw new HttpError(400, API_ERROR_MESSAGES.INVALID_CHAIN_ID);

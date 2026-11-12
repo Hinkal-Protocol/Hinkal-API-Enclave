@@ -1,6 +1,6 @@
 import {
   ENCLAVE_API_URL,
-  ENCLAVE_PRIVATE_SEND_VARIABLE_RATE,
+  ENCLAVE_TRANSACT_VARIABLE_RATE,
   ExternalActionId,
   httpClient,
   RecipientInfoResponse,
@@ -41,11 +41,11 @@ describe('transfer route (Solana mainnet)', () => {
       [SOLANA_MAINNET_USDC_ADDRESS],
       ExternalActionId.Transact,
       authFields,
-      ENCLAVE_PRIVATE_SEND_VARIABLE_RATE,
+      ENCLAVE_TRANSACT_VARIABLE_RATE,
       [TRANSFER_AMOUNT],
     );
 
-    const totalRelayFee = solanaRelayFee(feeAmount, ENCLAVE_PRIVATE_SEND_VARIABLE_RATE.toString(), TRANSFER_AMOUNT);
+    const totalRelayFee = solanaRelayFee(feeAmount, ENCLAVE_TRANSACT_VARIABLE_RATE.toString(), TRANSFER_AMOUNT);
     const depositAmount = TRANSFER_AMOUNT + totalRelayFee;
     await depositUsdcToPrivate(wallet, depositAmount, authFields, SOLANA_MAINNET_USDC_ADDRESS, true);
 

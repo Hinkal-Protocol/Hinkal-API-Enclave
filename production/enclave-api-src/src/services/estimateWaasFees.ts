@@ -9,6 +9,7 @@ import {
 import { isNearIntentsBridgeSource, isSolanaLike, isTronLike } from '@hinkal/common/constants/chains.constants';
 import {
   ENCLAVE_SWAP_VARIABLE_RATE,
+  ENCLAVE_TRANSACT_VARIABLE_RATE,
   HINKAL_PRIVATE_SEND_VARIABLE_RATE,
   zeroAddress,
 } from '@hinkal/common/constants/protocol.constants';
@@ -31,7 +32,6 @@ import { ExternalActionId } from '@hinkal/common/types/external-action.types';
 import { ERC20Token } from '@hinkal/common/types/token.types';
 import { WaasFeeEstimateAction } from '@hinkal/common/types/enclaveApi.types';
 import { WaasFeeEstimate, WaasSpendFeeAction } from '../types';
-import { SPEND_VARIABLE_RATES } from '../constants/feeEstimate.constants';
 import { getBestSwapQuote } from './getBestSwapQuote';
 
 const estimateLifiBridgeOut = async (
@@ -226,7 +226,7 @@ export const estimateSpendFee = async (
   const isSolana = isSolanaLike(chainId);
   const isTransfer = action === WaasFeeEstimateAction.PrivateTransfer;
   const amountWei = getAmountInWei(token, amount);
-  const variableRate = SPEND_VARIABLE_RATES[action];
+  const variableRate = ENCLAVE_TRANSACT_VARIABLE_RATE;
 
   const feeStructure = await getFeeStructure(
     chainId,

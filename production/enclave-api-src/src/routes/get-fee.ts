@@ -1,12 +1,25 @@
-import { FeeResponse, getErrorMessage, isSolanaLike } from '@hinkal/common';
+import {
+  ENCLAVE_SWAP_VARIABLE_RATE,
+  ENCLAVE_TRANSACT_VARIABLE_RATE,
+  ExternalActionId,
+  FeeResponse,
+  getErrorMessage,
+  isSolanaLike,
+} from '@hinkal/common';
 import { Request, Response, Router } from 'express';
-import { getFeeStructure } from '@hinkal/common/functions/pre-transaction/getFeeStructure';
+import { getFeeStructureWithBreakdown } from '@hinkal/common/functions/pre-transaction/getFeeStructure';
 import { calculateSolanaNullifierCount } from '@hinkal/common/functions/pre-transaction/calculateSolanaNullifierCount';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { GetFeeRequest } from '../types/route.types';
 import { isValidExternalActionId } from '../utils/isValidExternalActionId';
-import { getRequestAttribution, partnerKeyMiddleware, verifyReadOnlySignatureMiddleware } from '../middleware';
+import {
+  getHinkalVariableRate,
+  getRequestAttribution,
+  partnerKeyMiddleware,
+  verifyReadOnlySignatureMiddleware,
+} from '../middleware';
 import { getERC20Token } from '@hinkal/erc20-registry';
+import { rejectNonWhitelistedRef, resolveRef } from '../utils/referralWhitelist';
 
 const router = Router();
 
@@ -16,7 +29,7 @@ router.get(
   partnerKeyMiddleware,
   async (req: Request, res: Response<FeeResponse>) => {
     try {
-      const { feeToken, externalActionId, mintFrom } = req.query as unknown as GetFeeRequest;
+      const { feeToken, externalActionId, mintFrom, ref } = req.query as unknown as GetFeeRequest;
       const chainId = Number(req.query.chainId);
       const tokenAddresses = ([] as string[]).concat(req.query.tokenAddresses as string | string[]);
       const amounts = req.query.amounts ? ([] as string[]).concat(req.query.amounts as string | string[]) : undefined;
@@ -28,6 +41,11 @@ router.get(
         });
         return;
       }
+
+      const isTransact = externalActionId === ExternalActionId.Transact;
+      if (!isTransact && rejectNonWhitelistedRef(res, ref)) return;
+      const resolvedRef = isTransact ? resolveRef(res, ref) : {};
+      if (!resolvedRef) return;
 
       const missingToken = tokenAddresses.some((tokenAddress) => !getERC20Token(tokenAddress, chainId));
       if (missingToken) {
@@ -48,7 +66,7 @@ router.get(
         solanaTransactionParams = { mintTo: feeToken ?? tokenAddresses[0], mintFrom, nullifierCount };
       }
 
-      const feeStructure = await getFeeStructure(
+      const { feeStructure, breakdown } = await getFeeStructureWithBreakdown(
         chainId,
         feeToken,
         tokenAddresses,
@@ -58,12 +76,18 @@ router.get(
         solanaTransactionParams,
       );
 
-      const { keyId, partnerFeeBps, hinkalVariableRateBps } = getRequestAttribution(res, undefined);
+      const hinkalVariableRate =
+        resolvedRef.refVariableRate ??
+        getHinkalVariableRate(res, isTransact ? ENCLAVE_TRANSACT_VARIABLE_RATE : ENCLAVE_SWAP_VARIABLE_RATE);
+
+      const { keyId, partnerFeeBps } = getRequestAttribution(res, undefined);
 
       res.status(200).json({
         success: true,
         feeAmount: feeStructure.flatFee.toString(),
-        ...(keyId && { partnerFeeBps, hinkalVariableRateBps }),
+        hinkalVariableRateBps: Number(hinkalVariableRate),
+        ...(keyId && { partnerFeeBps }),
+        ...(breakdown && { breakdown }),
       });
     } catch (error) {
       res.status(500).json({ success: false, error: getErrorMessage(error) });

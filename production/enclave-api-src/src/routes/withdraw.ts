@@ -1,13 +1,12 @@
 import {
   AdminTransactionType,
-  ENCLAVE_UNSHIELD_VARIABLE_RATE,
+  ENCLAVE_TRANSACT_VARIABLE_RATE,
   getErrorMessage,
   isSolanaLike,
   isValidAddressForChain,
   PartnerTransactionType,
   TxHashResponse,
 } from '@hinkal/common';
-import { createHash } from 'crypto';
 import { Request, Response, Router } from 'express';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { WithdrawRequest } from '../types/route.types';
@@ -15,16 +14,9 @@ import { parseFeeStructure } from '../utils/parseFeeStructure';
 import { INVALID_AMOUNTS_ERROR, isPositiveAmountList } from '../utils/transactionHelpers';
 import { emitReferralVolume } from '../utils/emitReferralVolume';
 import { invalidAddressMessage } from '../utils/queryGuards';
-import {
-  getHinkalVariableRate,
-  getPartnerFeeBps,
-  getRequestAttribution,
-  partnerKeyMiddleware,
-  verifyWithdrawSignatureMiddleware,
-} from '../middleware';
+import { getRequestAttribution, partnerKeyMiddleware, verifyWithdrawSignatureMiddleware } from '../middleware';
 import { getERC20Token } from '@hinkal/erc20-registry';
-import { WHITELISTED_REFERRALS } from '@hinkal/backend-common';
-import { WITHDRAW_REF_HASH_VARIABLE_RATE_BPS } from '../constants/withdrawRefVariableRates';
+import { resolveRefVariableRate } from '../utils/referralWhitelist';
 
 const router = Router();
 
@@ -60,27 +52,11 @@ router.post(
         return;
       }
 
-      if (ref !== undefined && typeof ref !== 'string') {
-        res.status(400).json({ success: false, error: 'Invalid ref: must be a string' });
-        return;
-      }
-
-      const refVariableRate =
-        ref !== undefined
-          ? WITHDRAW_REF_HASH_VARIABLE_RATE_BPS[createHash('sha256').update(ref).digest('hex')]
-          : undefined;
-      const trackedRef = ref !== undefined && WHITELISTED_REFERRALS.includes(ref) ? ref : undefined;
-      const isKnownRef = trackedRef !== undefined || refVariableRate !== undefined;
-
-      if (ref !== undefined && !isKnownRef) {
-        res.status(400).json({ success: false, error: `Invalid ref: '${ref}' is not a whitelisted referral` });
-        return;
-      }
+      const resolvedRef = resolveRefVariableRate(res, ref, ENCLAVE_TRANSACT_VARIABLE_RATE);
+      if (!resolvedRef) return;
+      const { trackedRef, variableRate: resolvedVariableRate } = resolvedRef;
 
       const resolvedFeeToken = isSolanaLike(chainId) ? tokenAddresses[0] : feeToken;
-      // A ref-hash deal rate wins over the partner's Hinkal rate.
-      const hinkalVariableRate = refVariableRate ?? getHinkalVariableRate(res, ENCLAVE_UNSHIELD_VARIABLE_RATE);
-      const resolvedVariableRate = hinkalVariableRate + getPartnerFeeBps(res);
       const feeStructureOverride = parseFeeStructure(resolvedFeeToken, feeAmount, resolvedVariableRate);
 
       const txData = await hinkalInitializerService.withHinkalForAddress(

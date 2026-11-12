@@ -1,6 +1,6 @@
 import {
   ENCLAVE_API_URL,
-  ENCLAVE_PRIVATE_SEND_VARIABLE_RATE,
+  ENCLAVE_TRANSACT_VARIABLE_RATE,
   ExternalActionId,
   httpClient,
   RecipientInfoResponse,
@@ -41,10 +41,10 @@ describe('transfer route (Tron Nile)', () => {
       [TRON_NILE_USDT_ADDRESS],
       ExternalActionId.Transact,
       authFields,
-      ENCLAVE_PRIVATE_SEND_VARIABLE_RATE,
+      ENCLAVE_TRANSACT_VARIABLE_RATE,
     );
 
-    const totalRelayFee = tronRelayFee(feeAmount, ENCLAVE_PRIVATE_SEND_VARIABLE_RATE.toString(), TRANSFER_AMOUNT);
+    const totalRelayFee = tronRelayFee(feeAmount, ENCLAVE_TRANSACT_VARIABLE_RATE.toString(), TRANSFER_AMOUNT);
     const depositAmount = TRANSFER_AMOUNT + totalRelayFee;
     await depositUsdtToPrivate(wallet, depositAmount, authFields, TRON_NILE_USDT_ADDRESS, true);
 

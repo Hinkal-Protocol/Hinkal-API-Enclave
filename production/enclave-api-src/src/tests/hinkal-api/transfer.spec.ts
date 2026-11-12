@@ -3,7 +3,7 @@ import {
   calculateTotalFee,
   chainIds,
   ENCLAVE_API_URL,
-  ENCLAVE_PRIVATE_SEND_VARIABLE_RATE,
+  ENCLAVE_TRANSACT_VARIABLE_RATE,
   ExternalActionId,
   httpClient,
   RecipientInfoResponse,
@@ -69,7 +69,7 @@ describe('transfer route', () => {
       [ARC_TESTNET_USDC_ADDRESS],
       ExternalActionId.Transact,
       authFields,
-      ENCLAVE_PRIVATE_SEND_VARIABLE_RATE,
+      ENCLAVE_TRANSACT_VARIABLE_RATE,
     );
 
     const authParams = {
@@ -104,7 +104,7 @@ describe('transfer route', () => {
     const totalRelayFee = calculateTotalFee(TRANSFER_AMOUNT, {
       feeToken: ARC_TESTNET_USDC_ADDRESS,
       flatFee: BigInt(feeAmount),
-      variableRate: ENCLAVE_PRIVATE_SEND_VARIABLE_RATE,
+      variableRate: ENCLAVE_TRANSACT_VARIABLE_RATE,
     });
     expect(privateBalanceAfterTransfer).toEqual(privateBalanceBeforeTransfer - totalRelayFee);
   });

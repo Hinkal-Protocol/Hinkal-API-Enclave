@@ -2,7 +2,7 @@ import { Request, Response, Router } from 'express';
 import {
   API_ERROR_MESSAGES,
   calculateTotalFee,
-  ENCLAVE_PUBLIC_SEND_VARIABLE_RATE,
+  ENCLAVE_TRANSACT_VARIABLE_RATE,
   ExternalActionId,
   getAmountInWei,
   getFeeStructure,
@@ -40,7 +40,7 @@ router.post('/pal/quote', palApiKeyMiddleware, async (req: Request, res: Respons
       [token.erc20TokenAddress],
       ExternalActionId.Transact,
       [],
-      ENCLAVE_PUBLIC_SEND_VARIABLE_RATE,
+      ENCLAVE_TRANSACT_VARIABLE_RATE,
       isSolanaLike(parsed)
         ? { mintTo: token.erc20TokenAddress, recipient: String(recipientAddress ?? ''), nullifierCount: 1 }
         : undefined,

@@ -2,7 +2,7 @@ import {
   API_ERROR_MESSAGES,
   BRIDGE_SUPPORTED_CHAINS,
   caseInsensitiveEqual,
-  ENCLAVE_PUBLIC_SEND_VARIABLE_RATE,
+  ENCLAVE_TRANSACT_VARIABLE_RATE,
   getBridgeDestinationChains,
   getDepositAndBridgeQuote,
   GetPrivateSendBridgeQuoteResponse,
@@ -16,15 +16,13 @@ import {
 } from '@hinkal/common';
 import { Request, Response, Router } from 'express';
 import {
-  getHinkalVariableRate,
-  getPartnerFeeBps,
   getRequestAttribution,
   partnerKeyMiddleware,
   verifyPrivateSendBridgeSignatureMiddleware,
   verifyReadOnlySignatureMiddleware,
 } from '../middleware';
 import { GetPrivateSendBridgeQuoteRequest, PrivateSendBridgeRequest } from '../types';
-import { WHITELISTED_REFERRALS } from '@hinkal/backend-common';
+import { resolveRefVariableRate } from '../utils/referralWhitelist';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import {
   assertQuoteMatchesRequest,
@@ -176,10 +174,9 @@ router.post(
       return;
     }
 
-    if (ref !== undefined && !WHITELISTED_REFERRALS.includes(ref)) {
-      res.status(400).json({ success: false, error: `Invalid ref: '${ref}' is not a whitelisted referral` });
-      return;
-    }
+    const resolvedRef = resolveRefVariableRate(res, ref, ENCLAVE_TRANSACT_VARIABLE_RATE);
+    if (!resolvedRef) return;
+    const { trackedRef, variableRate } = resolvedRef;
 
     try {
       const token = getERC20Token(tokenAddress, chainId);
@@ -189,7 +186,6 @@ router.post(
       }
 
       const orderId = crypto.randomUUID();
-      const variableRate = getHinkalVariableRate(res, ENCLAVE_PUBLIC_SEND_VARIABLE_RATE) + getPartnerFeeBps(res);
 
       const { serializedTx, utxoAmounts, orderRecipients, feeStructure, expectedAmountOut, txCompletionTime } =
         await hinkalInitializerService.withHinkalForAddress(address, chainId, async (hinkal) => {
@@ -262,7 +258,7 @@ router.post(
           utxoAmounts,
           feeStructure,
           serializedTx,
-          attribution: getRequestAttribution(res, ref),
+          attribution: getRequestAttribution(res, trackedRef),
           txCompletionTime,
           bridgeQuote: await encryptLargeField(quote),
         }),

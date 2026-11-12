@@ -24,7 +24,7 @@ import {
   verifySwapSignatureMiddleware,
 } from '../middleware';
 import { getERC20Token } from '@hinkal/erc20-registry';
-import { WHITELISTED_REFERRALS } from '@hinkal/backend-common';
+import { rejectNonWhitelistedRef } from '../utils/referralWhitelist';
 
 const router = Router();
 
@@ -42,10 +42,7 @@ router.post(
         return;
       }
 
-      if (ref !== undefined && !WHITELISTED_REFERRALS.includes(ref)) {
-        res.status(400).json({ success: false, error: `Invalid ref: '${ref}' is not a whitelisted referral` });
-        return;
-      }
+      if (rejectNonWhitelistedRef(res, ref)) return;
 
       if (isSolanaLike(chainId) && tokenAddresses.length !== 2) {
         res

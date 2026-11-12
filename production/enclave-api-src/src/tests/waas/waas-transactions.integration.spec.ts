@@ -5,6 +5,7 @@ import { BalanceRow, getBalanceForToken, toUnits, USDC_DECIMALS } from '../utils
 const TX_AMOUNT = '0.001';
 const SHIELD_AMOUNT = '0.05';
 const UNSHIELD_AMOUNT = '0.001';
+const UNAFFORDABLE_AMOUNT = '10000';
 
 type ScheduledTxResult = { status: string; txHash: string | null };
 
@@ -96,6 +97,24 @@ describe('WAAS transactions E2E (EVM)', () => {
       expect(withdrawal.every((tx) => tx.status === 'completed')).toBe(true);
       const publicAfter = getBalanceForToken(await getPublicBalanceRows(ctx), ctx.usdcTokenAddress);
       expect(publicAfter < publicBefore).toBe(true);
+    });
+
+    it('public-to-public rejects amount above public balance', async () => {
+      const { status, text } = await ctx.client.postRaw(
+        '/waas/public-to-public',
+        {
+          organizationId: ctx.organizationId,
+          userId: ctx.userId,
+          fromAddress: ctx.evmAddress,
+          to: ctx.evmAddress,
+          token: ctx.usdcTokenAddress,
+          amount: UNAFFORDABLE_AMOUNT,
+          chainId: ctx.chainId,
+        },
+        ctx.userKp,
+      );
+      expect(status).toBe(400);
+      expect(text).toMatch(/exceeds balance/i);
     });
 
     it('public-to-private', async () => {

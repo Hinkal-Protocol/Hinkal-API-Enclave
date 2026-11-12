@@ -3,7 +3,7 @@ import {
   BalanceResponse,
   DepositAndWithdrawResponse,
   ENCLAVE_API_URL,
-  ENCLAVE_PRIVATE_SEND_VARIABLE_RATE,
+  ENCLAVE_TRANSACT_VARIABLE_RATE,
   EnclaveSessionAuthFields,
   ERC20ABI,
   ExternalActionId,
@@ -222,7 +222,7 @@ export const transferUsdc = async (
     [ARC_TESTNET_USDC_ADDRESS],
     ExternalActionId.Transact,
     session as EnclaveSessionAuthFields,
-    ENCLAVE_PRIVATE_SEND_VARIABLE_RATE,
+    ENCLAVE_TRANSACT_VARIABLE_RATE,
   );
 
   const authParams = {

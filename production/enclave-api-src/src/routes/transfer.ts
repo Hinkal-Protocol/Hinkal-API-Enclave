@@ -1,6 +1,6 @@
 import {
   AdminTransactionType,
-  ENCLAVE_PRIVATE_SEND_VARIABLE_RATE,
+  ENCLAVE_TRANSACT_VARIABLE_RATE,
   getErrorMessage,
   isSolanaLike,
   PartnerTransactionType,
@@ -12,15 +12,9 @@ import { TransferRequest } from '../types/route.types';
 import { parseFeeStructure } from '../utils/parseFeeStructure';
 import { INVALID_AMOUNTS_ERROR, isPositiveAmountList, resolveRecipientInfo } from '../utils/transactionHelpers';
 import { emitReferralVolume } from '../utils/emitReferralVolume';
-import {
-  getHinkalVariableRate,
-  getPartnerFeeBps,
-  getRequestAttribution,
-  partnerKeyMiddleware,
-  verifyTransferSignatureMiddleware,
-} from '../middleware';
+import { getRequestAttribution, partnerKeyMiddleware, verifyTransferSignatureMiddleware } from '../middleware';
 import { getERC20Token } from '@hinkal/erc20-registry';
-import { WHITELISTED_REFERRALS } from '@hinkal/backend-common';
+import { resolveRefVariableRate } from '../utils/referralWhitelist';
 
 const router = Router();
 
@@ -43,10 +37,9 @@ router.post(
         return;
       }
 
-      if (ref !== undefined && !WHITELISTED_REFERRALS.includes(ref)) {
-        res.status(400).json({ success: false, error: `Invalid ref: '${ref}' is not a whitelisted referral` });
-        return;
-      }
+      const resolvedRef = resolveRefVariableRate(res, ref, ENCLAVE_TRANSACT_VARIABLE_RATE);
+      if (!resolvedRef) return;
+      const { trackedRef, variableRate } = resolvedRef;
 
       const erc20Tokens = tokenAddresses
         .map((tokenAddress) => getERC20Token(tokenAddress, chainId))
@@ -58,8 +51,6 @@ router.post(
 
       const resolvedRecipientInfo = await resolveRecipientInfo(recipientAddress, chainId);
       const resolvedFeeToken = isSolanaLike(chainId) ? tokenAddresses[0] : feeToken;
-
-      const variableRate = getHinkalVariableRate(res, ENCLAVE_PRIVATE_SEND_VARIABLE_RATE) + getPartnerFeeBps(res);
       const resolvedFeeStructure = parseFeeStructure(resolvedFeeToken, feeAmount, variableRate);
 
       const txHash = await hinkalInitializerService.withHinkalForAddress(
@@ -79,7 +70,7 @@ router.post(
       );
 
       emitReferralVolume(
-        getRequestAttribution(res, ref),
+        getRequestAttribution(res, trackedRef),
         chainId,
         txHash,
         erc20Tokens,

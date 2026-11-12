@@ -1,10 +1,16 @@
 import { Request, Response, Router } from 'express';
 import { isSolanaLike } from '@hinkal/common/constants/chains.constants';
-import { ENCLAVE_PUBLIC_SEND_VARIABLE_RATE } from '@hinkal/common/constants/protocol.constants';
+import { ENCLAVE_TRANSACT_VARIABLE_RATE } from '@hinkal/common/constants/protocol.constants';
 import { getFeeStructure } from '@hinkal/common/functions/pre-transaction/getFeeStructure';
 import { getAmountInWei } from '@hinkal/common/functions/web3/etherFunctions';
+import { calculateGrossUtxoAmounts, calculateTotalFee } from '@hinkal/common/functions/utils/fees.utils';
 import { ExternalActionId } from '@hinkal/common/types/external-action.types';
-import { confirmBroadcastTransaction, parseChainId, resolveToken } from '../../utils/transactionHelpers';
+import {
+  assertEnoughTokenBalance,
+  confirmBroadcastTransaction,
+  parseChainId,
+  resolveToken,
+} from '../../utils/transactionHelpers';
 import { sendError } from '../../utils/routeError';
 import { ensureRecipientInfoPoolForApiInBackground } from '../../utils/ensureRecipientInfoPoolForApi';
 import { hinkalInitializerService } from '../../services/hinkalInitializerService';
@@ -47,9 +53,14 @@ router.post('/waas/public-to-public', xStampMiddleware, async (req: Request, res
       [token.erc20TokenAddress],
       ExternalActionId.Transact,
       [],
-      ENCLAVE_PUBLIC_SEND_VARIABLE_RATE,
+      ENCLAVE_TRANSACT_VARIABLE_RATE,
       solanaParams,
     );
+
+    const requiredAmount = isSolanaLike(parsedChainId)
+      ? recipientAmount + calculateTotalFee(recipientAmount, feeStructure)
+      : calculateGrossUtxoAmounts([recipientAmount], feeStructure)[0];
+    await assertEnoughTokenBalance(parsedChainId, String(fromAddress), token, requiredAmount);
 
     const { depositTxHash, scheduleId } = await hinkalInitializerService.withHinkalForOrganization(
       organizationId,

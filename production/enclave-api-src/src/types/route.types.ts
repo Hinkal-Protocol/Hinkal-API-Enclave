@@ -112,6 +112,7 @@ export type GetFeeRequest = {
   tokenAddresses: string[];
   externalActionId: ExternalActionId;
   mintFrom?: string;
+  ref?: string;
 };
 
 export type RecipientInfoRequest = {

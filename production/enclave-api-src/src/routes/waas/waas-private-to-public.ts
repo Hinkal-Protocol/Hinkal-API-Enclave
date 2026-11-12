@@ -1,5 +1,5 @@
 import { Request, Response, Router } from 'express';
-import { ENCLAVE_UNSHIELD_VARIABLE_RATE } from '@hinkal/common/constants/protocol.constants';
+import { ENCLAVE_TRANSACT_VARIABLE_RATE } from '@hinkal/common/constants/protocol.constants';
 import { getAmountInWei } from '@hinkal/common/functions/web3/etherFunctions';
 import { toTxHash } from '@hinkal/common/functions/utils/tx-confirmation.utils';
 import { parseChainId, resolveToken } from '../../utils/transactionHelpers';
@@ -57,7 +57,7 @@ router.post('/waas/private-to-public', xStampMiddleware, async (req: Request, re
           Boolean(isRelayerOff),
           token.erc20TokenAddress,
           undefined,
-          ENCLAVE_UNSHIELD_VARIABLE_RATE,
+          ENCLAVE_TRANSACT_VARIABLE_RATE,
         ),
       (result) => [toTxHash(result)],
     );
