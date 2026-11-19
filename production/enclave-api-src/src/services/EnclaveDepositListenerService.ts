@@ -11,6 +11,7 @@ import {
 import {
   BlockchainEvent,
   caseInsensitiveEqual,
+  decodeExtraDataOrderId,
   extractOrderIdFromMemos,
   getChainBalanceFetchingMutex,
   HINKAL_SUPPORTED_CHAINS,
@@ -188,11 +189,9 @@ class EnclaveDepositListenerService {
       }
 
       if (decoded.name === 'transact') {
-        const extraData: string | undefined = decoded.args.circomData?.extraData;
-        if (!extraData || extraData === '0x') return null;
-        let orderId: string;
+        let orderId: string | undefined;
         try {
-          orderId = ethers.toUtf8String(extraData);
+          orderId = decodeExtraDataOrderId(decoded.args.circomData?.extraData);
         } catch {
           return null;
         }
