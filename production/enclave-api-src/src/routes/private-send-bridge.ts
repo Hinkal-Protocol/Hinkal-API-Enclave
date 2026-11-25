@@ -35,6 +35,7 @@ import {
   getDepositAndWithdrawFeeStructure,
   prepareDepositAndWithdrawTx,
   serializeEvmTx,
+  toEvmTxData,
 } from '../utils/depositAndWithdrawHelpers';
 import { getDepositAndWithdrawOrderStatus } from '../utils/getDepositAndWithdrawOrderStatus';
 import { INVALID_AMOUNTS_ERROR, isPositiveAmountList, parseSlippagePercentage } from '../utils/transactionHelpers';
@@ -187,7 +188,7 @@ router.post(
 
       const orderId = crypto.randomUUID();
 
-      const { serializedTx, utxoAmounts, orderRecipients, feeStructure, expectedAmountOut, txCompletionTime } =
+      const { serializedTx, txData, utxoAmounts, orderRecipients, feeStructure, expectedAmountOut, txCompletionTime } =
         await hinkalInitializerService.withHinkalForAddress(address, chainId, async (hinkal) => {
           const decoded = parsePrivateSendBridgeQuote(hinkal, quote, address, chainId, token.erc20TokenAddress);
           if (Date.now() - decoded.issuedAt > PRIVATE_SEND_BRIDGE_QUOTE_TTL_MS) {
@@ -202,6 +203,7 @@ router.post(
             const result = await hinkalLifiBridgeDepositPrepare(hinkal, token, lifiRecipients, variableRate, orderId);
             return {
               serializedTx: serializeEvmTx(result.unsignedTx),
+              txData: toEvmTxData(result.unsignedTx),
               utxoAmounts: result.utxoAmounts,
               orderRecipients: lifiRecipients.map((r) => ({
                 address: r.recipientAddress,
@@ -258,6 +260,7 @@ router.post(
           utxoAmounts,
           feeStructure,
           serializedTx,
+          txData,
           attribution: getRequestAttribution(res, trackedRef),
           txCompletionTime,
           bridgeQuote: await encryptLargeField(quote),

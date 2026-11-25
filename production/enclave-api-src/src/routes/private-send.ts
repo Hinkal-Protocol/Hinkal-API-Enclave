@@ -81,7 +81,7 @@ router.post(
       );
       feeStructurePromise.catch(() => undefined);
 
-      const { serializedTx, utxoAmounts } = await hinkalInitializerService.withHinkalForAddress(
+      const { serializedTx, txData, utxoAmounts } = await hinkalInitializerService.withHinkalForAddress(
         address,
         chainId,
         async (hinkal) => {
@@ -105,6 +105,7 @@ router.post(
           utxoAmounts,
           feeStructure,
           serializedTx,
+          txData,
           attribution,
           txCompletionTime,
         }),

@@ -1,4 +1,4 @@
-import { ERC20Token, FeeStructure } from '@hinkal/common';
+import { DepositAndWithdrawTxData, ERC20Token, FeeStructure } from '@hinkal/common';
 import { DepositAndWithdrawRecipient } from './enclaveTypedData.types';
 import { ReferralAttribution } from './partner.types';
 
@@ -23,6 +23,7 @@ export type CreateDepositAndWithdrawOrderParams = {
   utxoAmounts: bigint[];
   feeStructure: FeeStructure;
   serializedTx: string;
+  txData: DepositAndWithdrawTxData;
   attribution: ReferralAttribution;
   txCompletionTime?: number;
   bridgeQuote?: string;

@@ -1,5 +1,6 @@
 import {
   DepositAndWithdrawResponse,
+  DepositAndWithdrawTxData,
   ERC20Token,
   ExternalActionId,
   FeeStructure,
@@ -11,7 +12,10 @@ import {
   isSolanaLike,
   isTronLike,
   networkRegistry,
+  SolanaTxData,
+  toJsonSafe,
 } from '@hinkal/common';
+import { TransactionMessage, VersionedTransaction } from '@solana/web3.js';
 import { ethers } from 'ethers';
 import { DepositAndWithdrawOrderModel, DepositAndWithdrawOrderStatus } from '../models';
 import { DEPLOYMENT_MODE } from '../constants';
@@ -46,6 +50,24 @@ export const serializeEvmTx = (unsignedTx: ethers.TransactionRequest): string =>
   return Buffer.from(evmTx.unsignedSerialized.slice(2), 'hex').toString('base64');
 };
 
+export const toEvmTxData = (unsignedTx: ethers.TransactionRequest): ethers.TransactionRequest => ({
+  ...unsignedTx,
+  value: unsignedTx.value ?? 0n,
+});
+
+const toSolanaTxData = (unsignedTx: VersionedTransaction): SolanaTxData => {
+  const { payerKey, recentBlockhash, instructions } = TransactionMessage.decompile(unsignedTx.message);
+  return {
+    payerKey: payerKey.toBase58(),
+    recentBlockhash,
+    instructions: instructions.map(({ programId, keys, data }) => ({
+      programId: programId.toBase58(),
+      keys: keys.map(({ pubkey, isSigner, isWritable }) => ({ pubkey: pubkey.toBase58(), isSigner, isWritable })),
+      data: data.toString('base64'),
+    })),
+  };
+};
+
 export const prepareDepositAndWithdrawTx = async (
   hinkal: IHinkal,
   chainId: number,
@@ -53,11 +75,12 @@ export const prepareDepositAndWithdrawTx = async (
   recipientAmounts: bigint[],
   feeStructure: FeeStructure,
   orderId: string,
-): Promise<{ serializedTx: string; utxoAmounts: bigint[] }> => {
+): Promise<{ serializedTx: string; txData: DepositAndWithdrawTxData; utxoAmounts: bigint[] }> => {
   if (isSolanaLike(chainId)) {
     const result = await hinkalPalSolanaDepositPrepare(hinkal, chainId, token, recipientAmounts, feeStructure, orderId);
     return {
       serializedTx: Buffer.from(result.unsignedTx.serialize()).toString('base64'),
+      txData: toSolanaTxData(result.unsignedTx),
       utxoAmounts: result.utxoAmounts,
     };
   }
@@ -66,6 +89,7 @@ export const prepareDepositAndWithdrawTx = async (
     const result = await hinkalPalTronDepositPrepare(hinkal, token, recipientAmounts, feeStructure, orderId);
     return {
       serializedTx: Buffer.from(JSON.stringify(result.unsignedTx)).toString('base64'),
+      txData: result.unsignedTx,
       utxoAmounts: result.utxoAmounts,
     };
   }
@@ -73,6 +97,7 @@ export const prepareDepositAndWithdrawTx = async (
   const result = await hinkalPalEvmDepositPrepare(hinkal, token, recipientAmounts, feeStructure, orderId);
   return {
     serializedTx: serializeEvmTx(result.unsignedTx),
+    txData: toEvmTxData(result.unsignedTx),
     utxoAmounts: result.utxoAmounts,
   };
 };
@@ -88,6 +113,7 @@ export const createDepositAndWithdrawOrder = async ({
   utxoAmounts,
   feeStructure,
   serializedTx,
+  txData,
   attribution,
   txCompletionTime,
   bridgeQuote,
@@ -129,5 +155,6 @@ export const createDepositAndWithdrawOrder = async ({
     amountIn: totalAmount.toString(),
     amountOut: (amountOut ?? totalRecipientAmount).toString(),
     fee: fee.toString(),
+    txData: toJsonSafe(txData) as DepositAndWithdrawTxData,
   };
 };

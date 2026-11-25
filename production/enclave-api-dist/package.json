@@ -4,7 +4,6 @@
   "description": "Slim runtime deps for enclave-api docker image. Workspace libs (@hinkal/common, @hinkal/backend-common) get bundled inline by webpack via tsconfig path aliases, so only their transitive externals are listed here.",
   "dependencies": {
     "@coral-xyz/anchor": "0.32.1",
-    "@defuse-protocol/intents-sdk": "0.48.0",
     "@getbrevo/brevo": "^5.0.4",
     "@google-cloud/kms": "^5.2.1",
     "@google-cloud/storage": "^7.19.0",
