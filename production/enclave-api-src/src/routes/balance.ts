@@ -2,6 +2,7 @@ import { BalanceResponse, getErrorMessage, THROWN_ERROR_MESSAGES } from '@hinkal
 import { Request, Response, Router } from 'express';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
 import { verifyReadOnlySignatureMiddleware } from '../middleware';
+import { getStuckUtxoBalances, sumByToken } from '../services/stuckBalances';
 
 const router = Router();
 
@@ -43,16 +44,8 @@ router.get(
   async (req: Request<object, BalanceResponse>, res: Response<BalanceResponse>) => {
     try {
       const chainIdNum = Number(req.query.chainId);
-      const balances = await hinkalInitializerService.withHinkalForAddress(
-        res.locals.address,
-        chainIdNum,
-        async (hinkal) => {
-          const balancesByChain = await hinkal.getTotalBalances([chainIdNum], undefined, undefined, false, true, true);
-          const chainBalances = balancesByChain.get(chainIdNum);
-          if (!chainBalances)
-            throw new Error(`${THROWN_ERROR_MESSAGES.FAILED_TO_FETCH_STUCK_BALANCES_FOR_CHAINID}: ${chainIdNum}`);
-          return chainBalances;
-        },
+      const balances = await hinkalInitializerService.withHinkalForAddress(res.locals.address, chainIdNum, (hinkal) =>
+        getStuckUtxoBalances(hinkal, chainIdNum),
       );
 
       res.status(200).json({
@@ -79,14 +72,9 @@ router.get(
         hinkal.getStuckBridgeBalances([chainIdNum]),
       );
 
-      const totals = new Map<string, bigint>();
-      balances.forEach(({ token, balance }) =>
-        totals.set(token.erc20TokenAddress, (totals.get(token.erc20TokenAddress) ?? 0n) + balance),
-      );
-
       res.status(200).json({
         success: true,
-        balances: Array.from(totals, ([tokenAddress, balance]) => ({
+        balances: Array.from(sumByToken(balances), ([tokenAddress, balance]) => ({
           chainId: chainIdNum,
           tokenAddress,
           balance: balance.toString(),

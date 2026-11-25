@@ -8,8 +8,10 @@ import {
   buildPrivateSendBridgeTypedData,
   buildProoflessDepositTypedData,
   buildReceiveVaultRecoverTypedData,
+  buildRecoverStuckBalanceTypedData,
   buildRecoverStuckBridgeBalanceTypedData,
   buildSwapTypedData,
+  buildTransferAddressTypedData,
   buildTransferTypedData,
   buildWithdrawStuckUtxosTypedData,
   buildWithdrawTypedData,
@@ -21,8 +23,10 @@ import {
   buildSolanaPrivateSendMessage,
   buildSolanaProoflessDepositMessage,
   buildSolanaReceiveVaultRecoverMessage,
+  buildSolanaRecoverStuckBalanceMessage,
   buildSolanaRecoverStuckBridgeBalanceMessage,
   buildSolanaSwapMessage,
+  buildSolanaTransferAddressMessage,
   buildSolanaTransferMessage,
   buildSolanaWithdrawMessage,
   buildSolanaWithdrawStuckUtxosMessage,
@@ -31,14 +35,18 @@ import {
   parseDepositAndWithdrawAuthBody,
   parsePrivateSendBridgeAuthBody,
   parseReceiveVaultRecoverAuthBody,
+  parseRecoverStuckBalanceAuthBody,
   parseTokenDepositAuthBody,
   parseTokenDepositForOtherAuthBody,
   parseTokenSwapAuthBody,
   parseTokenTransferAuthBody,
   parseTokenWithdrawAuthBody,
+  parseTransferAddressAuthBody,
   parseWithdrawStuckUtxosAuthBody,
 } from '../utils/enclaveTypedDataAuthBody';
 import { consumeRequestNonceOrRespond, parseSignatureRequest } from './signatureMiddlewareUtils';
+import { verifySignatureMiddleware } from './verifySignatureMiddleware';
+import { isTransferAddressRequest } from '../services/receiveVaultBinding';
 import { verifyRequestSignatureSession } from '../utils/requestSignatureUtils';
 import { getSignedRequestFields, isTimestampWithinFreshnessWindow } from '../utils/requestBinding';
 import { getEnclaveSession, isEnclaveSessionActive } from '../models/EnclaveSessionSchema';
@@ -226,8 +234,27 @@ export const verifyRecoverStuckBridgeBalanceSignatureMiddleware = createVerifyEn
   buildSolanaRecoverStuckBridgeBalanceMessage,
 );
 
+export const verifyRecoverStuckBalanceSignatureMiddleware = createVerifyEnclaveTxMiddleware(
+  parseRecoverStuckBalanceAuthBody,
+  buildRecoverStuckBalanceTypedData,
+  buildSolanaRecoverStuckBalanceMessage,
+);
+
 export const verifyReceiveVaultRecoverSignatureMiddleware = createVerifyEnclaveTxMiddleware(
   parseReceiveVaultRecoverAuthBody,
   buildReceiveVaultRecoverTypedData,
   buildSolanaReceiveVaultRecoverMessage,
 );
+
+const verifyTransferAddressSignatureMiddleware = createVerifyEnclaveTxMiddleware(
+  parseTransferAddressAuthBody,
+  buildTransferAddressTypedData,
+  buildSolanaTransferAddressMessage,
+);
+
+export const verifyReceiveAddressSignatureMiddleware = (req: Request, res: Response, next: NextFunction) =>
+  (isTransferAddressRequest(req.body) ? verifyTransferAddressSignatureMiddleware : verifySignatureMiddleware)(
+    req,
+    res,
+    next,
+  );

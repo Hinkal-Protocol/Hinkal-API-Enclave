@@ -1,11 +1,9 @@
 import {
-  addressEqual,
+  ENCLAVE_TRANSACT_VARIABLE_RATE,
   getErrorMessage,
   isReceiveVaultSupported,
   isValidAddressForChain,
   Logger,
-  receiveVaultNetworkOf,
-  THROWN_ERROR_MESSAGES,
   toJsonSafe,
 } from '@hinkal/common';
 import { Request, Response, Router } from 'express';
@@ -14,48 +12,67 @@ import {
   getRequestAttribution,
   partnerKeyMiddleware,
   verifyReadOnlySignatureMiddleware,
+  verifyReceiveAddressSignatureMiddleware,
   verifyReceiveVaultRecoverSignatureMiddleware,
-  verifySignatureMiddleware,
 } from '../middleware';
-import { rejectNonWhitelistedRef } from '../utils/referralWhitelist';
+import { rejectNonWhitelistedRef, resolveRefVariableRate } from '../utils/referralWhitelist';
 import { invalidAddressMessage } from '../utils/queryGuards';
-import { trackReceiveVaultRecovery } from '../utils/trackReceiveVaultRecovery';
+import { resolveRouteError } from '../utils/routeError';
+import {
+  createReceiveAddress,
+  createTransferAddress,
+  decryptTransferTerms,
+  isTransferAddressRequest,
+} from '../services/receiveVaultBinding';
+import { recoverVault } from '../services/stuckBalances';
 import {
   ReceiveAddressRequest,
   ReceiveAddressResponse,
   ReceiveVaultAccountResponse,
   ReceiveVaultRecoverRequest,
   ReceiveVaultRecoverResponse,
-} from '../types/route.types';
+} from '../types';
 
 const router = Router();
 
 router.post(
   '/receive-address',
-  verifySignatureMiddleware,
+  verifyReceiveAddressSignatureMiddleware,
+  partnerKeyMiddleware,
   async (
     req: Request<object, ReceiveAddressResponse, ReceiveAddressRequest>,
     res: Response<ReceiveAddressResponse>,
   ) => {
     try {
-      const { chainId, forceFresh, ref } = req.body;
+      const { chainId, ref } = req.body;
 
       if (!isReceiveVaultSupported(chainId)) {
         res.status(400).json({ success: false, error: `Receive addresses are not available on chain ${chainId}` });
         return;
       }
 
-      if (rejectNonWhitelistedRef(res, ref)) return;
+      // Accepts a whitelisted ref (tracked) or a rate code (only lowers the fee, not tracked); a plain address
+      // then rejects rate codes, since it has no fee. Priced now: a transfer address pays out later, with no
+      // request to read the partner key from.
+      const resolvedRef = resolveRefVariableRate(res, ref, ENCLAVE_TRANSACT_VARIABLE_RATE);
+      if (!resolvedRef) return;
+      const { trackedRef, variableRate } = resolvedRef;
 
-      const network = receiveVaultNetworkOf(chainId);
-      const record = await hinkalInitializerService.withHinkalForAddress(res.locals.address, chainId, async (hinkal) =>
-        hinkal.createReceiveAddress(network, forceFresh, ref),
-      );
+      const record = isTransferAddressRequest(req.body)
+        ? await createTransferAddress(
+            res.locals.address,
+            req.body,
+            variableRate,
+            getRequestAttribution(res, trackedRef),
+            trackedRef,
+          )
+        : await createReceiveAddress(res.locals.address, req.body, trackedRef);
 
       res.status(200).json({ success: true, record });
     } catch (error) {
       Logger.error('[/receive-address] error:', error);
-      res.status(500).json({ success: false, error: getErrorMessage(error) });
+      const { status, message } = resolveRouteError(error);
+      res.status(status).json({ success: false, error: message });
     }
   },
 );
@@ -73,11 +90,17 @@ router.get(
         async (hinkal) => hinkal.getReceiveVaultAccount(),
       );
 
+      // Both lists carry the same records, so a transfer address's terms are decrypted in each.
+      const [decryptedEntries, blockedRecords] = await Promise.all([
+        decryptTransferTerms(entries),
+        decryptTransferTerms(blockedFunds.map(({ record }) => record)),
+      ]);
+
       res.status(200).json({
         success: true,
-        entries,
-        blockedFunds: blockedFunds.map(({ record, token, amount, reason }) => ({
-          record,
+        entries: decryptedEntries,
+        blockedFunds: blockedFunds.map(({ token, amount, reason }, index) => ({
+          record: blockedRecords[index],
           token,
           amount: amount.toString(),
           reason,
@@ -110,36 +133,8 @@ router.post(
         return;
       }
 
-      const txData = await hinkalInitializerService.withHinkalForAddress(
-        res.locals.address,
-        chainId,
-        async (hinkal) => {
-          const { entries, blockedFunds } = await hinkal.getReceiveVaultAccount();
-          const record = [...entries, ...blockedFunds.map(({ record: entryRecord }) => entryRecord)].find(
-            (entryRecord) => addressEqual(chainId, entryRecord.vaultAddress, vaultAddress),
-          );
-          if (!record)
-            throw new Error(
-              `${THROWN_ERROR_MESSAGES.RECEIVE_ADDRESS_DOES_NOT_BELONG_TO_THIS_ACCOUNT}: ${vaultAddress}`,
-            );
-
-          const recovery = await hinkal.recoverReceiveVault(record, tokenAddress, chainId, recipientAddress, true);
-
-          const attribution = getRequestAttribution(res, ref);
-          if (attribution.ref !== undefined) {
-            trackReceiveVaultRecovery(
-              hinkal,
-              attribution,
-              chainId,
-              record,
-              tokenAddress,
-              recipientAddress,
-              blockedFunds,
-            );
-          }
-
-          return recovery;
-        },
+      const txData = await hinkalInitializerService.withHinkalForAddress(res.locals.address, chainId, (hinkal) =>
+        recoverVault(hinkal, getRequestAttribution(res, ref), chainId, vaultAddress, tokenAddress, recipientAddress),
       );
 
       res.status(200).json(toJsonSafe({ success: true, txData }) as ReceiveVaultRecoverResponse);

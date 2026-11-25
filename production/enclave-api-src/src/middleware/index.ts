@@ -5,3 +5,4 @@ export * from './walletOwnershipMiddleware';
 export * from './xStamp';
 export * from './signResponseMiddleware';
 export * from './partnerKeyMiddleware';
+export * from './transferSettleSignatureMiddleware';

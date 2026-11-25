@@ -41,11 +41,14 @@ import recoverStuckBridgeBalance from '../routes/recover-stuck-bridge-balance';
 import attestation from '../routes/attestation';
 import info from '../routes/info';
 import scheduledPayoutFinished from '../routes/scheduled-payout-finished';
+import transferSettle from '../routes/transfer-settle';
+import stuckBalances from '../routes/stuck-balances';
 
 export const loadRoutes = (app: Express) => {
   app.use(BASE_URL, ping);
   app.use(signResponseMiddleware);
   app.use(BASE_URL, scheduledPayoutFinished);
+  app.use(BASE_URL, transferSettle);
 
   const hinkalAPIRouter = Router();
   hinkalAPIRouter.use(attestation);
@@ -58,6 +61,7 @@ export const loadRoutes = (app: Express) => {
   hinkalAPIRouter.use(privateSendBridge);
   hinkalAPIRouter.use(withdrawStuckUtxos);
   hinkalAPIRouter.use(recoverStuckBridgeBalance);
+  hinkalAPIRouter.use(stuckBalances);
   hinkalAPIRouter.use(receiveVault);
   hinkalAPIRouter.use(getFeeRoute);
   hinkalAPIRouter.use(withdraw);

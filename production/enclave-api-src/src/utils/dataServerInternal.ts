@@ -1,6 +1,6 @@
 import { DATA_SERVER_URL, httpClient } from '@hinkal/common';
 import {
-  buildRelayerCommunicationHeaders,
+  buildInternalHmacAuthHeaders,
   PARTNER_INTERNAL_ROUTES,
   PartnerKeyResolveRequest,
   PartnerKeyResolveResponse,
@@ -14,7 +14,7 @@ import {
 
 const postDataServerInternal = <T>(path: string, body: object, timeout = DATA_SERVER_INTERNAL_TIMEOUT_MS) =>
   httpClient.post<T>(`${DATA_SERVER_URL}${path}`, body, {
-    headers: buildRelayerCommunicationHeaders(PARTNER_INTERNAL_KEY, path, body),
+    headers: buildInternalHmacAuthHeaders(PARTNER_INTERNAL_KEY, path, body),
     timeout,
   });
 

@@ -10,3 +10,4 @@ export * from './partner.types';
 export * from './deposit.types';
 export * from './feeEstimate.types';
 export * from './privateSendBridge.types';
+export * from './receiveVaultBinding.types';

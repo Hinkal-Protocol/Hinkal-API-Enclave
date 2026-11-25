@@ -1,5 +1,8 @@
+import { Hinkal } from '@hinkal/common';
 import { ReceiveVaultBlockReason } from '@hinkal/common/types/receive-vault.types';
 import { TemporaryWalletRecoveryDestination } from '@hinkal/common/types/token.types';
+import { ReferralAttribution } from './partner.types';
+import { StuckSourceDetails } from './route.types';
 
 export interface TemporaryWalletRecoveryRequestParams {
   organizationId: string;
@@ -70,3 +73,15 @@ export interface ReceiveVaultRecoveryResult {
   recovered: RecoveredReceiveVaultFund[];
   failed: FailedReceiveVaultRecovery[];
 }
+
+export type RecoverStuckBalanceParams = {
+  hinkal: Hinkal<unknown>;
+  chainId: number;
+  tokenAddress: string;
+  recipientAddress: string;
+  vaultAddress?: string;
+  ref?: string;
+  attribution: ReferralAttribution;
+};
+
+export type StuckSourceAmount = StuckSourceDetails & { tokenAddress: string; amount: bigint };

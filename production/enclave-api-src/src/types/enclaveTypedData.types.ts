@@ -14,7 +14,10 @@ export type EnclaveTypedDataPrimaryType =
   | 'PrivateSendBridge'
   | 'WithdrawStuckUtxos'
   | 'RecoverStuckBridgeBalance'
-  | 'ReceiveVaultRecover';
+  | 'RecoverStuckBalance'
+  | 'ReceiveVaultRecover'
+  | 'TransferAddress'
+  | 'TransferAddressBridge';
 
 export type EnclaveTypedDataPayload = {
   domain: TypedDataDomain;

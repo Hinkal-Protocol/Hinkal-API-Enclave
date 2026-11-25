@@ -11,7 +11,18 @@ const getCompletionTimeMs = (txCompletionTime: number | undefined) =>
   Math.max((txCompletionTime ?? 0) * 1000, Date.now());
 
 export const createPendingPrivateSendVolume = async (
-  order: DepositAndWithdrawOrder,
+  order: Pick<
+    DepositAndWithdrawOrder,
+    | 'orderId'
+    | 'ref'
+    | 'keyId'
+    | 'partnerFeeBps'
+    | 'chainId'
+    | 'tokenAddress'
+    | 'recipients'
+    | 'variableRate'
+    | 'txCompletionTime'
+  >,
   scheduleId: string,
 ): Promise<void> => {
   const { orderId, ref, keyId, partnerFeeBps, chainId, tokenAddress, recipients, variableRate, txCompletionTime } =

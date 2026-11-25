@@ -2,6 +2,7 @@ import { Connection } from '@solana/web3.js';
 import {
   AdminTransactionType,
   caseInsensitiveEqual,
+  DepositAndBridgeQuote,
   DestinationMetadata,
   ERC20Token,
   FeeStructure,
@@ -218,19 +219,12 @@ const dispatchLifiBridgeForOrder = async (
   );
 };
 
-export const dispatchBridgeForOrder = async (
+export const dispatchBridgeQuoteForOrder = async (
   hinkal: IHinkal,
-  order: DepositAndWithdrawOrderBase & { bridgeQuote: string },
+  order: DepositAndWithdrawOrderBase,
+  quote: DepositAndBridgeQuote,
 ): Promise<string> => {
   const token = resolveOrderToken(order);
-  const { quote } = parsePrivateSendBridgeQuote(
-    hinkal,
-    await decryptLargeField(order.bridgeQuote),
-    order.senderAddress,
-    order.chainId,
-    token.erc20TokenAddress,
-  );
-
   const { lifiRecipients, nearLegs = [], destinationChainId, destinationTokenAddress } = quote;
   if (lifiRecipients?.length) return dispatchLifiBridgeForOrder(hinkal, order, token, lifiRecipients);
 
@@ -250,4 +244,18 @@ export const dispatchBridgeForOrder = async (
     );
   }
   return dispatchTronWithdrawForOrder(hinkal, order, AdminTransactionType.ApiPrivateSendBridge, destination);
+};
+
+export const dispatchBridgeForOrder = async (
+  hinkal: IHinkal,
+  order: DepositAndWithdrawOrderBase & { bridgeQuote: string },
+): Promise<string> => {
+  const { quote } = parsePrivateSendBridgeQuote(
+    hinkal,
+    await decryptLargeField(order.bridgeQuote),
+    order.senderAddress,
+    order.chainId,
+    resolveOrderToken(order).erc20TokenAddress,
+  );
+  return dispatchBridgeQuoteForOrder(hinkal, order, quote);
 };

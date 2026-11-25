@@ -35,10 +35,22 @@ export type PrivateSendBridgeAuthFields = BaseAuthFields & {
   ref?: string;
 };
 export type WithdrawStuckUtxosAuthFields = BaseAuthFields & { tokenAddress: string; recipientAddress: string };
+export type RecoverStuckBalanceAuthFields = WithdrawStuckUtxosAuthFields & {
+  kind: string;
+  vaultAddress?: string;
+  ref?: string;
+};
 export type ReceiveVaultRecoverAuthFields = BaseAuthFields & {
   vaultAddress: string;
   tokenAddress: string;
   recipientAddress: string;
+  ref?: string;
+};
+export type TransferAddressAuthFields = BaseAuthFields & {
+  recipientAddress: string;
+  destinationChainId?: number;
+  destinationTokenAddress?: string;
+  slippagePercentage?: string;
   ref?: string;
 };
 

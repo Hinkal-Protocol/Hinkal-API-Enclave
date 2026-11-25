@@ -9,10 +9,12 @@ import {
   PrivateSendAuthFields,
   PrivateSendBridgeAuthFields,
   ReceiveVaultRecoverAuthFields,
+  RecoverStuckBalanceAuthFields,
   sortRecipientsByAddress,
   SwapAuthFields,
   TokenAmountPair,
   TokenAmountsAuthFields,
+  TransferAddressAuthFields,
   TransferLikeAuthFields,
   WithdrawStuckUtxosAuthFields,
 } from './enclaveAuthNormalization';
@@ -24,6 +26,7 @@ const FEE_TOKEN_FIELD: TypedDataField = { name: 'feeToken', type: 'address' };
 const FEE_AMOUNT_FIELD: TypedDataField = { name: 'feeAmount', type: 'uint256' };
 const TX_COMPLETION_TIME_FIELD: TypedDataField = { name: 'txCompletionTime', type: 'uint256' };
 const REF_FIELD: TypedDataField = { name: 'ref', type: 'string' };
+const SLIPPAGE_PERCENTAGE_FIELD: TypedDataField = { name: 'slippagePercentage', type: 'string' };
 
 const buildFeeValueFields = (fields: FeeAuthFields) => {
   const value: Record<string, unknown> = {};
@@ -123,6 +126,15 @@ const ENCLAVE_TYPED_DATA_TYPES: Record<string, TypedDataField[]> = {
     { name: 'tokenAddress', type: 'address' },
     { name: 'recipient', type: 'address' },
   ],
+  RecoverStuckBalance: [
+    { name: 'nonce', type: 'string' },
+    { name: 'sessionId', type: 'string' },
+    { name: 'chainId', type: 'uint256' },
+    { name: 'tokenAddress', type: 'string' },
+    { name: 'recipient', type: 'string' },
+    { name: 'kind', type: 'string' },
+    { name: 'vaultAddress', type: 'string' },
+  ],
   ReceiveVaultRecover: [
     { name: 'nonce', type: 'string' },
     { name: 'sessionId', type: 'string' },
@@ -130,6 +142,20 @@ const ENCLAVE_TYPED_DATA_TYPES: Record<string, TypedDataField[]> = {
     { name: 'vaultAddress', type: 'string' },
     { name: 'tokenAddress', type: 'string' },
     { name: 'recipient', type: 'string' },
+  ],
+  TransferAddress: [
+    { name: 'nonce', type: 'string' },
+    { name: 'sessionId', type: 'string' },
+    { name: 'chainId', type: 'uint256' },
+    { name: 'recipient', type: 'address' },
+  ],
+  TransferAddressBridge: [
+    { name: 'nonce', type: 'string' },
+    { name: 'sessionId', type: 'string' },
+    { name: 'chainId', type: 'uint256' },
+    { name: 'recipient', type: 'string' },
+    { name: 'destinationChainId', type: 'uint256' },
+    { name: 'destinationTokenAddress', type: 'string' },
   ],
 };
 
@@ -147,6 +173,7 @@ const getPrimaryFields = (
   if (value.feeToken) fields.push(FEE_TOKEN_FIELD);
   if (value.feeAmount !== undefined) fields.push(FEE_AMOUNT_FIELD);
   if (value.txCompletionTime !== undefined) fields.push(TX_COMPLETION_TIME_FIELD);
+  if (value.slippagePercentage !== undefined) fields.push(SLIPPAGE_PERCENTAGE_FIELD);
   if (value.ref !== undefined) fields.push(REF_FIELD);
 
   return fields;
@@ -347,6 +374,18 @@ export const buildRecoverStuckBridgeBalanceTypedData = (
     recipient: getAddress(params.recipientAddress),
   });
 
+export const buildRecoverStuckBalanceTypedData = (params: RecoverStuckBalanceAuthFields): EnclaveTypedDataPayload =>
+  buildTypedData('RecoverStuckBalance', params.chainId, {
+    nonce: params.nonce,
+    sessionId: params.sessionId,
+    chainId: BigInt(params.chainId),
+    tokenAddress: params.tokenAddress,
+    recipient: params.recipientAddress,
+    kind: params.kind,
+    vaultAddress: params.vaultAddress ?? '',
+    ...(params.ref !== undefined ? { ref: params.ref } : {}),
+  });
+
 export const buildReceiveVaultRecoverTypedData = (params: ReceiveVaultRecoverAuthFields): EnclaveTypedDataPayload =>
   buildTypedData('ReceiveVaultRecover', params.chainId, {
     nonce: params.nonce,
@@ -357,3 +396,24 @@ export const buildReceiveVaultRecoverTypedData = (params: ReceiveVaultRecoverAut
     recipient: params.recipientAddress,
     ...(params.ref !== undefined ? { ref: params.ref } : {}),
   });
+
+export const buildTransferAddressTypedData = (params: TransferAddressAuthFields): EnclaveTypedDataPayload => {
+  const base = { nonce: params.nonce, sessionId: params.sessionId, chainId: BigInt(params.chainId) };
+  const ref = params.ref !== undefined ? { ref: params.ref } : {};
+  if (params.destinationChainId === undefined) {
+    return buildTypedData('TransferAddress', params.chainId, {
+      ...base,
+      recipient: normalizeRecipientAddressForTypedData(params.recipientAddress),
+      ...ref,
+    });
+  }
+
+  return buildTypedData('TransferAddressBridge', params.chainId, {
+    ...base,
+    recipient: params.recipientAddress,
+    destinationChainId: BigInt(params.destinationChainId),
+    destinationTokenAddress: params.destinationTokenAddress,
+    ...(params.slippagePercentage !== undefined ? { slippagePercentage: params.slippagePercentage } : {}),
+    ...ref,
+  });
+};

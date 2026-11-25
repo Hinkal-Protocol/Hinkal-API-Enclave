@@ -4,9 +4,11 @@ import {
   FeeAuthFields,
   PrivateSendAuthFields,
   PrivateSendBridgeAuthFields,
+  RecoverStuckBalanceAuthFields,
   sortRecipientsByAddress,
   SwapAuthFields,
   TokenAmountPair,
+  TransferAddressAuthFields,
   TransferLikeAuthFields,
 } from './enclaveAuthNormalization';
 
@@ -89,6 +91,14 @@ export const buildSolanaRecoverStuckBridgeBalanceMessage = (
   `\nToken Address: ${params.tokenAddress}` +
   `\nRecipient: ${params.recipientAddress}`;
 
+export const buildSolanaRecoverStuckBalanceMessage = (params: RecoverStuckBalanceAuthFields): string =>
+  `${buildHeader('RecoverStuckBalance', params.nonce, params.sessionId, params.chainId)}` +
+  `\nToken Address: ${params.tokenAddress}` +
+  `\nRecipient: ${params.recipientAddress}` +
+  `\nKind: ${params.kind}` +
+  `\nVault Address: ${params.vaultAddress ?? ''}` +
+  `${params.ref !== undefined ? `\nRef: ${params.ref}` : ''}`;
+
 export const buildSolanaReceiveVaultRecoverMessage = (
   params: BaseAuthFields & { vaultAddress: string; tokenAddress: string; recipientAddress: string; ref?: string },
 ): string =>
@@ -96,4 +106,12 @@ export const buildSolanaReceiveVaultRecoverMessage = (
   `\nVault Address: ${params.vaultAddress}` +
   `\nToken Address: ${params.tokenAddress}` +
   `\nRecipient: ${params.recipientAddress}` +
+  `${params.ref !== undefined ? `\nRef: ${params.ref}` : ''}`;
+
+export const buildSolanaTransferAddressMessage = (params: TransferAddressAuthFields): string =>
+  `${buildHeader('TransferAddress', params.nonce, params.sessionId, params.chainId)}` +
+  `\nRecipient: ${params.recipientAddress}` +
+  `${params.destinationChainId !== undefined ? `\nDestination Chain ID: ${params.destinationChainId}` : ''}` +
+  `${params.destinationTokenAddress !== undefined ? `\nDestination Token Address: ${params.destinationTokenAddress}` : ''}` +
+  `${params.slippagePercentage !== undefined ? `\nSlippage Percentage: ${params.slippagePercentage}` : ''}` +
   `${params.ref !== undefined ? `\nRef: ${params.ref}` : ''}`;

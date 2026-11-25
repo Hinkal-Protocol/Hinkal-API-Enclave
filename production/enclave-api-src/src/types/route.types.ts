@@ -4,9 +4,11 @@ import {
   FailedResponse,
   ReceiveVaultBlockReason,
   ReceiveVaultRecord,
+  SerializedTokenBalance,
 } from '@hinkal/common';
 import { ethers } from 'ethers';
 import type { Types as TronWebTypes } from 'tronweb';
+import type { ReceiveVaultAccountEntry } from './receiveVaultBinding.types';
 
 export type DepositResponse =
   | {
@@ -190,10 +192,16 @@ export type PrivateSendBridgeRequest = {
   ref?: string;
 };
 
+// Without recipientAddress: a plain receive address, settling into the caller's own shielded balance.
+// With it: a transfer address, each payment paid out to recipientAddress (bridged when destinationChainId is set).
 export type ReceiveAddressRequest = {
   chainId: number;
-  forceFresh?: boolean;
   ref?: string;
+  forceFresh?: boolean; // skip reusing the newest unexpired plain address; a transfer address is always fresh
+  recipientAddress?: string;
+  destinationChainId?: number;
+  destinationTokenAddress?: string;
+  slippagePercentage?: number;
 };
 
 export type ReceiveAddressResponse =
@@ -204,7 +212,7 @@ export type ReceiveAddressResponse =
   | FailedResponse;
 
 export type ReceiveVaultBlockedFundResponse = {
-  record: ReceiveVaultRecord;
+  record: ReceiveVaultAccountEntry;
   token: ERC20Token;
   amount: string;
   reason: ReceiveVaultBlockReason;
@@ -213,7 +221,7 @@ export type ReceiveVaultBlockedFundResponse = {
 export type ReceiveVaultAccountResponse =
   | {
       success: true;
-      entries: ReceiveVaultRecord[];
+      entries: ReceiveVaultAccountEntry[];
       blockedFunds: ReceiveVaultBlockedFundResponse[];
     }
   | FailedResponse;
@@ -226,9 +234,38 @@ export type ReceiveVaultRecoverRequest = {
   ref?: string;
 };
 
-export type ReceiveVaultRecoverResponse =
-  | {
-      success: true;
-      txData: ethers.TransactionRequest | TronWebTypes.Transaction<TronWebTypes.TriggerSmartContract> | string;
-    }
-  | FailedResponse;
+export type ReceiveVaultTxData =
+  | ethers.TransactionRequest
+  | TronWebTypes.Transaction<TronWebTypes.TriggerSmartContract>
+  | string;
+
+export type ReceiveVaultRecoverResponse = { success: true; txData: ReceiveVaultTxData } | FailedResponse;
+
+export enum StuckBalanceKind {
+  Utxo = 'utxo',
+  Bridge = 'bridge',
+  Vault = 'vault',
+}
+
+export type StuckSourceDetails =
+  | { kind: StuckBalanceKind.Utxo | StuckBalanceKind.Bridge }
+  | { kind: StuckBalanceKind.Vault; vaultAddress: string; reason: ReceiveVaultBlockReason };
+
+export type StuckBalanceSource = StuckSourceDetails & { amount: string };
+
+export type StuckBalance = SerializedTokenBalance & { sources: StuckBalanceSource[] };
+
+export type StuckBalancesResponse = { success: true; balances: StuckBalance[] } | FailedResponse;
+
+export type RecoverStuckBalanceRequest = RecoverStuckBridgeBalanceRequest & {
+  kind: StuckBalanceKind;
+  vaultAddress?: string;
+  ref?: string;
+};
+
+export type RecoverStuckBalanceResult =
+  | { txHashes: string[] }
+  | { recoveredCount: number; recoveredAmount: string; failedCount: number; errors: string[] }
+  | { txData: ReceiveVaultTxData };
+
+export type RecoverStuckBalanceResponse = ({ success: true } & RecoverStuckBalanceResult) | FailedResponse;

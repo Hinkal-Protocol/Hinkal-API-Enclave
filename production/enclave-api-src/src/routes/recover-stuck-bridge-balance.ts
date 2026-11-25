@@ -1,9 +1,10 @@
 import { Request, Response, Router } from 'express';
-import { addressEqual, getErrorMessage, isValidAddressForChain } from '@hinkal/common';
+import { getErrorMessage, isValidAddressForChain } from '@hinkal/common';
 import { verifyRecoverStuckBridgeBalanceSignatureMiddleware } from '../middleware';
 import { RecoverStuckBridgeBalanceRequest } from '../types';
 import { invalidAddressMessage } from '../utils/queryGuards';
 import { hinkalInitializerService } from '../services/hinkalInitializerService';
+import { recoverStuckBridgeBalances } from '../services/stuckBalances';
 
 const router = Router();
 
@@ -21,30 +22,9 @@ router.post(
       }
 
       const { foundCount, recoveredCount, recoveredAmount, errors } =
-        await hinkalInitializerService.withHinkalForAddress(res.locals.address, chainId, async (hinkal) => {
-          const balances = (await hinkal.getStuckBridgeBalances([chainId])).filter(({ token }) =>
-            addressEqual(chainId, token.erc20TokenAddress, tokenAddress),
-          );
-
-          const recoveryErrors: string[] = [];
-          let amount = 0n;
-          await balances.reduce(async (previous, balance) => {
-            await previous;
-            try {
-              await hinkal.recoverStuckBridgeBalance(balance, recipientAddress);
-              amount += balance.balance;
-            } catch (error) {
-              recoveryErrors.push(getErrorMessage(error));
-            }
-          }, Promise.resolve());
-
-          return {
-            foundCount: balances.length,
-            recoveredCount: balances.length - recoveryErrors.length,
-            recoveredAmount: amount,
-            errors: recoveryErrors,
-          };
-        });
+        await hinkalInitializerService.withHinkalForAddress(res.locals.address, chainId, (hinkal) =>
+          recoverStuckBridgeBalances(hinkal, chainId, tokenAddress, recipientAddress),
+        );
 
       if (!foundCount) {
         res.status(400).json({ success: false, error: 'No stuck bridge balance found for this token' });

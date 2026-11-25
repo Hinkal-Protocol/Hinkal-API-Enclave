@@ -1,6 +1,10 @@
 import { getAddress } from 'ethers';
-import { BaseAuthFields, DepositAndWithdrawRecipient, ParseResult } from '../types';
-import type { FeeAuthFields } from './enclaveAuthNormalization';
+import { BaseAuthFields, DepositAndWithdrawRecipient, ParseResult, StuckBalanceKind } from '../types';
+import type {
+  FeeAuthFields,
+  RecoverStuckBalanceAuthFields,
+  TransferAddressAuthFields,
+} from './enclaveAuthNormalization';
 
 const parseChainId = (chainId: unknown): number | undefined => {
   const parsed = typeof chainId === 'number' ? chainId : Number(chainId);
@@ -412,5 +416,77 @@ export const parseWithdrawStuckUtxosAuthBody = (
   return {
     ok: true,
     value: { ...base.value, tokenAddress, recipientAddress: recipient.value },
+  };
+};
+
+export const parseRecoverStuckBalanceAuthBody = (
+  body: Record<string, unknown>,
+): ParseResult<RecoverStuckBalanceAuthFields> => {
+  const stuck = parseWithdrawStuckUtxosAuthBody(body);
+  if (stuck.ok === false) return stuck;
+
+  const { kind, vaultAddress } = body;
+  const ref = parseRef(body);
+  const validKinds: unknown[] = Object.values(StuckBalanceKind);
+
+  if (typeof kind !== 'string' || !validKinds.includes(kind)) {
+    return { ok: false, error: `Invalid kind: expected one of ${validKinds.join(', ')}` };
+  }
+  if (kind !== StuckBalanceKind.Vault) {
+    if (vaultAddress !== undefined) return { ok: false, error: 'vaultAddress is only allowed for kind vault' };
+  } else if (typeof vaultAddress !== 'string' || !vaultAddress || containsControlChars(vaultAddress)) {
+    return { ok: false, error: 'Missing vaultAddress' };
+  }
+  if (ref.ok === false) return ref;
+
+  return { ok: true, value: { ...stuck.value, kind, vaultAddress, ref: ref.value } };
+};
+
+export const parseTransferAddressAuthBody = (body: Record<string, unknown>): ParseResult<TransferAddressAuthFields> => {
+  const base = parseBaseAuthBody(body);
+  if (base.ok === false) return base;
+
+  const recipient = parseRecipientAddress(body.recipientAddress);
+  const ref = parseRef(body);
+  if (recipient.ok === false) return recipient;
+  if (ref.ok === false) return ref;
+  const value = { ...base.value, recipientAddress: recipient.value, ref: ref.value };
+
+  const { destinationTokenAddress, slippagePercentage } = body;
+  if (body.destinationChainId === undefined) {
+    if (destinationTokenAddress !== undefined || slippagePercentage !== undefined) {
+      return { ok: false, error: 'destinationTokenAddress and slippagePercentage require destinationChainId' };
+    }
+    return { ok: true, value };
+  }
+
+  const destinationChainId = parseChainId(body.destinationChainId);
+  if (destinationChainId === undefined) {
+    return { ok: false, error: 'Invalid destinationChainId' };
+  }
+  if (
+    typeof destinationTokenAddress !== 'string' ||
+    !destinationTokenAddress ||
+    containsControlChars(destinationTokenAddress)
+  ) {
+    return { ok: false, error: 'Missing destinationTokenAddress' };
+  }
+  if (
+    slippagePercentage !== undefined &&
+    !(typeof slippagePercentage === 'number' || (typeof slippagePercentage === 'string' && slippagePercentage))
+  ) {
+    return { ok: false, error: 'Invalid slippagePercentage' };
+  }
+
+  return {
+    ok: true,
+    value: {
+      ...value,
+      // Signed as a string, so it must stay exactly as sent: checksumming it would break the signature.
+      recipientAddress: body.recipientAddress as string,
+      destinationChainId,
+      destinationTokenAddress,
+      slippagePercentage: slippagePercentage === undefined ? undefined : String(slippagePercentage),
+    },
   };
 };
