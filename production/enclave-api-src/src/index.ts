@@ -68,7 +68,7 @@ const startServer = async () => {
     privateSendVolumeService.init();
     const server = app.listen(PORT, () => {
       Logger.log('DEPLOYMENT_MODE:', process.env.DEPLOYMENT_MODE);
-      Logger.log('enclave-api service running on port:', PORT);
+      Logger.log('enclave-api service running on port: ', PORT);
     });
     setServerSettings(server);
   } catch (err) {
