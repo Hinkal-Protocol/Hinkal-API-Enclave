@@ -19,6 +19,7 @@ import {
   THROWN_ERROR_MESSAGES,
 } from '@hinkal/common';
 import { getERC20Token } from '@hinkal/erc20-registry';
+import { UpdateQuery } from 'mongoose';
 import { TransferPayoutModel } from '../models/TransferPayoutSchema';
 import { DEPLOYMENT_MODE, MONGO_DUPLICATE_KEY_ERROR } from '../constants';
 import { createPendingPrivateSendVolume } from '../utils/pendingPrivateSendVolume';
@@ -56,9 +57,11 @@ type BridgeCost = { gross: bigint; feeStructure: FeeStructure; recipients: Depos
 
 const payoutKey = (chainId: number, settleTxHash: string) => `${chainId}:${settleTxHash}`;
 
-// Only a payout still processing is updated, so a late result cannot overwrite another one.
-const markPayout = (chainId: number, settleTxHash: string, updates: Partial<TransferPayout>) =>
-  TransferPayoutModel.updateOne({ chainId, settleTxHash, status: TransferPayoutStatus.Processing }, { $set: updates });
+// Writes only if the status is still the one read, so a concurrent change or a late result cannot overwrite it.
+const updatePayout = (
+  { chainId, settleTxHash, status }: Pick<TransferPayout, 'chainId' | 'settleTxHash' | 'status'>,
+  update: UpdateQuery<TransferPayout>,
+) => TransferPayoutModel.updateOne({ chainId, settleTxHash, status }, update);
 
 const dispatchWithdraw = (hinkal: IHinkal, order: DepositAndWithdrawOrderBase): Promise<string> => {
   if (isSolanaLike(order.chainId)) return dispatchSolanaWithdrawForOrder(hinkal, order);
@@ -227,11 +230,35 @@ const withdrawToRecipient = async (
     chainId,
     (hinkal) => (needsBridge ? bridgePayout(hinkal, request, bridge) : withdrawPayout(hinkal, request)),
   );
-  await markPayout(chainId, settleTxHash, { status: TransferPayoutStatus.WithdrawScheduled, scheduleId });
+  await updatePayout(
+    { chainId, settleTxHash, status: TransferPayoutStatus.Processing },
+    { $set: { status: TransferPayoutStatus.WithdrawScheduled, scheduleId } },
+  );
   await createPendingPrivateSendVolume(order, scheduleId).catch((err) =>
     Logger.error(`[transfer-settle] failed to track partner volume for ${payoutKey(chainId, settleTxHash)}:`, err),
   );
 };
+
+// Failures are only recorded: VaultRefundService refunds the note of an address that has a refundTo.
+const payOut = (
+  chainId: number,
+  settleTxHash: string,
+  binding: ReceiveVaultBinding,
+  settlement: ReceiveVaultSettlement,
+) =>
+  withdrawToRecipient(chainId, settleTxHash, binding, settlement)
+    .catch((err) => {
+      Logger.error(`[transfer-settle] withdraw failed for ${payoutKey(chainId, settleTxHash)}:`, err);
+      return updatePayout(
+        { chainId, settleTxHash, status: TransferPayoutStatus.Processing },
+        {
+          $set: { status: TransferPayoutStatus.Failed, error: extractMessage(err) ?? String(err) },
+        },
+      );
+    })
+    .catch((err) =>
+      Logger.error(`[transfer-settle] could not record failure for ${payoutKey(chainId, settleTxHash)}:`, err),
+    );
 
 // The caller only names the tx: vault, token and amount come from the chain, the recipient from the sealed binding.
 export const handleTransferSettle = async (chainId: number, settleTxHash: string): Promise<void> => {
@@ -257,15 +284,6 @@ export const handleTransferSettle = async (chainId: number, settleTxHash: string
     throw err;
   }
 
-  const key = payoutKey(chainId, settleTxHash);
   // Not awaited: merkle sync and proving outlast the HTTP call.
-  withdrawToRecipient(chainId, settleTxHash, binding, settlement)
-    .catch((err) => {
-      Logger.error(`[transfer-settle] withdraw failed for ${key}:`, err);
-      return markPayout(chainId, settleTxHash, {
-        status: TransferPayoutStatus.Failed,
-        error: extractMessage(err) ?? String(err),
-      });
-    })
-    .catch((err) => Logger.error(`[transfer-settle] could not record failure for ${key}:`, err));
+  payOut(chainId, settleTxHash, binding, settlement);
 };

@@ -1,3 +1,5 @@
+import { createHmac } from 'crypto';
+import { Mutex } from 'async-mutex';
 import { ethers } from 'ethers';
 import {
   addressToHexFormat,
@@ -7,28 +9,33 @@ import {
   enclavePostSealedSigned,
   evmHexToTronBase58Address,
   getBridgeDestinationChains,
+  getOrCreateMapValue,
+  getReceiveVaultCanonicalChainId,
   HttpError,
   isNativePlaceholderAddress,
   isSolanaLike,
   isTronLike,
+  normalizeAddress,
   ReceiveVaultNetwork,
   receiveVaultNetworkOf,
   ReceiveVaultRecord,
+  toBase58IfTron,
 } from '@hinkal/common';
+import { Keypair } from '@solana/web3.js';
 import { ENCLAVE_URL } from '@hinkal/common/functions/snarkjs/constant';
 import { buildInternalHmacAuthHeaders } from '@hinkal/backend-common';
 import { getERC20Token } from '@hinkal/erc20-registry';
-import { RELAYER_COMMUNICATION_KEY } from '../constants';
+import { API_KEY_ACCOUNT_SEED, RELAYER_COMMUNICATION_KEY } from '../constants';
 import { decryptField, encryptField } from '../utils/orderFieldEncryption';
 import { assertAddressForChain } from '../utils/queryGuards';
 import { parseSlippagePercentage } from '../utils/transactionHelpers';
 import { hinkalInitializerService } from './hinkalInitializerService';
 import {
+  CreateTransferAddressParams,
   EncryptedReceiveVaultBinding,
   ReceiveAddressRequest,
   ReceiveVaultAccountEntry,
   ReceiveVaultBinding,
-  ReferralAttribution,
   StoredReceiveVaultBinding,
   TransferAddressRequest,
   TransferTarget,
@@ -57,10 +64,28 @@ const transformFields = async (
 
 const toOptionalNumber = (value?: string): number | undefined => (value === undefined ? undefined : Number(value));
 
+// The exact bytes are the key: a stray character would change every creator keypair, so the format is fixed here.
+if (!/^[0-9a-f]{64}$/i.test(API_KEY_ACCOUNT_SEED)) throw new Error('API_KEY_ACCOUNT_SEED must be 64 hex characters');
+const CREATOR_SEED_KEY = Buffer.from(API_KEY_ACCOUNT_SEED, 'hex');
+
+// One creator account per partner key, network and refundTo holds all of that partner's addresses refunding there.
+// The server-only seed keeps the partner, who knows keyId and refundTo, from deriving the keypair.
+export const partnerCreatorAddress = (network: ReceiveVaultNetwork, keyId: string, refundTo: string): string => {
+  const chainId = getReceiveVaultCanonicalChainId(network);
+  const seed = createHmac('sha256', CREATOR_SEED_KEY)
+    .update(`${keyId}:${network}:${normalizeAddress(chainId, refundTo)}`)
+    .digest();
+  if (isSolanaLike(chainId)) return Keypair.fromSeed(seed).publicKey.toBase58();
+  return toBase58IfTron(chainId, new ethers.Wallet(ethers.hexlify(seed)).address);
+};
+
 export const loadBinding = async (chainId: number, vaultAddress: string): Promise<ReceiveVaultBinding | null> => {
   const path = API_CONFIG.ROUTES.receiveVaultBinding;
   const { networkType, creatorAddress, ...encrypted } = await enclavePostSealedSigned<
-    Partial<EncryptedReceiveVaultBinding> & { networkType?: ReceiveVaultNetwork; creatorAddress?: string }
+    Partial<EncryptedReceiveVaultBinding> & {
+      networkType?: ReceiveVaultNetwork;
+      creatorAddress?: string;
+    }
   >(`${ENCLAVE_URL}${path}`, { vaultAddress: toVaultKey(chainId, vaultAddress) }, signHeadersFor(path));
   if (!networkType || !creatorAddress) return null;
   const fields = (await transformFields(encrypted, decryptField)) as EncryptedReceiveVaultBinding;
@@ -89,21 +114,31 @@ export const decryptTransferTerms = (entries: ReceiveVaultRecord[]): Promise<Rec
 export const isTransferAddressRequest = (request: ReceiveAddressRequest): request is TransferAddressRequest =>
   request.recipientAddress !== undefined;
 
-const resolveTransferTarget = ({
-  chainId,
-  recipientAddress,
-  destinationChainId,
-  destinationTokenAddress,
-  slippagePercentage,
-}: TransferAddressRequest): TransferTarget => {
-  if (destinationChainId === undefined) {
-    if (destinationTokenAddress !== undefined || slippagePercentage !== undefined) {
-      throw new HttpError(400, API_ERROR_MESSAGES.BRIDGE_PARAMS_REQUIRE_DESTINATION_CHAIN);
-    }
-  } else if (
-    !(BRIDGE_SUPPORTED_CHAINS.includes(chainId) && getBridgeDestinationChains(chainId).includes(destinationChainId))
-  ) {
-    throw new HttpError(400, `${API_ERROR_MESSAGES.BRIDGE_ROUTE_NOT_SUPPORTED}: ${chainId} -> ${destinationChainId}`);
+// sourceChainIds: chains the address takes payments on; a bridged target accepts only those that can reach it.
+export const resolveTransferTarget = (
+  {
+    chainId,
+    recipientAddress,
+    destinationChainId,
+    destinationTokenAddress,
+    slippagePercentage,
+  }: TransferAddressRequest,
+  sourceChainIds = [chainId],
+): TransferTarget => {
+  if (destinationChainId === undefined && (destinationTokenAddress !== undefined || slippagePercentage !== undefined)) {
+    throw new HttpError(400, API_ERROR_MESSAGES.BRIDGE_PARAMS_REQUIRE_DESTINATION_CHAIN);
+  }
+  const acceptedChainIds =
+    destinationChainId === undefined
+      ? sourceChainIds
+      : sourceChainIds.filter(
+          (id) => BRIDGE_SUPPORTED_CHAINS.includes(id) && getBridgeDestinationChains(id).includes(destinationChainId),
+        );
+  if (!acceptedChainIds.length) {
+    throw new HttpError(
+      400,
+      `${API_ERROR_MESSAGES.BRIDGE_ROUTE_NOT_SUPPORTED}: ${sourceChainIds.join(', ')} -> ${destinationChainId}`,
+    );
   }
 
   const destinationToken =
@@ -130,6 +165,7 @@ const resolveTransferTarget = ({
       destinationTokenAddress: destinationToken.erc20TokenAddress,
       ...(slippage !== undefined && { slippagePercentage: slippage }),
     },
+    acceptedChainIds,
   };
 };
 
@@ -151,17 +187,20 @@ export const createReceiveAddress = async (
   );
 };
 
-export const createTransferAddress = async (
-  creatorAddress: string,
-  request: TransferAddressRequest,
-  variableRate: bigint,
-  { ref, keyId, partnerFeeBps }: ReferralAttribution,
-  trackedRef?: string,
-): Promise<ReceiveVaultRecord> => {
-  const { chainId } = request;
-  const { recipientAddress, bridge } = resolveTransferTarget(request);
+const creationLocks = new Map<string, Mutex>();
+
+export const createTransferAddress = async ({
+  chainId,
+  creatorAddress,
+  target: { recipientAddress, bridge },
+  variableRate,
+  attribution: { ref, keyId, partnerFeeBps },
+  trackedRef,
+  refundTo,
+}: CreateTransferAddressParams): Promise<ReceiveVaultRecord> => {
   const stored: StoredReceiveVaultBinding = {
     recipientAddress,
+    refundTo,
     variableRate: variableRate.toString(),
     ...bridge,
     attributionRef: ref,
@@ -171,9 +210,12 @@ export const createTransferAddress = async (
     fields: await transformFields({ ...stored }, encryptField),
     signHeaders: signHeadersFor(API_CONFIG.ROUTES.registerReceiveVault),
   };
+  const mutex = getOrCreateMapValue(creationLocks, creatorAddress, () => new Mutex());
   try {
-    return await hinkalInitializerService.withHinkalForAddress(creatorAddress, chainId, (hinkal) =>
-      hinkal.createReceiveAddress(receiveVaultNetworkOf(chainId), true, binding, trackedRef),
+    return await mutex.runExclusive(() =>
+      hinkalInitializerService.withHinkalForAddress(creatorAddress, chainId, (hinkal) =>
+        hinkal.createReceiveAddress(receiveVaultNetworkOf(chainId), true, binding, trackedRef),
+      ),
     );
   } catch (error) {
     // A concurrent request for the same account registered this index first, under its own binding.
@@ -181,5 +223,7 @@ export const createTransferAddress = async (
       throw new HttpError(409, API_ERROR_MESSAGES.TRANSFER_ADDRESS_CREATION_IN_PROGRESS);
     }
     throw error;
+  } finally {
+    if (!mutex.isLocked()) creationLocks.delete(creatorAddress);
   }
 };

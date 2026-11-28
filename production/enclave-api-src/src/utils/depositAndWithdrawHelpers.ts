@@ -12,6 +12,7 @@ import {
   isSolanaLike,
   isTronLike,
   networkRegistry,
+  serializeSolanaInstruction,
   SolanaTxData,
   toJsonSafe,
 } from '@hinkal/common';
@@ -60,11 +61,7 @@ const toSolanaTxData = (unsignedTx: VersionedTransaction): SolanaTxData => {
   return {
     payerKey: payerKey.toBase58(),
     recentBlockhash,
-    instructions: instructions.map(({ programId, keys, data }) => ({
-      programId: programId.toBase58(),
-      keys: keys.map(({ pubkey, isSigner, isWritable }) => ({ pubkey: pubkey.toBase58(), isSigner, isWritable })),
-      data: data.toString('base64'),
-    })),
+    instructions: instructions.map(serializeSolanaInstruction),
   };
 };
 

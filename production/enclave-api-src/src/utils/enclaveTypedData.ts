@@ -18,7 +18,7 @@ import {
   TransferLikeAuthFields,
   WithdrawStuckUtxosAuthFields,
 } from './enclaveAuthNormalization';
-import type { DepositAndWithdrawRecipient } from '../types';
+import type { DepositAndWithdrawRecipient, RefundToRecoverFields } from '../types';
 
 const ENCLAVE_TYPED_DATA_DOMAIN_NAME = 'Hinkal Enclave';
 
@@ -148,6 +148,14 @@ const ENCLAVE_TYPED_DATA_TYPES: Record<string, TypedDataField[]> = {
     { name: 'sessionId', type: 'string' },
     { name: 'chainId', type: 'uint256' },
     { name: 'recipient', type: 'address' },
+  ],
+  RefundToRecover: [
+    { name: 'refundTo', type: 'string' },
+    { name: 'chainId', type: 'uint256' },
+    { name: 'tokenAddress', type: 'string' },
+    { name: 'kind', type: 'string' },
+    { name: 'nonce', type: 'string' },
+    { name: 'timestamp', type: 'uint256' },
   ],
   TransferAddressBridge: [
     { name: 'nonce', type: 'string' },
@@ -417,3 +425,13 @@ export const buildTransferAddressTypedData = (params: TransferAddressAuthFields)
     ...ref,
   });
 };
+
+export const buildRefundToRecoverTypedData = (params: RefundToRecoverFields): EnclaveTypedDataPayload =>
+  buildTypedData('RefundToRecover', params.chainId, {
+    refundTo: params.refundTo,
+    chainId: BigInt(params.chainId),
+    tokenAddress: params.tokenAddress,
+    kind: params.kind,
+    nonce: params.nonce,
+    timestamp: BigInt(params.timestamp),
+  });

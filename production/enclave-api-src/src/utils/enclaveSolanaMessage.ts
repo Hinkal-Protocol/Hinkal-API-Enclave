@@ -1,4 +1,4 @@
-import { BaseAuthFields } from '../types';
+import { BaseAuthFields, RefundToRecoverFields } from '../types';
 import {
   buildSortedTokenPairs,
   FeeAuthFields,
@@ -115,3 +115,11 @@ export const buildSolanaTransferAddressMessage = (params: TransferAddressAuthFie
   `${params.destinationTokenAddress !== undefined ? `\nDestination Token Address: ${params.destinationTokenAddress}` : ''}` +
   `${params.slippagePercentage !== undefined ? `\nSlippage Percentage: ${params.slippagePercentage}` : ''}` +
   `${params.ref !== undefined ? `\nRef: ${params.ref}` : ''}`;
+
+export const buildSolanaRefundToRecoverMessage = (params: RefundToRecoverFields): string =>
+  `${DOMAIN_NAME}\n\nPrimary Type: RefundToRecover\nChain ID: ${params.chainId}` +
+  `\nRefund To: ${params.refundTo}` +
+  `\nToken Address: ${params.tokenAddress}` +
+  `\nKind: ${params.kind}` +
+  `\nNonce: ${params.nonce}` +
+  `\nTimestamp: ${params.timestamp}`;

@@ -10,6 +10,7 @@ import {
   buildReceiveVaultRecoverTypedData,
   buildRecoverStuckBalanceTypedData,
   buildRecoverStuckBridgeBalanceTypedData,
+  buildRefundToRecoverTypedData,
   buildSwapTypedData,
   buildTransferAddressTypedData,
   buildTransferTypedData,
@@ -25,6 +26,7 @@ import {
   buildSolanaReceiveVaultRecoverMessage,
   buildSolanaRecoverStuckBalanceMessage,
   buildSolanaRecoverStuckBridgeBalanceMessage,
+  buildSolanaRefundToRecoverMessage,
   buildSolanaSwapMessage,
   buildSolanaTransferAddressMessage,
   buildSolanaTransferMessage,
@@ -50,7 +52,14 @@ import { isTransferAddressRequest } from '../services/receiveVaultBinding';
 import { verifyRequestSignatureSession } from '../utils/requestSignatureUtils';
 import { getSignedRequestFields, isTimestampWithinFreshnessWindow } from '../utils/requestBinding';
 import { getEnclaveSession, isEnclaveSessionActive } from '../models/EnclaveSessionSchema';
-import { EnclaveTypedDataPayload, ParsedSignatureRequest, ParseResult } from '../types';
+import {
+  EnclaveTypedDataPayload,
+  ParsedSignatureRequest,
+  ParseResult,
+  RefundToRecoverRequest,
+  RefundToRecoverResponse,
+  StuckBalanceKind,
+} from '../types';
 
 const verifyRequestSignature = async (
   body: Record<string, unknown>,
@@ -258,3 +267,45 @@ export const verifyReceiveAddressSignatureMiddleware = (req: Request, res: Respo
     res,
     next,
   );
+
+// No session: the refundTo wallet signs the recover itself. Like the session routes, the nonce makes the signature
+// single use and the timestamp must be fresh.
+export const verifyRefundToRecoverSignatureMiddleware = async (
+  req: Request,
+  res: Response<RefundToRecoverResponse>,
+  next: NextFunction,
+) => {
+  try {
+    const { signature, refundTo, chainId, tokenAddress, kind, nonce, timestamp } = req.body as RefundToRecoverRequest;
+    if (
+      typeof signature !== 'string' ||
+      typeof refundTo !== 'string' ||
+      typeof tokenAddress !== 'string' ||
+      typeof nonce !== 'string' ||
+      !Number.isInteger(chainId) ||
+      !Number.isInteger(timestamp) ||
+      !Object.values(StuckBalanceKind).includes(kind)
+    ) {
+      res.status(400).json({ success: false, error: 'Missing or invalid fields' });
+      return;
+    }
+    if (!isTimestampWithinFreshnessWindow(timestamp)) {
+      res.status(401).json({ success: false, error: 'Request timestamp expired' });
+      return;
+    }
+
+    const fields = { refundTo, chainId, tokenAddress, kind, nonce, timestamp };
+    const { domain, types, value } = buildRefundToRecoverTypedData(fields);
+    const isValid = isSolanaLike(chainId)
+      ? await verifySignature(signature, refundTo, buildSolanaRefundToRecoverMessage(fields), chainId)
+      : await verifyTypedDataSignature(signature, refundTo, domain, types, value, chainId);
+    if (!isValid) {
+      res.status(401).json({ success: false, error: 'Invalid signature' });
+      return;
+    }
+    if (!(await consumeRequestNonceOrRespond(req, res))) return;
+    next();
+  } catch {
+    res.status(401).json({ success: false, error: 'Signature verification failed' });
+  }
+};

@@ -43,6 +43,7 @@ import info from '../routes/info';
 import scheduledPayoutFinished from '../routes/scheduled-payout-finished';
 import transferSettle from '../routes/transfer-settle';
 import stuckBalances from '../routes/stuck-balances';
+import partnerTransferAddress from '../routes/partner-transfer-address';
 
 export const loadRoutes = (app: Express) => {
   app.use(BASE_URL, ping);
@@ -63,6 +64,7 @@ export const loadRoutes = (app: Express) => {
   hinkalAPIRouter.use(recoverStuckBridgeBalance);
   hinkalAPIRouter.use(stuckBalances);
   hinkalAPIRouter.use(receiveVault);
+  hinkalAPIRouter.use(partnerTransferAddress);
   hinkalAPIRouter.use(getFeeRoute);
   hinkalAPIRouter.use(withdraw);
   hinkalAPIRouter.use(transfer);

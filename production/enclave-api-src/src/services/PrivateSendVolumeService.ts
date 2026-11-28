@@ -9,18 +9,13 @@ import {
 } from '@hinkal/common';
 import { getERC20Token } from '@hinkal/erc20-registry';
 import mongoose from 'mongoose';
-import { DEPLOYMENT_MODE } from '../constants';
+import { DEPLOYMENT_MODE, FINISHED_PAYOUT_STATUSES } from '../constants';
 import { PendingPrivateSendVolume, PendingPrivateSendVolumeModel } from '../models/PendingPrivateSendVolumeSchema';
 import { emitPartnerReferralTx } from '../utils/dataServerInternal';
 import { verifyRawDoc } from '../utils/documentSigning';
 
 const LABEL = 'pending private send volume';
 const SWEEP_INTERVAL_MS = 30 * 60 * 1000;
-const FINISHED_PAYOUT_STATUSES = new Set<ScheduledTransactionStatus>([
-  ScheduledTransactionStatus.COMPLETED,
-  ScheduledTransactionStatus.FAILED,
-  ScheduledTransactionStatus.DEPOSIT_FAILED,
-]);
 
 const recordCompletedPayouts = async (pending: PendingPrivateSendVolume, payouts: ScheduledTransactionItemStatus[]) => {
   const { orderId, chainId, tokenAddress, recipientAmounts } = pending;

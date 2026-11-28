@@ -3,6 +3,7 @@ import {
   ExternalActionId,
   FailedResponse,
   ReceiveVaultBlockReason,
+  ReceiveVaultNetwork,
   ReceiveVaultRecord,
   SerializedTokenBalance,
 } from '@hinkal/common';
@@ -204,10 +205,25 @@ export type ReceiveAddressRequest = {
   slippagePercentage?: number;
 };
 
+export type TransferAddressRequest = ReceiveAddressRequest & { recipientAddress: string };
+
 export type ReceiveAddressResponse =
   | {
       success: true;
       record: ReceiveVaultRecord;
+    }
+  | FailedResponse;
+
+export type PartnerTransferAddressRequest = Omit<TransferAddressRequest, 'chainId' | 'forceFresh'> & {
+  networkType: ReceiveVaultNetwork;
+  refundTo: string;
+};
+
+export type PartnerTransferAddressResponse =
+  | {
+      success: true;
+      record: ReceiveVaultRecord;
+      acceptedChainIds: number[];
     }
   | FailedResponse;
 
@@ -257,6 +273,25 @@ export type StuckBalance = SerializedTokenBalance & { sources: StuckBalanceSourc
 
 export type StuckBalancesResponse = { success: true; balances: StuckBalance[] } | FailedResponse;
 
+// One creator's scan of one chain, before the creators sharing a refundTo are summed.
+export type ChainStuckBalances = { chainId: number; balances: StuckBalance[]; error?: string };
+
+export type SummedStuckBalance = {
+  tokenAddress: string;
+  balance: string;
+  sources: { kind: StuckBalanceKind; amount: string }[];
+};
+
+// Running totals per token and kind while the creators' scans of one chain are added up.
+export type ChainStuckSums = {
+  error?: string;
+  tokens: Map<string, { tokenAddress: string; kinds: Map<StuckBalanceKind, bigint> }>;
+};
+
+export type ChainSummedStuckBalances = { chainId: number; balances: SummedStuckBalance[]; error?: string };
+
+export type RefundToStuckBalancesResponse = { success: true; chains: ChainSummedStuckBalances[] } | FailedResponse;
+
 export type RecoverStuckBalanceRequest = RecoverStuckBridgeBalanceRequest & {
   kind: StuckBalanceKind;
   vaultAddress?: string;
@@ -269,3 +304,19 @@ export type RecoverStuckBalanceResult =
   | { txData: ReceiveVaultTxData };
 
 export type RecoverStuckBalanceResponse = ({ success: true } & RecoverStuckBalanceResult) | FailedResponse;
+
+// Signed by the refundTo wallet; nonce is a UUID used once, timestamp is in ms.
+export type RefundToRecoverFields = {
+  refundTo: string;
+  chainId: number;
+  tokenAddress: string;
+  kind: StuckBalanceKind;
+  nonce: string;
+  timestamp: number;
+};
+
+export type RefundToRecoverRequest = RefundToRecoverFields & { signature: string };
+
+export type RefundToRecoverResult = RecoverStuckBalanceResult | { error: string };
+
+export type RefundToRecoverResponse = { success: true; results: RefundToRecoverResult[] } | FailedResponse;

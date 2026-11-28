@@ -17,7 +17,8 @@ export type EnclaveTypedDataPrimaryType =
   | 'RecoverStuckBalance'
   | 'ReceiveVaultRecover'
   | 'TransferAddress'
-  | 'TransferAddressBridge';
+  | 'TransferAddressBridge'
+  | 'RefundToRecover';
 
 export type EnclaveTypedDataPayload = {
   domain: TypedDataDomain;

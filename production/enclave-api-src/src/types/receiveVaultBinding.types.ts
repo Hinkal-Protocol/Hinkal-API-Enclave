@@ -1,12 +1,13 @@
 import { ReceiveVaultNetwork, ReceiveVaultRecord } from '@hinkal/common';
-import { ReceiveAddressRequest } from './route.types';
+import type { ReferralAttribution } from './partner.types';
 
-// Stored in henclave's vault record, every field encrypted on its own. creatorAddress (whose account pays out)
-// and networkType come from the record's own plain fields.
+// Stored in henclave's vault record, every field encrypted on its own. creatorAddress (whose account pays out),
+// networkType and the settle fields come from the record's own plain fields.
 export interface ReceiveVaultBinding {
   networkType: ReceiveVaultNetwork;
   creatorAddress: string;
   recipientAddress: string;
+  refundTo?: string; // set: whatever gets stuck in the creator's account is refunded here
   variableRate: string; // withdraw rate fixed at creation: hinkal rate + partner fee
   destinationChainId?: number; // set: each payment is bridged instead of withdrawn
   destinationTokenAddress?: string;
@@ -30,11 +31,32 @@ export type TransferBridge = Required<Pick<ReceiveVaultBinding, 'destinationChai
 export type ReceiveVaultAccountEntry = Omit<ReceiveVaultRecord, 'destinationChainId'> & { destinationChainId?: number };
 
 // A receive address request that creates a transfer address: recipientAddress is set.
-export type TransferAddressRequest = ReceiveAddressRequest & { recipientAddress: string };
-
 export interface TransferTarget {
   recipientAddress: string;
   bridge?: TransferBridge;
+  acceptedChainIds: number[]; // source chains whose payments can reach the target
+}
+
+export type CreateTransferAddressParams = {
+  chainId: number;
+  creatorAddress: string;
+  target: TransferTarget;
+  variableRate: bigint;
+  attribution: ReferralAttribution;
+  trackedRef?: string;
+  refundTo?: string;
+};
+
+// An API-key address the keeper found funds in recently, and the chains it found them on.
+export interface RecentlyAttemptedVault {
+  vaultAddress: string;
+  network: ReceiveVaultNetwork;
+  chainIds: number[];
+}
+
+export interface RefundCreator {
+  refundTo: string;
+  chainIds: Set<number>;
 }
 
 export enum TransferPayoutStatus {

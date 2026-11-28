@@ -1,21 +1,33 @@
 import {
   addressEqual,
   getErrorMessage,
+  getReceiveVaultCanonicalChainId,
   Hinkal,
+  hinkalReceiveVaultRecover,
   HttpError,
+  isValidAddressForChain,
   Logger,
   normalizeAddress,
+  ReceiveVaultBlockedFund,
+  receiveVaultChainsForNetwork,
+  ReceiveVaultNetwork,
   THROWN_ERROR_MESSAGES,
   toJsonSafe,
   TokenBalance,
 } from '@hinkal/common';
 import { getERC20Token } from '@hinkal/erc20-registry';
 import { trackReceiveVaultRecovery } from '../utils/trackReceiveVaultRecovery';
+import { hinkalInitializerService } from './hinkalInitializerService';
+import { partnerCreatorAddress } from './receiveVaultBinding';
 import {
+  ChainStuckBalances,
+  ChainStuckSums,
+  ChainSummedStuckBalances,
   ReceiveVaultTxData,
   RecoverStuckBalanceParams,
   RecoverStuckBalanceResult,
   ReferralAttribution,
+  RefundToRecoverResult,
   StuckBalance,
   StuckBalanceKind,
   StuckBalanceSource,
@@ -156,14 +168,22 @@ const toSourceResponse = (source: StuckSourceAmount): StuckBalanceSource =>
       }
     : { kind: source.kind, amount: source.amount.toString() };
 
-export const getStuckBalances = async (hinkal: Hinkal<unknown>, chainId: number): Promise<StuckBalance[]> => {
-  const [utxoBalances, bridgeBalances, blockedFunds] = await Promise.all([
+const loadBlockedFunds = (hinkal: Hinkal<unknown>): Promise<ReceiveVaultBlockedFund[]> =>
+  hinkal
+    .getReceiveVaultAccount()
+    .then((account) => account.blockedFunds)
+    .catch(failOnScanError(StuckBalanceKind.Vault));
+
+// blockedFunds may be passed in: the vault scan covers every chain of the network, so one scan serves them all.
+export const getStuckBalances = async (
+  hinkal: Hinkal<unknown>,
+  chainId: number,
+  blockedFunds?: ReceiveVaultBlockedFund[],
+): Promise<StuckBalance[]> => {
+  const [utxoBalances, bridgeBalances, vaultFunds] = await Promise.all([
     getStuckUtxoBalances(hinkal, chainId).catch(failOnScanError(StuckBalanceKind.Utxo)),
     hinkal.getStuckBridgeBalances([chainId]).catch(failOnScanError(StuckBalanceKind.Bridge)),
-    hinkal
-      .getReceiveVaultAccount()
-      .then((account) => account.blockedFunds)
-      .catch(failOnScanError(StuckBalanceKind.Vault)),
+    blockedFunds ?? loadBlockedFunds(hinkal),
   ]);
 
   const sources: StuckSourceAmount[] = [
@@ -175,7 +195,7 @@ export const getStuckBalances = async (hinkal: Hinkal<unknown>, chainId: number)
       sumByToken(bridgeBalances),
       ([tokenAddress, amount]): StuckSourceAmount => ({ tokenAddress, kind: StuckBalanceKind.Bridge, amount }),
     ),
-    ...blockedFunds
+    ...vaultFunds
       .filter(({ token }) => token.chainId === chainId)
       .map(
         ({ record, token, amount, reason }): StuckSourceAmount => ({
@@ -206,4 +226,140 @@ export const getStuckBalances = async (hinkal: Hinkal<unknown>, chainId: number)
 export const recoverStuckBalance = (params: RecoverStuckBalanceParams, kind: StuckBalanceKind) => {
   if (!Object.hasOwn(RECOVERIES, kind)) throw new HttpError(400, `Invalid kind: ${String(kind)}`);
   return RECOVERIES[kind](params);
+};
+
+// Adds up each chain's sources per token and kind: the partner only needs what is stuck for its refundTo.
+const sumChainBalances = (scans: ChainStuckBalances[]): ChainSummedStuckBalances[] => {
+  const byChain = new Map<number, ChainStuckSums>();
+  scans.forEach(({ chainId, balances, error }) => {
+    const chain: ChainStuckSums = byChain.get(chainId) ?? { tokens: new Map() };
+    if (error) chain.error = error;
+    balances.forEach(({ tokenAddress, sources }) => {
+      const key = normalizeAddress(chainId, tokenAddress);
+      const token = chain.tokens.get(key) ?? { tokenAddress, kinds: new Map<StuckBalanceKind, bigint>() };
+      sources.forEach(({ kind, amount }) => token.kinds.set(kind, (token.kinds.get(kind) ?? 0n) + BigInt(amount)));
+      chain.tokens.set(key, token);
+    });
+    byChain.set(chainId, chain);
+  });
+
+  return Array.from(byChain, ([chainId, { error, tokens }]) => ({
+    chainId,
+    balances: Array.from(tokens.values(), ({ tokenAddress, kinds }) => ({
+      tokenAddress,
+      balance: Array.from(kinds.values())
+        .reduce((sum, amount) => sum + amount, 0n)
+        .toString(),
+      sources: Array.from(kinds, ([kind, amount]) => ({ kind, amount: amount.toString() })),
+    })),
+    ...(error && { error }),
+  })).filter(({ balances, error }) => balances.length || error);
+};
+
+// One creator account's stuck funds on every chain of its network. The vault scan already covers every chain,
+// so it runs once and is shared instead of once per chain.
+const scanCreator = async (creatorAddress: string, network: ReceiveVaultNetwork): Promise<ChainStuckBalances[]> => {
+  const chainIds = receiveVaultChainsForNetwork(network);
+  const account = await hinkalInitializerService
+    .withHinkalForAddress(creatorAddress, getReceiveVaultCanonicalChainId(network), (hinkal) =>
+      hinkal.getReceiveVaultAccount(),
+    )
+    .catch((err) => {
+      Logger.error(`[refund-to] vault scan of ${creatorAddress} failed:`, getErrorMessage(err));
+      return getErrorMessage(err);
+    });
+  // No address was ever created for this refundTo on this network.
+  if (typeof account !== 'string' && !account.entries.length) return [];
+  const blockedFunds = typeof account === 'string' ? account : account.blockedFunds;
+  return Promise.all(
+    chainIds.map(async (chainId): Promise<ChainStuckBalances> => {
+      try {
+        if (typeof blockedFunds === 'string') throw new Error(blockedFunds);
+        const balances = await hinkalInitializerService.withHinkalForAddress(creatorAddress, chainId, (hinkal) =>
+          getStuckBalances(hinkal, chainId, blockedFunds),
+        );
+        return { chainId, balances };
+      } catch (err) {
+        Logger.error(`[refund-to] stuck scan of ${creatorAddress} on ${chainId} failed:`, getErrorMessage(err));
+        return { chainId, balances: [], error: getErrorMessage(err) };
+      }
+    }),
+  );
+};
+
+// The address format picks the network(s): an EVM refundTo only matches EVM addresses.
+export const getRefundToNetworks = (refundTo: string): ReceiveVaultNetwork[] =>
+  Object.values(ReceiveVaultNetwork).filter((network) =>
+    isValidAddressForChain(getReceiveVaultCanonicalChainId(network), refundTo),
+  );
+
+// Stuck funds on every chain of the partner's transfer addresses that refund to refundTo: one creator account per network.
+export const getRefundToStuckBalances = async (
+  refundTo: string,
+  keyId: string,
+): Promise<ChainSummedStuckBalances[]> => {
+  const scans = await Promise.all(
+    getRefundToNetworks(refundTo).map((network) =>
+      scanCreator(partnerCreatorAddress(network, keyId, refundTo), network),
+    ),
+  );
+  return sumChainBalances(scans.flat());
+};
+
+// Only the requested kind is scanned, so another kind's scan failing cannot block it. Vault funds need one tx per
+// vault; notes and bridge bounces recover in one call per token.
+const recoverCreatorToRefundTo = async (
+  hinkal: Hinkal<unknown>,
+  chainId: number,
+  tokenAddress: string,
+  kind: StuckBalanceKind,
+  refundTo: string,
+): Promise<RefundToRecoverResult[]> => {
+  if (kind === StuckBalanceKind.Vault) {
+    const { blockedFunds } = await hinkal.getReceiveVaultAccount();
+    return blockedFunds
+      .filter(({ token }) => token.chainId === chainId && addressEqual(chainId, token.erc20TokenAddress, tokenAddress))
+      .reduce<Promise<RefundToRecoverResult[]>>(async (previous, { record }) => {
+        const results = await previous;
+        // refundTo sends the tx, not the creator: on Solana and Tron the sender is part of it.
+        const result = await hinkalReceiveVaultRecover(hinkal, record, tokenAddress, chainId, refundTo, true, refundTo)
+          .then((txData): RefundToRecoverResult => ({ txData: toJsonSafe(txData) as ReceiveVaultTxData }))
+          .catch((error): RefundToRecoverResult => ({ error: getErrorMessage(error) }));
+        return [...results, result];
+      }, Promise.resolve([]));
+  }
+
+  const balances =
+    kind === StuckBalanceKind.Utxo
+      ? await getStuckUtxoBalances(hinkal, chainId)
+      : await hinkal.getStuckBridgeBalances([chainId]);
+  if (
+    !balances.some(({ token, balance }) => balance > 0n && addressEqual(chainId, token.erc20TokenAddress, tokenAddress))
+  )
+    return [];
+  return [
+    await recoverStuckBalance(
+      { hinkal, chainId, tokenAddress, recipientAddress: refundTo, attribution: {} },
+      kind,
+    ).catch((error): RefundToRecoverResult => ({ error: getErrorMessage(error) })),
+  ];
+};
+
+// One token and kind on one chain, from every one of the partner's addresses that refund to refundTo. Notes and
+// bridge bounces are sent by us; vault funds come back as txData for the refundTo wallet to send.
+export const recoverRefundToStuckBalance = async (
+  refundTo: string,
+  keyId: string,
+  chainId: number,
+  tokenAddress: string,
+  kind: StuckBalanceKind,
+): Promise<RefundToRecoverResult[]> => {
+  const network = getRefundToNetworks(refundTo).find((entry) => receiveVaultChainsForNetwork(entry).includes(chainId));
+  if (!network) throw new HttpError(400, `refundTo has no transfer addresses on chain ${chainId}`);
+
+  return hinkalInitializerService
+    .withHinkalForAddress(partnerCreatorAddress(network, keyId, refundTo), chainId, (hinkal) =>
+      recoverCreatorToRefundTo(hinkal, chainId, tokenAddress, kind, refundTo),
+    )
+    .catch((error): RefundToRecoverResult[] => [{ error: getErrorMessage(error) }]);
 };

@@ -1,9 +1,11 @@
-import { requireEnv } from '@hinkal/common';
+import { API_CONFIG, ReceiveVaultNetwork, requireEnv, ScheduledTransactionStatus } from '@hinkal/common';
 import type { CryptoMode } from './types';
 
 export const PORT = requireEnv('PORT');
 export const MONGODB_URL = requireEnv('MONGODB_URL');
 export const ENCLAVE_API_HMAC_SEED = requireEnv('ENCLAVE_API_HMAC_SEED');
+// Derives API-key addresses' creator keypairs: never rotate it, or those keypairs can't be re-derived.
+export const API_KEY_ACCOUNT_SEED = requireEnv('API_KEY_ACCOUNT_SEED');
 export const HENCLAVE_HMAC_SEED = requireEnv('ENCLAVE_HMAC_SEED');
 export const PARTNER_INTERNAL_KEY = requireEnv('PARTNER_INTERNAL_KEY');
 
@@ -52,10 +54,26 @@ export const ENCLAVE_UTXO_PRIVATE_KEY = requireEnvWhenKms('ENCLAVE_UTXO_PRIVATE_
 export const DATA_SERVER_SERVICE_KEY = process.env.DATA_SERVER_SERVICE_KEY ?? '';
 export const TRANSFER_SETTLE_COMMUNICATION_KEY = requireEnv('TRANSFER_SETTLE_COMMUNICATION_KEY');
 export const RELAYER_COMMUNICATION_KEY = requireEnv('RELAYER_COMMUNICATION_KEY');
+export const RECOVER_WITH_FEE_ROUTES: Record<ReceiveVaultNetwork, string> = {
+  [ReceiveVaultNetwork.Evm]: API_CONFIG.ROUTES.executeReceiveVaultRecoverWithFeeEvm,
+  [ReceiveVaultNetwork.Tron]: API_CONFIG.ROUTES.executeReceiveVaultRecoverWithFeeTron,
+  [ReceiveVaultNetwork.Solana]: API_CONFIG.ROUTES.executeReceiveVaultRecoverWithFeeSolana,
+};
 export const TRANSFER_SETTLE_MAX_AGE_MS = 60 * 1000;
 export const UTXO_SERVER_HOST = process.env.UTXO_SERVER_HOST ?? '127.0.0.1';
 export const UTXO_SERVER_PORT = Number(process.env.UTXO_SERVER_PORT ?? 7000);
 export const UTXO_SYNC_TIMEOUT_MS = 5 * 60 * 1000;
+// The keeper saw funds in an API-key address this recently: it is checked for anything to refund.
+export const VAULT_REFUND_LISTEN_MS = 60 * 60 * 1000;
+export const VAULT_REFUND_SWEEP_INTERVAL_MS = 5 * 60 * 1000;
+export const FAILED_PAYOUT_STATUSES = new Set<ScheduledTransactionStatus>([
+  ScheduledTransactionStatus.FAILED,
+  ScheduledTransactionStatus.DEPOSIT_FAILED,
+]);
+export const FINISHED_PAYOUT_STATUSES = new Set<ScheduledTransactionStatus>([
+  ScheduledTransactionStatus.COMPLETED,
+  ...FAILED_PAYOUT_STATUSES,
+]);
 
 export const PARTNER_KEY_MARKER = 'hk_';
 export const PARTNER_KEY_CACHE_TTL_MS = 60 * 1000;

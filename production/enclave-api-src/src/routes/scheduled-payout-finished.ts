@@ -1,19 +1,25 @@
 import { Request, Response, Router } from 'express';
+import { getErrorMessage, Logger } from '@hinkal/common';
 import { SCHEDULE_ID_PATTERN } from '../constants';
 import { privateSendVolumeService } from '../services/PrivateSendVolumeService';
 
 const router = Router();
 
 router.post('/internal/scheduled-payout-finished', async (req: Request, res: Response) => {
-  const { scheduleId } = (req.body ?? {}) as { scheduleId?: unknown };
+  try {
+    const { scheduleId } = (req.body ?? {}) as { scheduleId?: unknown };
 
-  if (typeof scheduleId !== 'string' || !SCHEDULE_ID_PATTERN.test(scheduleId)) {
-    res.status(400).json({ success: false, error: 'Invalid scheduleId' });
-    return;
+    if (typeof scheduleId !== 'string' || !SCHEDULE_ID_PATTERN.test(scheduleId)) {
+      res.status(400).json({ success: false, error: 'Invalid scheduleId' });
+      return;
+    }
+
+    await privateSendVolumeService.syncSchedule(scheduleId);
+    res.status(200).json({ success: true });
+  } catch (error) {
+    Logger.error('[scheduled-payout-finished] error:', getErrorMessage(error));
+    res.status(500).json({ success: false, error: getErrorMessage(error) });
   }
-
-  await privateSendVolumeService.syncSchedule(scheduleId);
-  res.status(200).json({ success: true });
 });
 
 export default router;

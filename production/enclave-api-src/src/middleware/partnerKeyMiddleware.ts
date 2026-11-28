@@ -67,6 +67,16 @@ export const partnerKeyMiddleware = async (req: Request, res: Response, next: Ne
   next();
 };
 
+// Publishable keys are public and their Origin check can be faked, so only a secret key may create addresses.
+export const requirePartnerKeyMiddleware = (req: Request, res: Response, next: NextFunction): void => {
+  const isSecretKey = req.header(PARTNER_API_KEY_HEADER)?.startsWith(PARTNER_SECRET_KEY_PREFIX);
+  if (!isSecretKey || !(res.locals.partnerAttribution as ReferralAttribution | undefined)?.keyId) {
+    res.status(401).json({ success: false, error: 'A partner secret API key is required' });
+    return;
+  }
+  next();
+};
+
 export const getRequestAttribution = (res: Response, bodyRef: string | undefined): ReferralAttribution =>
   (res.locals.partnerAttribution as ReferralAttribution | undefined) ?? { ref: bodyRef };
 

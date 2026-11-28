@@ -23,6 +23,7 @@ import {
   createTransferAddress,
   decryptTransferTerms,
   isTransferAddressRequest,
+  resolveTransferTarget,
 } from '../services/receiveVaultBinding';
 import { recoverVault } from '../services/stuckBalances';
 import {
@@ -59,13 +60,14 @@ router.post(
       const { trackedRef, variableRate } = resolvedRef;
 
       const record = isTransferAddressRequest(req.body)
-        ? await createTransferAddress(
-            res.locals.address,
-            req.body,
+        ? await createTransferAddress({
+            chainId,
+            creatorAddress: res.locals.address,
+            target: resolveTransferTarget(req.body),
             variableRate,
-            getRequestAttribution(res, trackedRef),
+            attribution: getRequestAttribution(res, trackedRef),
             trackedRef,
-          )
+          })
         : await createReceiveAddress(res.locals.address, req.body, trackedRef);
 
       res.status(200).json({ success: true, record });
